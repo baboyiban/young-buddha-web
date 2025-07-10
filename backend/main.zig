@@ -84,8 +84,8 @@ fn handle_client(client_socket: c_int, allocator: std.mem.Allocator) void {
     var file_path: []u8 = undefined;
     if (std.mem.eql(u8, path, "/") or std.mem.eql(u8, path, "/index.html")) {
         file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/index.html", .{}) catch return;
-    } else if (std.mem.eql(u8, path, "/main.js")) {
-        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/main.js", .{}) catch return;
+    } else if (std.mem.eql(u8, path, "/script.js")) {
+        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/script.js", .{}) catch return;
     } else if (std.mem.eql(u8, path, "/style.css")) {
         file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/style.css", .{}) catch return;
     } else {
