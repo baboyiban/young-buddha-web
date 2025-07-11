@@ -4,6 +4,10 @@ const OAuthService = @import("../service/oauth_service.zig").OAuthService;
 const SessionService = @import("../service/session_service.zig").SessionService;
 const sendErrorJson = @import("../handler/error_handler.zig").sendErrorJson;
 
+// 상수 사용
+const SESSION_COOKIE_NAME = @import("../service/oauth_service.zig").SESSION_COOKIE_NAME;
+const OAUTH_STATE_COOKIE_NAME = @import("../service/oauth_service.zig").OAUTH_STATE_COOKIE_NAME;
+
 pub const OAuthController = struct {
     oauth_service: *OAuthService,
     session_service: *SessionService,
@@ -22,7 +26,7 @@ pub const OAuthController = struct {
         const url = try self.oauth_service.buildGoogleAuthUrl(state);
         defer self.oauth_service.allocator.free(url);
 
-        try self.oauth_service.setSessionCookie(r, "oauth_state", state);
+        try self.oauth_service.setSessionCookie(r, OAUTH_STATE_COOKIE_NAME, state);
 
         const json_response = try std.fmt.allocPrint(self.oauth_service.allocator, "{{\"auth_url\":\"{s}\"}}", .{url});
         defer self.oauth_service.allocator.free(json_response);
@@ -38,7 +42,7 @@ pub const OAuthController = struct {
         const code = try self.oauth_service.getQueryParam(r, "code");
         const state = try self.oauth_service.getQueryParam(r, "state");
 
-        const saved_state = self.oauth_service.getSessionCookie(r, "oauth_state") orelse {
+        const saved_state = self.oauth_service.getSessionCookie(r, OAUTH_STATE_COOKIE_NAME) orelse {
             return sendErrorJson(self.oauth_service.allocator, r, 401, "Invalid session: no state cookie");
         };
 
@@ -63,7 +67,7 @@ pub const OAuthController = struct {
         const session_id = try self.session_service.createSession(user_info);
 
         try r.setCookie(.{
-            .name = "session",
+            .name = SESSION_COOKIE_NAME,
             .value = session_id,
             .http_only = true,
             .path = "/",
@@ -79,7 +83,7 @@ pub const OAuthController = struct {
 
     pub fn me(self: *OAuthController, r: zap.Request) !void {
         r.parseCookies(false);
-        const session_id = r.getCookieStr(self.oauth_service.allocator, "session") catch null;
+        const session_id = r.getCookieStr(self.oauth_service.allocator, SESSION_COOKIE_NAME) catch null;
         if (session_id) |sid| {
             if (self.session_service.getUserInfo(sid)) |user_info| {
                 r.setStatusNumeric(200);
@@ -94,12 +98,12 @@ pub const OAuthController = struct {
 
     pub fn logout(self: *OAuthController, r: zap.Request) !void {
         r.parseCookies(false);
-        const session_id = r.getCookieStr(self.oauth_service.allocator, "session") catch null;
+        const session_id = r.getCookieStr(self.oauth_service.allocator, SESSION_COOKIE_NAME) catch null;
         if (session_id) |sid| {
             self.session_service.destroySession(sid);
         }
         try r.setCookie(.{
-            .name = "session",
+            .name = SESSION_COOKIE_NAME,
             .value = "",
             .http_only = true,
             .path = "/",

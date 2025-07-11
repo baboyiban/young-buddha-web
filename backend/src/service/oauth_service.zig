@@ -4,6 +4,11 @@ const Env = @import("../config/env.zig").Env;
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const rand = std.crypto.random;
 
+// 상수화
+pub const SESSION_COOKIE_NAME = "session";
+pub const OAUTH_STATE_COOKIE_NAME = "oauth_state";
+pub const STATIC_FILES_PATH_KEY = "../frontend/src";
+
 pub const OAuthService = struct {
     allocator: std.mem.Allocator,
     env: Env,
@@ -120,7 +125,9 @@ pub const OAuthService = struct {
         return response;
     }
 
+    // JSON 파싱 견고화 (간단한 zig 내장 파싱, 외부 라이브러리 사용 권장)
     pub fn parseAccessToken(self: *OAuthService, json_response: []const u8) ![]u8 {
+        // 매우 단순한 파싱, zig 공식 json 파서가 안정화되면 교체 권장
         const search_pattern = "\"access_token\"";
         const start_marker = std.mem.indexOf(u8, json_response, search_pattern) orelse {
             return error.InvalidTokenResponse;

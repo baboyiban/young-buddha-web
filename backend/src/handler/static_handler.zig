@@ -2,6 +2,9 @@ const std = @import("std");
 const zap = @import("zap");
 const Env = @import("../config/env.zig").Env;
 
+// 상수화
+pub const STATIC_FILES_PATH_KEY = "STATIC_FILES_PATH";
+
 pub const StaticHandler = struct {
     allocator: std.mem.Allocator,
     base_path: []const u8,
@@ -9,7 +12,7 @@ pub const StaticHandler = struct {
     pub fn init(allocator: std.mem.Allocator, env: Env) !StaticHandler {
         return .{
             .allocator = allocator,
-            .base_path = env.get("STATIC_FILES_PATH") orelse "../frontend/src",
+            .base_path = env.get(STATIC_FILES_PATH_KEY) orelse "../frontend/src",
         };
     }
 
@@ -46,6 +49,10 @@ pub const StaticHandler = struct {
 
     fn resolvePath(self: *StaticHandler, path: []const u8) ![]u8 {
         const final_path = if (std.mem.eql(u8, path, "/")) "index.html" else path[1..];
+        // Path traversal 방지
+        if (std.mem.indexOf(u8, final_path, "..")) |_| {
+            return error.InvalidPath;
+        }
         return std.fs.path.join(self.allocator, &.{ self.base_path, final_path });
     }
 
