@@ -3,5 +3,6 @@
 
 # backend
 .zig-cache
+zig-out
 
 # frontend
