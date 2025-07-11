@@ -1,6 +1,6 @@
 const std = @import("std");
 const zap = @import("zap");
-const Env = @import("env.zig").Env;
+const Env = @import("../config/env.zig").Env;
 
 pub const StaticHandler = struct {
     allocator: std.mem.Allocator,
@@ -19,7 +19,6 @@ pub const StaticHandler = struct {
         const path = r.path orelse "/";
         var file_path: []const u8 = undefined;
 
-        // OAuth 콜백 경로는 무조건 index.html 반환
         if (std.mem.eql(u8, path, "/auth/google/callback")) {
             file_path = try std.fs.path.join(self.allocator, &.{ self.base_path, "index.html" });
         } else {
