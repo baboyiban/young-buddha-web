@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>구글 로그인 처리 중...</title>
+    <script>
+      function getQueryParams() {
+        const params = {};
+        window.location.search
+          .replace(/^\?/, "")
+          .split("&")
+          .forEach((pair) => {
+            const [k, v] = pair.split("=");
+            if (k) params[k] = decodeURIComponent(v || "");
+          });
+        return params;
+      }
+
+      window.onload = function () {
+        const params = getQueryParams();
+        if (params.code && params.state) {
+          fetch(
+            `/auth/google/callback?code=${encodeURIComponent(params.code)}&state=${encodeURIComponent(params.state)}`,
+          )
+            .then((res) => res.json())
+            .then((data) => {
+              if (window.opener) {
+                window.opener.postMessage(
+                  { type: data.error ? "LOGIN_ERROR" : "LOGIN_SUCCESS", data },
+                  "*",
+                );
+              }
+              window.close();
+            })
+            .catch((err) => {
+              if (window.opener) {
+                window.opener.postMessage(
+                  { type: "LOGIN_ERROR", message: err.message },
+                  "*",
+                );
+              }
+              window.close();
+            });
+        } else {
+          if (window.opener) {
+            window.opener.postMessage(
+              { type: "LOGIN_ERROR", message: "Missing code or state" },
+              "*",
+            );
+          }
+          window.close();
+        }
+      };
+    </script>
+    <style>
+      body {
+        font-family: sans-serif;
+        text-align: center;
+        margin-top: 60px;
+        color: #444;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>구글 로그인 처리 중...</h2>
+  </body>
+</html>

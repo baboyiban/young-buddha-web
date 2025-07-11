@@ -3,7 +3,7 @@ const zap = @import("zap");
 const http = std.http;
 const Env = @import("../env.zig").Env;
 const QueryIterator = @import("../util/query.zig").QueryIterator;
-const sendError = @import("error.zig").sendError;
+const SendErrorJson = @import("error.zig").sendErrorJson;
 const rand = std.crypto.random;
 
 pub const OAuthHandler = struct {
@@ -44,30 +44,36 @@ pub const OAuthHandler = struct {
         const state = try self.getQueryParam(r, "state");
 
         const saved_state = self.getSessionCookie(r, "oauth_state") orelse {
-            return sendError(self.allocator, r, 401, "Invalid session: no state cookie");
+            return SendErrorJson(self.allocator, r, 401, "Invalid session: no state cookie");
         };
 
         if (!std.mem.eql(u8, state, saved_state)) {
-            return sendError(self.allocator, r, 401, "State mismatch");
+            return SendErrorJson(self.allocator, r, 401, "State mismatch");
         }
 
         const client_secret = self.env.get("GOOGLE_CLIENT_SECRET") orelse {
-            return sendError(self.allocator, r, 500, "Server configuration error.");
+            return SendErrorJson(self.allocator, r, 500, "Server configuration error.");
         };
 
         const token_response = try self.exchangeGoogleCode(code, client_secret);
         defer self.allocator.free(token_response);
 
         const access_token = self.parseAccessToken(token_response) catch {
-            return sendError(self.allocator, r, 500, "Failed to parse access token");
+            return SendErrorJson(self.allocator, r, 500, "Failed to parse access token");
         };
         defer self.allocator.free(access_token);
 
         const user_info = self.getGoogleUserInfo(access_token) catch {
-            return sendError(self.allocator, r, 500, "Failed to get user info");
+            return SendErrorJson(self.allocator, r, 500, "Failed to get user info");
         };
         defer self.allocator.free(user_info);
 
+        // 기존: JSON 응답
+        // r.setStatusNumeric(200);
+        // try r.setHeader("Content-Type", "application/json; charset=utf-8");
+        // try r.sendBody(user_info);
+
+        // 변경: HTML 응답
         try self.sendSuccessResponse(r, user_info);
     }
 
@@ -195,7 +201,7 @@ pub const OAuthHandler = struct {
     fn buildGoogleAuthUrl(self: *OAuthHandler, state: []const u8) ![]u8 {
         return std.fmt.allocPrint(
             self.allocator,
-            "https://accounts.google.com/o/oauth2/v2/auth?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&access_type=offline",
+            "https://accounts.google.com/o/oauth2/v2/auth?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&access_type=offline&prompt=select_account",
             .{ self.client_id, self.redirect_uri, self.scope, state },
         );
     }

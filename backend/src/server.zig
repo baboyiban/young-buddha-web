@@ -2,7 +2,7 @@ const std = @import("std");
 const zap = @import("zap");
 const Env = @import("env.zig").Env;
 const OAuthHandler = @import("handler/oauth.zig").OAuthHandler;
-const StaticHandler = @import("handler/static.zig").StaticHandler;
+const StaticHandler = @import("static.zig").StaticHandler;
 
 pub const Server = struct {
     allocator: std.mem.Allocator,

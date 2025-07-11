@@ -12,76 +12,89 @@ let currentUser = null;
 
 // 페이지 로드 시 초기화
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("Young Buddha 앱이 로드되었습니다!");
-
   // 로컬 스토리지에서 사용자 정보 확인
   const savedUser = localStorage.getItem("young-buddha-user");
   if (savedUser) {
     try {
       currentUser = JSON.parse(savedUser);
+      isLoggedIn = true;
       showUserSection();
     } catch (e) {
       console.error("저장된 사용자 정보를 읽을 수 없습니다:", e);
       localStorage.removeItem("young-buddha-user");
+      showLoginSection();
     }
+  } else {
+    showLoginSection();
   }
 
   // 이벤트 리스너 등록
   googleLoginBtn.addEventListener("click", handleGoogleLogin);
   logoutBtn.addEventListener("click", handleLogout);
 
-  // 팝업 메시지 리스너 등록
-  window.addEventListener("message", handlePopupMessage);
+  // OAuth 콜백 처리
+  handleOAuthCallbackIfNeeded();
 });
 
-// Google 로그인 처리
+// Google 로그인: 현재 창에서 이동
 function handleGoogleLogin() {
-  console.log("Google 로그인 시작...");
-  showLoadingSection();
-
-  // 팝업 창으로 OAuth 플로우 시작
   const popup = window.open(
-    "/auth/google",
-    "google-login",
-    "width=500,height=600,scrollbars=yes,resizable=yes",
+    "/auth/google", // 이 경로에서 구글 인증 시작
+    "googleLoginPopup",
+    "width=500,height=600",
   );
-
-  // 팝업이 닫혔는지 확인
-  const checkClosed = setInterval(() => {
-    if (popup.closed) {
-      clearInterval(checkClosed);
-      // 팝업이 닫혔지만 로그인이 완료되지 않은 경우
-      if (!isLoggedIn) {
-        console.log("로그인이 취소되었습니다.");
-        showLoginSection();
-      }
-    }
-  }, 1000);
+  // 팝업에서 postMessage로 결과를 받을 이벤트 리스너 등록
+  window.addEventListener("message", handlePopupMessage, false);
 }
 
-// 팝업에서 오는 메시지 처리
-function handlePopupMessage(event) {
-  console.log("팝업 메시지 수신:", event.data);
-
-  if (event.data && event.data.type === "LOGIN_SUCCESS") {
-    try {
-      currentUser =
-        typeof event.data.data === "string"
-          ? JSON.parse(event.data.data)
-          : event.data.data;
-
-      // 로컬 스토리지에 저장
-      localStorage.setItem("young-buddha-user", JSON.stringify(currentUser));
-
-      isLoggedIn = true;
-      showUserSection();
-
-      console.log("로그인 성공:", currentUser);
-    } catch (e) {
-      console.error("사용자 정보 파싱 오류:", e);
-      showLoginSection();
-    }
+// OAuth 콜백 처리
+function handleOAuthCallbackIfNeeded() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  if (code && state) {
+    showLoadingSection();
+    fetch(
+      `/auth/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          showError(data.message || "로그인 실패");
+          showLoginSection();
+          return;
+        }
+        currentUser = data;
+        localStorage.setItem("young-buddha-user", JSON.stringify(currentUser));
+        isLoggedIn = true;
+        showUserSection();
+        // URL에서 code/state 제거 (히스토리만 변경)
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
+      })
+      .catch((err) => {
+        showError(err.message || "로그인 실패");
+        showLoginSection();
+      });
   }
+}
+
+function handlePopupMessage(event) {
+  // 보안을 위해 origin 체크 필요 (예: if (event.origin !== "http://localhost:8080") return;)
+  const { type, data, message } = event.data || {};
+  if (type === "LOGIN_SUCCESS") {
+    currentUser = data;
+    localStorage.setItem("young-buddha-user", JSON.stringify(currentUser));
+    isLoggedIn = true;
+    showUserSection();
+  } else if (type === "LOGIN_ERROR") {
+    showError(message || (data && data.message) || "로그인 실패");
+    showLoginSection();
+  }
+  window.removeEventListener("message", handlePopupMessage, false);
 }
 
 // 로그아웃 처리
@@ -145,9 +158,5 @@ function displayUserInfo() {
 // 유틸리티 함수: 에러 표시
 function showError(message) {
   console.error("오류:", message);
-  // 여기에 토스트 메시지나 에러 모달을 표시할 수 있습니다
   alert("오류: " + message);
 }
-
-// 디버깅용
-console.log("Young Buddha 스크립트가 로드되었습니다.");
