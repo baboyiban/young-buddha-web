@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) void {
     // 실행 파일 생성
     const exe = b.addExecutable(.{
         .name = "young-buddha-web",
-        .root_source_file = b.path("main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });

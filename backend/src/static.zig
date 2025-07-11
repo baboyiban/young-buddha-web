@@ -13,11 +13,11 @@ pub fn serve_static(r: zap.Request) !void {
     var file_path_buf: [128]u8 = undefined;
     var file_path: []u8 = undefined;
     if (std.mem.eql(u8, path, "/") or std.mem.eql(u8, path, "/index.html")) {
-        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/index.html", .{}) catch return try send_404(r);
+        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/src/index.html", .{}) catch return try send_404(r);
     } else if (std.mem.eql(u8, path, "/script.js")) {
-        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/script.js", .{}) catch return try send_404(r);
+        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/src/script.js", .{}) catch return try send_404(r);
     } else if (std.mem.eql(u8, path, "/style.css")) {
-        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/style.css", .{}) catch return try send_404(r);
+        file_path = std.fmt.bufPrint(&file_path_buf, "../frontend/src/style.css", .{}) catch return try send_404(r);
     } else {
         return try send_404(r);
     }
