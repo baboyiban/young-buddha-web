@@ -1,0 +1,7 @@
+# all
+.env*
+
+# backend
+.zig-cache
+
+# frontend
