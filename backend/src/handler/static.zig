@@ -1,6 +1,6 @@
 const std = @import("std");
 const zap = @import("zap");
-const Env = @import("env.zig").Env;
+const Env = @import("../env.zig").Env;
 
 pub const StaticHandler = struct {
     allocator: std.mem.Allocator,
@@ -21,7 +21,6 @@ pub const StaticHandler = struct {
         defer self.allocator.free(file_path);
 
         var file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
-            std.log.warn("Static file not found: {s}", .{file_path});
             if (err == error.FileNotFound) {
                 r.setStatusNumeric(404);
                 try r.sendBody("Not Found");
@@ -40,12 +39,7 @@ pub const StaticHandler = struct {
     }
 
     fn resolvePath(self: *StaticHandler, path: []const u8) ![]u8 {
-        var final_path: []const u8 = undefined;
-        if (std.mem.eql(u8, path, "/")) {
-            final_path = "index.html";
-        } else {
-            final_path = path[1..];
-        }
+        const final_path = if (std.mem.eql(u8, path, "/")) "index.html" else path[1..];
         return std.fs.path.join(self.allocator, &.{ self.base_path, final_path });
     }
 

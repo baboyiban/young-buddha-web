@@ -1,28 +1,10 @@
 const std = @import("std");
 const zap = @import("zap");
 const http = std.http;
-const Env = @import("env.zig").Env;
+const Env = @import("../env.zig").Env;
+const QueryIterator = @import("../util/query.zig").QueryIterator;
+const sendError = @import("error.zig").sendError;
 const rand = std.crypto.random;
-
-pub const QueryIterator = struct {
-    it: std.mem.SplitIterator(u8, .scalar),
-
-    pub fn init(query: []const u8) QueryIterator {
-        return .{ .it = std.mem.splitScalar(u8, query, '&') };
-    }
-
-    pub fn next(self: *QueryIterator) ?struct { key: []const u8, value: []const u8 } {
-        while (self.it.next()) |pair| {
-            if (std.mem.indexOfScalar(u8, pair, '=')) |eq| {
-                return .{
-                    .key = pair[0..eq],
-                    .value = pair[eq + 1 ..],
-                };
-            }
-        }
-        return null;
-    }
-};
 
 pub const OAuthHandler = struct {
     allocator: std.mem.Allocator,
@@ -51,7 +33,6 @@ pub const OAuthHandler = struct {
         const url = try self.buildGoogleAuthUrl(state);
         defer self.allocator.free(url);
 
-        std.log.info("Setting state cookie: {s}", .{state});
         try self.setSessionCookie(r, "oauth_state", state);
         return self.sendRedirect(r, url);
     }
@@ -62,43 +43,31 @@ pub const OAuthHandler = struct {
         const code = try self.getQueryParam(r, "code");
         const state = try self.getQueryParam(r, "state");
 
-        std.log.info("Callback received - state: {s}, code: {s}", .{ state, code });
-
         const saved_state = self.getSessionCookie(r, "oauth_state") orelse {
-            std.log.err("No state cookie found!", .{});
-            return self.sendError(r, 401, "Invalid session: no state cookie");
+            return sendError(self.allocator, r, 401, "Invalid session: no state cookie");
         };
 
-        std.log.info("Comparing states - received: {s}, saved: {s}", .{ state, saved_state });
-
         if (!std.mem.eql(u8, state, saved_state)) {
-            return self.sendError(r, 401, "State mismatch");
+            return sendError(self.allocator, r, 401, "State mismatch");
         }
 
         const client_secret = self.env.get("GOOGLE_CLIENT_SECRET") orelse {
-            std.log.err("GOOGLE_CLIENT_SECRET not found in environment.", .{});
-            return self.sendError(r, 500, "Server configuration error.");
+            return sendError(self.allocator, r, 500, "Server configuration error.");
         };
 
         const token_response = try self.exchangeGoogleCode(code, client_secret);
         defer self.allocator.free(token_response);
 
-        // 토큰에서 access_token 추출
-        const access_token = self.parseAccessToken(token_response) catch |err| {
-            std.log.err("Failed to parse access token: {any}", .{err});
-            std.log.err("Token response: {s}", .{token_response});
-            return self.sendError(r, 500, "Failed to parse access token");
+        const access_token = self.parseAccessToken(token_response) catch {
+            return sendError(self.allocator, r, 500, "Failed to parse access token");
         };
         defer self.allocator.free(access_token);
 
-        // 사용자 정보 가져오기
-        const user_info = self.getGoogleUserInfo(access_token) catch |err| {
-            std.log.err("Failed to get user info: {any}", .{err});
-            return self.sendError(r, 500, "Failed to get user info");
+        const user_info = self.getGoogleUserInfo(access_token) catch {
+            return sendError(self.allocator, r, 500, "Failed to get user info");
         };
         defer self.allocator.free(user_info);
 
-        // 성공 응답 전송
         try self.sendSuccessResponse(r, user_info);
     }
 
@@ -112,8 +81,6 @@ pub const OAuthHandler = struct {
             .{ code, self.client_id, client_secret, self.redirect_uri },
         );
         defer self.allocator.free(body);
-
-        std.log.info("Sending request to Google OAuth API", .{});
 
         const uri = try std.Uri.parse("https://oauth2.googleapis.com/token");
         var server_header_buffer: [16 * 1024]u8 = undefined;
@@ -136,8 +103,6 @@ pub const OAuthHandler = struct {
         try req.wait();
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
-        std.log.info("Google OAuth API response: {s}", .{response});
-
         return response;
     }
 
@@ -147,8 +112,6 @@ pub const OAuthHandler = struct {
 
         const url = try std.fmt.allocPrint(self.allocator, "https://www.googleapis.com/oauth2/v1/userinfo?access_token={s}", .{access_token});
         defer self.allocator.free(url);
-
-        std.log.info("Getting user info from Google API", .{});
 
         const uri = try std.Uri.parse(url);
         var server_header_buffer: [16 * 1024]u8 = undefined;
@@ -163,40 +126,25 @@ pub const OAuthHandler = struct {
         try req.wait();
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
-        std.log.info("Google User Info response: {s}", .{response});
-
         return response;
     }
 
     fn parseAccessToken(self: *OAuthHandler, json_response: []const u8) ![]u8 {
-        // "access_token":" 를 찾습니다 (공백 고려)
         const search_pattern = "\"access_token\"";
         const start_marker = std.mem.indexOf(u8, json_response, search_pattern) orelse {
-            std.log.err("Could not find access_token in response: {s}", .{json_response});
             return error.InvalidTokenResponse;
         };
-
-        // : 다음의 " 를 찾습니다
         const colon_pos = std.mem.indexOfScalarPos(u8, json_response, start_marker, ':') orelse {
             return error.InvalidTokenResponse;
         };
-
         const quote_start = std.mem.indexOfScalarPos(u8, json_response, colon_pos, '"') orelse {
             return error.InvalidTokenResponse;
         };
-
         const start_pos = quote_start + 1;
-
-        // 끝나는 " 를 찾습니다
         const end_pos = std.mem.indexOfScalarPos(u8, json_response, start_pos, '"') orelse {
-            std.log.err("Could not find end quote for access_token", .{});
             return error.InvalidTokenResponse;
         };
-
         const access_token = json_response[start_pos..end_pos];
-
-        std.log.info("Extracted access_token: {s}", .{access_token});
-
         return try self.allocator.dupe(u8, access_token);
     }
 
@@ -232,7 +180,6 @@ pub const OAuthHandler = struct {
             \\      }}
             \\      window.close();
             \\    }}
-            \\    // 3초 후 자동 닫기
             \\    setTimeout(closeWindow, 3000);
             \\  </script>
             \\</body>
@@ -259,14 +206,6 @@ pub const OAuthHandler = struct {
         try r.sendBody("");
     }
 
-    fn sendError(self: *OAuthHandler, r: zap.Request, status: usize, message: []const u8) !void {
-        const json_response = try std.fmt.allocPrint(self.allocator, "{{\"error\":\"error\",\"message\":\"{s}\"}}", .{message});
-        defer self.allocator.free(json_response);
-
-        r.setStatusNumeric(status);
-        try r.sendJson(json_response);
-    }
-
     fn getQueryParam(_: *OAuthHandler, r: zap.Request, param: []const u8) ![]const u8 {
         const query = r.query orelse return error.MissingQuery;
         var params = QueryIterator.init(query);
@@ -280,24 +219,16 @@ pub const OAuthHandler = struct {
         try r.setCookie(.{
             .name = key,
             .value = value,
-            .http_only = false, // 디버깅용으로 false
+            .http_only = false,
             .path = "/",
             .max_age_s = 300,
         });
     }
 
     fn getSessionCookie(self: *OAuthHandler, r: zap.Request, key: []const u8) ?[]const u8 {
-        const cookie_value = r.getCookieStr(self.allocator, key) catch |err| {
-            std.log.err("Failed to get cookie '{s}': {any}", .{ key, err });
+        const cookie_value = r.getCookieStr(self.allocator, key) catch {
             return null;
         };
-
-        if (cookie_value) |value| {
-            std.log.info("Cookie '{s}' found: {s}", .{ key, value });
-            return value;
-        } else {
-            std.log.warn("Cookie '{s}' not found", .{key});
-            return null;
-        }
+        return cookie_value;
     }
 };
