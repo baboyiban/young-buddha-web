@@ -23,7 +23,9 @@ pub const StaticHandler = struct {
         var file = std.fs.cwd().openFile(file_path, .{}) catch |err| {
             std.log.warn("Static file not found: {s}", .{file_path});
             if (err == error.FileNotFound) {
-                return r.setStatus(.not_found);
+                r.setStatusNumeric(404);
+                try r.sendBody("Not Found");
+                return;
             }
             return err;
         };
@@ -32,7 +34,7 @@ pub const StaticHandler = struct {
         const content = try file.readToEndAlloc(self.allocator, 10 * 1024 * 1024);
         defer self.allocator.free(content);
 
-        r.setStatus(.ok);
+        r.setStatusNumeric(200);
         try r.setHeader("Content-Type", self.getContentType(file_path));
         try r.sendBody(content);
     }

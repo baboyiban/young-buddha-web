@@ -10,6 +10,7 @@ pub const QueryIterator = struct {
     pub fn init(query: []const u8) QueryIterator {
         return .{ .it = std.mem.splitScalar(u8, query, '&') };
     }
+
     pub fn next(self: *QueryIterator) ?struct { key: []const u8, value: []const u8 } {
         while (self.it.next()) |pair| {
             if (std.mem.indexOfScalar(u8, pair, '=')) |eq| {
@@ -50,27 +51,9 @@ pub const OAuthHandler = struct {
         const url = try self.buildGoogleAuthUrl(state);
         defer self.allocator.free(url);
 
+        std.log.info("Setting state cookie: {s}", .{state});
         try self.setSessionCookie(r, "oauth_state", state);
         return self.sendRedirect(r, url);
-    }
-
-    fn sendSuccessResponse(self: *OAuthHandler, r: zap.Request, user_info: []const u8) !void {
-        const html_response = try std.fmt.allocPrint(self.allocator, "<html><body><h1>로그인 성공!</h1><h2>사용자 정보:</h2><pre>{s}</pre><script>window.close();</script></body></html>", .{user_info});
-        defer self.allocator.free(html_response);
-
-        r.setStatusNumeric(200);
-        try r.setHeader("Content-Type", "text/html; charset=utf-8");
-        try r.sendBody(html_response);
-    }
-
-    fn parseAccessToken(self: *OAuthHandler, json_response: []const u8) ![]u8 {
-        // 간단한 JSON 파싱 (실제로는 std.json을 사용하는 것이 좋음)
-        const access_token_start = std.mem.indexOf(u8, json_response, "\"access_token\":\"") orelse return error.InvalidTokenResponse;
-        const start_pos = access_token_start + "\"access_token\":\"".len;
-        const access_token_end = std.mem.indexOfScalarPos(u8, json_response, start_pos, '"') orelse return error.InvalidTokenResponse;
-
-        const access_token = json_response[start_pos..access_token_end];
-        return try self.allocator.dupe(u8, access_token);
     }
 
     pub fn handleGoogleCallback(self: *OAuthHandler, r: zap.Request) !void {
@@ -100,15 +83,22 @@ pub const OAuthHandler = struct {
         const token_response = try self.exchangeGoogleCode(code, client_secret);
         defer self.allocator.free(token_response);
 
-        // JSON 파싱하여 access_token 추출
-        const access_token = try self.parseAccessToken(token_response);
+        // 토큰에서 access_token 추출
+        const access_token = self.parseAccessToken(token_response) catch |err| {
+            std.log.err("Failed to parse access token: {any}", .{err});
+            std.log.err("Token response: {s}", .{token_response});
+            return self.sendError(r, 500, "Failed to parse access token");
+        };
         defer self.allocator.free(access_token);
 
         // 사용자 정보 가져오기
-        const user_info = try self.getGoogleUserInfo(access_token);
+        const user_info = self.getGoogleUserInfo(access_token) catch |err| {
+            std.log.err("Failed to get user info: {any}", .{err});
+            return self.sendError(r, 500, "Failed to get user info");
+        };
         defer self.allocator.free(user_info);
 
-        // 성공 페이지로 리디렉션 또는 사용자 정보 표시
+        // 성공 응답 전송
         try self.sendSuccessResponse(r, user_info);
     }
 
@@ -124,13 +114,10 @@ pub const OAuthHandler = struct {
         defer self.allocator.free(body);
 
         std.log.info("Sending request to Google OAuth API", .{});
-        std.log.info("Request body: {s}", .{body});
 
         const uri = try std.Uri.parse("https://oauth2.googleapis.com/token");
-
         var server_header_buffer: [16 * 1024]u8 = undefined;
 
-        // Content-Type 헤더를 extra_headers로 설정
         const content_type_header = http.Header{
             .name = "Content-Type",
             .value = "application/x-www-form-urlencoded",
@@ -142,13 +129,8 @@ pub const OAuthHandler = struct {
         });
         defer req.deinit();
 
-        // transfer_encoding 설정
         req.transfer_encoding = .{ .content_length = body.len };
-
-        // 헤더와 함께 요청 전송
         try req.send();
-
-        // 본문 전송
         try req.writeAll(body);
         try req.finish();
         try req.wait();
@@ -186,6 +168,83 @@ pub const OAuthHandler = struct {
         return response;
     }
 
+    fn parseAccessToken(self: *OAuthHandler, json_response: []const u8) ![]u8 {
+        // "access_token":" 를 찾습니다 (공백 고려)
+        const search_pattern = "\"access_token\"";
+        const start_marker = std.mem.indexOf(u8, json_response, search_pattern) orelse {
+            std.log.err("Could not find access_token in response: {s}", .{json_response});
+            return error.InvalidTokenResponse;
+        };
+
+        // : 다음의 " 를 찾습니다
+        const colon_pos = std.mem.indexOfScalarPos(u8, json_response, start_marker, ':') orelse {
+            return error.InvalidTokenResponse;
+        };
+
+        const quote_start = std.mem.indexOfScalarPos(u8, json_response, colon_pos, '"') orelse {
+            return error.InvalidTokenResponse;
+        };
+
+        const start_pos = quote_start + 1;
+
+        // 끝나는 " 를 찾습니다
+        const end_pos = std.mem.indexOfScalarPos(u8, json_response, start_pos, '"') orelse {
+            std.log.err("Could not find end quote for access_token", .{});
+            return error.InvalidTokenResponse;
+        };
+
+        const access_token = json_response[start_pos..end_pos];
+
+        std.log.info("Extracted access_token: {s}", .{access_token});
+
+        return try self.allocator.dupe(u8, access_token);
+    }
+
+    fn sendSuccessResponse(self: *OAuthHandler, r: zap.Request, user_info: []const u8) !void {
+        const html_response = try std.fmt.allocPrint(self.allocator,
+            \\<!DOCTYPE html>
+            \\<html lang="ko">
+            \\<head>
+            \\  <meta charset="UTF-8">
+            \\  <title>로그인 성공</title>
+            \\  <style>
+            \\    body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }}
+            \\    .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+            \\    .success {{ color: #4CAF50; text-align: center; }}
+            \\    .user-info {{ background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+            \\    .close-btn {{ background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; display: block; margin: 20px auto; }}
+            \\    pre {{ background: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; }}
+            \\  </style>
+            \\</head>
+            \\<body>
+            \\  <div class="container">
+            \\    <h1 class="success">🎉 로그인 성공!</h1>
+            \\    <div class="user-info">
+            \\      <h3>사용자 정보:</h3>
+            \\      <pre>{s}</pre>
+            \\    </div>
+            \\    <button class="close-btn" onclick="closeWindow()">창 닫기</button>
+            \\  </div>
+            \\  <script>
+            \\    function closeWindow() {{
+            \\      if (window.opener) {{
+            \\        window.opener.postMessage({{type: 'LOGIN_SUCCESS', data: {s}}}, '*');
+            \\      }}
+            \\      window.close();
+            \\    }}
+            \\    // 3초 후 자동 닫기
+            \\    setTimeout(closeWindow, 3000);
+            \\  </script>
+            \\</body>
+            \\</html>
+        , .{ user_info, user_info });
+        defer self.allocator.free(html_response);
+
+        r.setStatusNumeric(200);
+        try r.setHeader("Content-Type", "text/html; charset=utf-8");
+        try r.sendBody(html_response);
+    }
+
     fn buildGoogleAuthUrl(self: *OAuthHandler, state: []const u8) ![]u8 {
         return std.fmt.allocPrint(
             self.allocator,
@@ -201,7 +260,6 @@ pub const OAuthHandler = struct {
     }
 
     fn sendError(self: *OAuthHandler, r: zap.Request, status: usize, message: []const u8) !void {
-        // JSON 문자열을 직접 만들어서 전송
         const json_response = try std.fmt.allocPrint(self.allocator, "{{\"error\":\"error\",\"message\":\"{s}\"}}", .{message});
         defer self.allocator.free(json_response);
 
@@ -222,14 +280,13 @@ pub const OAuthHandler = struct {
         try r.setCookie(.{
             .name = key,
             .value = value,
-            .http_only = false,
+            .http_only = false, // 디버깅용으로 false
             .path = "/",
             .max_age_s = 300,
         });
     }
 
     fn getSessionCookie(self: *OAuthHandler, r: zap.Request, key: []const u8) ?[]const u8 {
-        // 디버깅을 위해 로그 추가
         const cookie_value = r.getCookieStr(self.allocator, key) catch |err| {
             std.log.err("Failed to get cookie '{s}': {any}", .{ key, err });
             return null;
