@@ -5,6 +5,7 @@ const Env = @import("../env.zig").Env;
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const SendErrorJson = @import("error.zig").sendErrorJson;
 const rand = std.crypto.random;
+const SessionManager = @import("../util/session.zig").SessionManager;
 
 pub const OAuthHandler = struct {
     allocator: std.mem.Allocator,
@@ -24,6 +25,7 @@ pub const OAuthHandler = struct {
 
     pub fn deinit(_: *OAuthHandler) void {}
 
+    /// 1. 구글 인증 시작: 인증 URL을 JSON으로 반환
     pub fn handleGoogleAuth(self: *OAuthHandler, r: zap.Request) !void {
         var state_bytes: [32]u8 = undefined;
         rand.bytes(&state_bytes);
@@ -34,10 +36,18 @@ pub const OAuthHandler = struct {
         defer self.allocator.free(url);
 
         try self.setSessionCookie(r, "oauth_state", state);
-        return self.sendRedirect(r, url);
+
+        // JSON으로 인증 URL 반환
+        const json_response = try std.fmt.allocPrint(self.allocator, "{{\"auth_url\":\"{s}\"}}", .{url});
+        defer self.allocator.free(json_response);
+
+        r.setStatusNumeric(200);
+        try r.setHeader("Content-Type", "application/json; charset=utf-8");
+        try r.sendBody(json_response);
     }
 
-    pub fn handleGoogleCallback(self: *OAuthHandler, r: zap.Request) !void {
+    /// 2. 구글 콜백: 세션 생성, user_info JSON 반환, 세션 쿠키 발급
+    pub fn handleGoogleCallback(self: *OAuthHandler, r: zap.Request, session_mgr: *SessionManager) !void {
         r.parseCookies(false);
 
         const code = try self.getQueryParam(r, "code");
@@ -68,13 +78,56 @@ pub const OAuthHandler = struct {
         };
         defer self.allocator.free(user_info);
 
-        // 기존: JSON 응답
-        // r.setStatusNumeric(200);
-        // try r.setHeader("Content-Type", "application/json; charset=utf-8");
-        // try r.sendBody(user_info);
+        // 세션 생성 및 쿠키 발급
+        const session_id = try session_mgr.createSession(user_info);
 
-        // 변경: HTML 응답
-        try self.sendSuccessResponse(r, user_info);
+        try r.setCookie(.{
+            .name = "session",
+            .value = session_id,
+            .http_only = true,
+            .path = "/",
+            .max_age_s = 60 * 60 * 24,
+        });
+
+        // JSON 응답
+        r.setStatusNumeric(200);
+        try r.setHeader("Content-Type", "application/json; charset=utf-8");
+        try r.sendBody(user_info);
+    }
+
+    /// 3. 로그인 상태 확인
+    pub fn handleMe(self: *OAuthHandler, r: zap.Request, session_mgr: *SessionManager) !void {
+        r.parseCookies(false);
+        const session_id = r.getCookieStr(self.allocator, "session") catch null;
+        if (session_id) |sid| {
+            if (session_mgr.getUserInfo(sid)) |user_info| {
+                r.setStatusNumeric(200);
+                try r.setHeader("Content-Type", "application/json; charset=utf-8");
+                try r.sendBody(user_info);
+                return;
+            }
+        }
+        r.setStatusNumeric(401);
+        try r.sendBody("{\"error\":true,\"message\":\"Not logged in\"}");
+    }
+
+    /// 4. 로그아웃
+    pub fn handleLogout(self: *OAuthHandler, r: zap.Request, session_mgr: *SessionManager) !void {
+        r.parseCookies(false);
+        const session_id = r.getCookieStr(self.allocator, "session") catch null;
+        if (session_id) |sid| {
+            session_mgr.destroySession(sid);
+        }
+        // 세션 쿠키 만료
+        try r.setCookie(.{
+            .name = "session",
+            .value = "",
+            .http_only = true,
+            .path = "/",
+            .max_age_s = 0,
+        });
+        r.setStatusNumeric(200);
+        try r.sendBody("{\"success\":true}");
     }
 
     fn exchangeGoogleCode(self: *OAuthHandler, code: []const u8, client_secret: []const u8) ![]u8 {
@@ -154,62 +207,12 @@ pub const OAuthHandler = struct {
         return try self.allocator.dupe(u8, access_token);
     }
 
-    fn sendSuccessResponse(self: *OAuthHandler, r: zap.Request, user_info: []const u8) !void {
-        const html_response = try std.fmt.allocPrint(self.allocator,
-            \\<!DOCTYPE html>
-            \\<html lang="ko">
-            \\<head>
-            \\  <meta charset="UTF-8">
-            \\  <title>로그인 성공</title>
-            \\  <style>
-            \\    body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }}
-            \\    .container {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-            \\    .success {{ color: #4CAF50; text-align: center; }}
-            \\    .user-info {{ background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-            \\    .close-btn {{ background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; display: block; margin: 20px auto; }}
-            \\    pre {{ background: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; }}
-            \\  </style>
-            \\</head>
-            \\<body>
-            \\  <div class="container">
-            \\    <h1 class="success">🎉 로그인 성공!</h1>
-            \\    <div class="user-info">
-            \\      <h3>사용자 정보:</h3>
-            \\      <pre>{s}</pre>
-            \\    </div>
-            \\    <button class="close-btn" onclick="closeWindow()">창 닫기</button>
-            \\  </div>
-            \\  <script>
-            \\    function closeWindow() {{
-            \\      if (window.opener) {{
-            \\        window.opener.postMessage({{type: 'LOGIN_SUCCESS', data: {s}}}, '*');
-            \\      }}
-            \\      window.close();
-            \\    }}
-            \\    setTimeout(closeWindow, 3000);
-            \\  </script>
-            \\</body>
-            \\</html>
-        , .{ user_info, user_info });
-        defer self.allocator.free(html_response);
-
-        r.setStatusNumeric(200);
-        try r.setHeader("Content-Type", "text/html; charset=utf-8");
-        try r.sendBody(html_response);
-    }
-
     fn buildGoogleAuthUrl(self: *OAuthHandler, state: []const u8) ![]u8 {
         return std.fmt.allocPrint(
             self.allocator,
             "https://accounts.google.com/o/oauth2/v2/auth?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&access_type=offline&prompt=select_account",
             .{ self.client_id, self.redirect_uri, self.scope, state },
         );
-    }
-
-    fn sendRedirect(_: *OAuthHandler, r: zap.Request, url: []const u8) !void {
-        r.setStatusNumeric(302);
-        try r.setHeader("Location", url);
-        try r.sendBody("");
     }
 
     fn getQueryParam(_: *OAuthHandler, r: zap.Request, param: []const u8) ![]const u8 {

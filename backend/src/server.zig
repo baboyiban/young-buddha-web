@@ -3,12 +3,14 @@ const zap = @import("zap");
 const Env = @import("env.zig").Env;
 const OAuthHandler = @import("handler/oauth.zig").OAuthHandler;
 const StaticHandler = @import("static.zig").StaticHandler;
+const SessionManager = @import("util/session.zig").SessionManager;
 
 pub const Server = struct {
     allocator: std.mem.Allocator,
     env: Env,
     oauth_handler: OAuthHandler,
     static_handler: StaticHandler,
+    session_mgr: SessionManager,
 
     pub fn init(allocator: std.mem.Allocator) !Server {
         const env = try Env.init(allocator);
@@ -17,12 +19,14 @@ pub const Server = struct {
             .env = env,
             .oauth_handler = try OAuthHandler.init(allocator, env),
             .static_handler = try StaticHandler.init(allocator, env),
+            .session_mgr = SessionManager.init(allocator),
         };
     }
 
     pub fn deinit(self: *Server) void {
         self.oauth_handler.deinit();
         self.static_handler.deinit();
+        self.session_mgr.deinit();
         self.env.deinit();
     }
 
@@ -31,7 +35,11 @@ pub const Server = struct {
             if (std.mem.eql(u8, path, "/auth/google"))
                 return try self.oauth_handler.handleGoogleAuth(r);
             if (std.mem.eql(u8, path, "/auth/google/callback"))
-                return try self.oauth_handler.handleGoogleCallback(r);
+                return try self.oauth_handler.handleGoogleCallback(r, &self.session_mgr);
+            if (std.mem.eql(u8, path, "/auth/me"))
+                return try self.oauth_handler.handleMe(r, &self.session_mgr);
+            if (std.mem.eql(u8, path, "/auth/logout"))
+                return try self.oauth_handler.handleLogout(r, &self.session_mgr);
             return try self.static_handler.serve(r);
         }
         r.setStatusNumeric(404);
