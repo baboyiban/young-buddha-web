@@ -70,9 +70,11 @@ pub const OAuthController = struct {
             .max_age_s = 60 * 60 * 24,
         });
 
+        const close_html =
+            "<!DOCTYPE html><html><body><script>window.opener&&window.opener.postMessage({type:'LOGIN_SUCCESS'},'*');window.close();</script><p>로그인 성공! 창을 닫습니다...</p></body></html>";
         r.setStatusNumeric(200);
-        try r.setHeader("Content-Type", "application/json; charset=utf-8");
-        try r.sendBody(user_info);
+        try r.setHeader("Content-Type", "text/html; charset=utf-8");
+        try r.sendBody(close_html);
     }
 
     pub fn me(self: *OAuthController, r: zap.Request) !void {
