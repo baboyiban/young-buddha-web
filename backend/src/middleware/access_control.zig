@@ -16,7 +16,7 @@ fn extractJsonString(json: []const u8, key: []const u8) ?[]const u8 {
 }
 
 pub fn getUserFromRequest(r: anytype) ?User {
-    r.parseCookies(false);
+    r.parseCookies(false); // 여기서만 호출
     const jwt = r.getCookieStr(std.heap.page_allocator, "jwt") catch null;
     if (jwt) |token| {
         const payload = jwt_util.verifyJwt(std.heap.page_allocator, token, main.global_jwt_secret) catch |err| {

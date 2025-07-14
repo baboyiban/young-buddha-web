@@ -11,33 +11,3 @@
   <button id="load-sheet-btn">불러오기</button>
 </div>
 <div id="sheet-result"></div>
-<script>
-  document.getElementById('load-sheet-btn').onclick = async function() {
-    const spreadsheetId = document.getElementById('spreadsheet-id').value.trim();
-    const range = document.getElementById('range').value.trim();
-    const resultDiv = document.getElementById('sheet-result');
-    resultDiv.innerHTML = '불러오는 중...';
-    try {
-      const res = await fetch(`/api/sheet/read?spreadsheet_id=${encodeURIComponent(spreadsheetId)}&range=${encodeURIComponent(range)}`, {
-        credentials: 'include'
-      });
-      if (!res.ok) {
-        resultDiv.innerHTML = 'API 오류: ' + res.status;
-        return;
-      }
-      const data = await res.json();
-      if (!data.values || !Array.isArray(data.values)) {
-        resultDiv.innerHTML = '데이터 없음';
-        return;
-      }
-      let html = '<table border="1"><tbody>';
-      for (const row of data.values) {
-        html += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
-      }
-      html += '</tbody></table>';
-      resultDiv.innerHTML = html;
-    } catch (e) {
-      resultDiv.innerHTML = '네트워크 오류';
-    }
-  };
-</script>

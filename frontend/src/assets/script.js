@@ -1,5 +1,5 @@
 (() => {
-  // 1. 페이지별 정보 정의 (접근권한 포함)
+  // 페이지별 정보 정의 (접근권한 포함)
   const pageInfo = {
     "/": { title: "메인 페이지", file: "/pages/page.html", protected: true },
     "/login": { title: "로그인", file: "/pages/login.html", protected: false },
@@ -10,7 +10,7 @@
     },
   };
 
-  // 2. 공통 컴포넌트(네비바, 푸터 등) 동적 로딩 함수
+  // 공통 컴포넌트(네비바, 푸터 등) 동적 로딩 함수
   function includeComponent(id, file) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -21,7 +21,7 @@
       });
   }
 
-  // 3. 구글 로그인 버튼 이벤트 바인딩
+  // 구글 로그인 버튼 이벤트 바인딩
   function bindLoginButton() {
     const loginBtn = document.getElementById("google-login-btn");
     if (!loginBtn) return;
@@ -54,7 +54,7 @@
     });
   }
 
-  // 4. 인증 체크 함수 (로그인 여부 확인)
+  // 인증 체크 함수 (로그인 여부 확인)
   async function requireAuth() {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
@@ -68,7 +68,7 @@
     }
   }
 
-  // 5. 스프레드시트 페이지 이벤트 바인딩
+  // 스프레드시트 페이지 이벤트 바인딩
   function bindSheetPage() {
     const btn = document.getElementById("load-sheet-btn");
     if (!btn) return;
@@ -103,13 +103,13 @@
         html += "</tbody></table>";
         resultDiv.innerHTML = html;
       } catch (e) {
-        resultDiv.innerHTML = '네트워크 오류';
+        resultDiv.innerHTML = "네트워크 오류";
         console.error(e); // 에러를 콘솔에 출력
       }
     };
   }
 
-  // 6. 라우터: 해시 변경에 따라 페이지 전환 및 인증 처리
+  // 라우터: 해시 변경에 따라 페이지 전환 및 인증 처리
   function router() {
     const hash = location.hash.replace(/^#/, "") || "/";
     const info = pageInfo[hash] || pageInfo["/"];
@@ -141,7 +141,7 @@
       });
   }
 
-  // 7. 초기화: 컴포넌트 로딩 및 라우터 바인딩
+  // 초기화: 컴포넌트 로딩 및 라우터 바인딩
   document.addEventListener("DOMContentLoaded", () => {
     includeComponent("navbar", "navbar.html");
     includeComponent("footer", "footer.html");

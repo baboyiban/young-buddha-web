@@ -102,7 +102,7 @@ pub const OAuthController = struct {
     }
 
     pub fn me(self: *OAuthController, r: zap.Request) !void {
-        r.parseCookies(false);
+        // r.parseCookies(false); // 제거
         const jwt = r.getCookieStr(self.oauth_service.allocator, "jwt") catch null;
         if (jwt) |token| {
             const payload = jwt_util.verifyJwt(self.oauth_service.allocator, token, self.jwt_secret) catch null;
@@ -136,8 +136,7 @@ pub const OAuthController = struct {
     }
 
     pub fn readSheet(self: *OAuthController, r: zap.Request) !void {
-        // JWT 인증 (role_guard로 이미 인증됨)
-        r.parseCookies(false);
+        // r.parseCookies(false); // 제거
         const jwt = r.getCookieStr(self.oauth_service.allocator, "jwt") catch null;
         if (jwt) |token| {
             const payload = jwt_util.verifyJwt(self.oauth_service.allocator, token, self.jwt_secret) catch null;
