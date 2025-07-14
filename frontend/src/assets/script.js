@@ -47,6 +47,23 @@
     });
   }
 
+  // 인증이 필요한 페이지 목록
+  const protectedPages = ["/", "/success"];
+
+  // 인증 체크 함수
+  async function requireAuth() {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (!res.ok) throw new Error("Not authenticated");
+      const data = await res.json();
+      if (data.error) throw new Error("Not authenticated");
+      return data;
+    } catch (e) {
+      location.hash = "#/login";
+      throw e;
+    }
+  }
+
   // 라우터
   function router() {
     const hash = location.hash.replace(/^#/, "") || "/";
@@ -54,6 +71,20 @@
     document.title = info.title;
     const titleEl = document.getElementById("page-title");
     if (titleEl) titleEl.textContent = info.title;
+
+    // 인증이 필요한 페이지 체크
+    if (protectedPages.includes(hash)) {
+      requireAuth()
+        .then(() => {
+          fetch(info.file)
+            .then((res) => res.text())
+            .then((html) => {
+              document.getElementById("page-content").innerHTML = html;
+            });
+        })
+        .catch(() => {});
+      return;
+    }
 
     fetch(info.file)
       .then((res) => res.text())
