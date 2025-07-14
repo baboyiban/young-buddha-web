@@ -10,7 +10,7 @@ pub const StaticHandler = struct {
     pub fn init(allocator: std.mem.Allocator, env: Env) !StaticHandler {
         return .{
             .allocator = allocator,
-            .base_path = env.get(constants.STATIC_FILES_PATH_KEY) orelse "../frontend/src",
+            .base_path = env.get(constants.STATIC_FILES_PATH_KEY) orelse "../frontend/dist",
         };
     }
 

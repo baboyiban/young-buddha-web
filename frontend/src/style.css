@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gray: #efefef;
+  --color-purple: #ccccff;
+  --color-dark-purple: #8080ff;
+}
+
+.button {
+  @apply rounded-lg bg-white px-[0.75rem] py-[0.5rem];
+}
+
+.button.active {
+  @apply bg-dark-purple text-white;
+}
