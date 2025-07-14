@@ -63,10 +63,11 @@ pub const OAuthController = struct {
 
         // 실제 서비스라면 user_info_json을 User 구조체로 파싱해야 함
         const user = User{
-            .id = "google-id", // 실제로는 user_info_json에서 추출
+            .id = "google-id",
             .name = "Google User",
             .email = "user@example.com",
             .picture = null,
+            .role = if (std.mem.eql(u8, "user@example.com", "admin@example.com")) "admin" else "user",
         };
 
         // 세션 생성 및 쿠키 발급
