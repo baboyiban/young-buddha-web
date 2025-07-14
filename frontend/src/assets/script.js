@@ -1,8 +1,13 @@
 (() => {
-  // 1. 페이지별 정보 정의
+  // 1. 페이지별 정보 정의 (접근권한 포함)
   const pageInfo = {
-    "/": { title: "메인 페이지", file: "/pages/page.html" },
-    "/login": { title: "로그인", file: "/pages/login.html" },
+    "/": { title: "메인 페이지", file: "/pages/page.html", protected: true },
+    "/login": { title: "로그인", file: "/pages/login.html", protected: false },
+    "/sheet": {
+      title: "스프레드시트",
+      file: "/pages/sheet.html",
+      protected: true,
+    },
   };
 
   // 2. 공통 컴포넌트(네비바, 푸터 등) 동적 로딩 함수
@@ -44,15 +49,12 @@
     // 팝업에서 로그인 성공 시 메시지 수신
     window.addEventListener("message", (event) => {
       if (event.data?.type === "LOGIN_SUCCESS") {
-        location.hash = "#/success";
+        location.hash = "#/";
       }
     });
   }
 
-  // 4. 인증이 필요한 페이지 목록
-  const protectedPages = ["/"];
-
-  // 5. 인증 체크 함수 (로그인 여부 확인)
+  // 4. 인증 체크 함수 (로그인 여부 확인)
   async function requireAuth() {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
@@ -66,6 +68,47 @@
     }
   }
 
+  // 5. 스프레드시트 페이지 이벤트 바인딩
+  function bindSheetPage() {
+    const btn = document.getElementById("load-sheet-btn");
+    if (!btn) return;
+    btn.onclick = async function () {
+      const spreadsheetId = document
+        .getElementById("spreadsheet-id")
+        .value.trim();
+      const range = document.getElementById("range").value.trim();
+      const resultDiv = document.getElementById("sheet-result");
+      resultDiv.innerHTML = "불러오는 중...";
+      try {
+        const res = await fetch(
+          `/api/sheet/read?spreadsheet_id=${encodeURIComponent(spreadsheetId)}&range=${encodeURIComponent(range)}`,
+          {
+            credentials: "include",
+          },
+        );
+        if (!res.ok) {
+          resultDiv.innerHTML = "API 오류: " + res.status;
+          return;
+        }
+        const data = await res.json();
+        if (!data.values || !Array.isArray(data.values)) {
+          resultDiv.innerHTML = "데이터 없음";
+          return;
+        }
+        let html = '<table border="1"><tbody>';
+        for (const row of data.values) {
+          html +=
+            "<tr>" + row.map((cell) => `<td>${cell}</td>`).join("") + "</tr>";
+        }
+        html += "</tbody></table>";
+        resultDiv.innerHTML = html;
+      } catch (e) {
+        resultDiv.innerHTML = '네트워크 오류';
+        console.error(e); // 에러를 콘솔에 출력
+      }
+    };
+  }
+
   // 6. 라우터: 해시 변경에 따라 페이지 전환 및 인증 처리
   function router() {
     const hash = location.hash.replace(/^#/, "") || "/";
@@ -74,26 +117,27 @@
     const titleEl = document.getElementById("page-title");
     if (titleEl) titleEl.textContent = info.title;
 
-    // 인증이 필요한 페이지 접근 시 인증 체크
-    if (protectedPages.includes(hash)) {
+    // 인증이 필요한 페이지 체크
+    if (info.protected) {
       requireAuth()
         .then(() => {
           fetch(info.file)
             .then((res) => res.text())
             .then((html) => {
               document.getElementById("page-content").innerHTML = html;
+              if (hash === "/sheet") bindSheetPage();
             });
         })
         .catch(() => {});
       return;
     }
 
-    // 인증이 필요 없는 페이지는 바로 렌더링
     fetch(info.file)
       .then((res) => res.text())
       .then((html) => {
         document.getElementById("page-content").innerHTML = html;
         if (hash === "/login") bindLoginButton();
+        if (hash === "/sheet") bindSheetPage();
       });
   }
 

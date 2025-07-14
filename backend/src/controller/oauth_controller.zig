@@ -56,6 +56,9 @@ pub const OAuthController = struct {
         };
         defer self.oauth_service.allocator.free(access_token);
 
+        // refresh_token 파싱 (최초 로그인 시에만 응답에 포함됨)
+        const refresh_token = self.oauth_service.parseRefreshToken(token_response) catch "";
+
         const user_info_json = self.oauth_service.getGoogleUserInfo(access_token) catch {
             return sendErrorJson(self.oauth_service.allocator, r, 500, "Failed to get user info");
         };
@@ -70,10 +73,10 @@ pub const OAuthController = struct {
             .role = if (std.mem.eql(u8, "user@example.com", "admin@example.com")) "admin" else "user",
         };
 
-        // JWT payload 생성
+        // JWT payload 생성 (access_token, refresh_token 포함)
         const now = std.time.timestamp();
         const exp = now + 60 * 60 * 24;
-        const payload = try std.fmt.allocPrint(self.oauth_service.allocator, "{{\"sub\":\"{s}\",\"name\":\"{s}\",\"email\":\"{s}\",\"role\":\"{s}\",\"exp\":{d}}}", .{ user.id, user.name, user.email, user.role, exp });
+        const payload = try std.fmt.allocPrint(self.oauth_service.allocator, "{{\"sub\":\"{s}\",\"name\":\"{s}\",\"email\":\"{s}\",\"role\":\"{s}\",\"exp\":{d},\"access_token\":\"{s}\",\"refresh_token\":\"{s}\"}}", .{ user.id, user.name, user.email, user.role, exp, access_token, refresh_token });
         defer self.oauth_service.allocator.free(payload);
 
         // JWT 생성
@@ -130,6 +133,30 @@ pub const OAuthController = struct {
         });
         r.setStatusNumeric(200);
         try r.sendBody("{\"success\":true}");
+    }
+
+    pub fn readSheet(self: *OAuthController, r: zap.Request) !void {
+        // JWT 인증 (role_guard로 이미 인증됨)
+        r.parseCookies(false);
+        const jwt = r.getCookieStr(self.oauth_service.allocator, "jwt") catch null;
+        if (jwt) |token| {
+            const payload = jwt_util.verifyJwt(self.oauth_service.allocator, token, self.jwt_secret) catch null;
+            if (payload) |pl| {
+                const access_token = extractJsonString(pl, "\"access_token\":\"") orelse {
+                    return sendErrorJson(self.oauth_service.allocator, r, 401, "No access_token in JWT");
+                };
+                const spreadsheet_id = try self.oauth_service.getQueryParam(r, "spreadsheet_id");
+                const range = try self.oauth_service.getQueryParam(r, "range");
+                const values_json = try self.oauth_service.getSpreadsheetValues(access_token, spreadsheet_id, range);
+
+                r.setStatusNumeric(200);
+                try r.setHeader("Content-Type", "application/json; charset=utf-8");
+                try r.sendBody(values_json);
+                return;
+            }
+        }
+        r.setStatusNumeric(401);
+        try r.sendBody("{\"error\":true,\"message\":\"Not logged in\"}");
     }
 };
 

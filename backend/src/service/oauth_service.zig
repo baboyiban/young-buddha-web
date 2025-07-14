@@ -140,4 +140,63 @@ pub const OAuthService = struct {
         const access_token = json_response[start_pos..end_pos];
         return try self.allocator.dupe(u8, access_token);
     }
+
+    pub fn parseRefreshToken(self: *OAuthService, json_response: []const u8) ![]u8 {
+        const search_pattern = "\"refresh_token\"";
+        const start_marker = std.mem.indexOf(u8, json_response, search_pattern) orelse {
+            return error.InvalidTokenResponse;
+        };
+        const colon_pos = std.mem.indexOfScalarPos(u8, json_response, start_marker, ':') orelse {
+            return error.InvalidTokenResponse;
+        };
+        const quote_start = std.mem.indexOfScalarPos(u8, json_response, colon_pos, '"') orelse {
+            return error.InvalidTokenResponse;
+        };
+        const start_pos = quote_start + 1;
+        const end_pos = std.mem.indexOfScalarPos(u8, json_response, start_pos, '"') orelse {
+            return error.InvalidTokenResponse;
+        };
+        const refresh_token = json_response[start_pos..end_pos];
+        return try self.allocator.dupe(u8, refresh_token);
+    }
+
+    pub fn getSpreadsheetValues(
+        self: *OAuthService,
+        access_token: []const u8,
+        spreadsheet_id: []const u8,
+        range: []const u8,
+    ) ![]u8 {
+        var client: std.http.Client = .{ .allocator = self.allocator };
+        defer client.deinit();
+
+        const url = try std.fmt.allocPrint(
+            self.allocator,
+            "https://sheets.googleapis.com/v4/spreadsheets/{s}/values/{s}",
+            .{ spreadsheet_id, range },
+        );
+        defer self.allocator.free(url);
+
+        const uri = try std.Uri.parse(url);
+        var server_header_buffer: [16 * 1024]u8 = undefined;
+
+        // Authorization 헤더 추가
+        const auth_header = std.http.Header{
+            .name = "Authorization",
+            .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
+        };
+        defer self.allocator.free(auth_header.value);
+
+        var req = try client.open(.GET, uri, .{
+            .server_header_buffer = &server_header_buffer,
+            .extra_headers = &.{auth_header},
+        });
+        defer req.deinit();
+
+        try req.send();
+        try req.finish();
+        try req.wait();
+
+        const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
+        return response;
+    }
 };

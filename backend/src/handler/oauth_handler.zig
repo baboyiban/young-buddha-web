@@ -21,4 +21,7 @@ pub const OAuthHandler = struct {
     pub fn handleLogout(self: *OAuthHandler, r: zap.Request) !void {
         return try self.controller.logout(r);
     }
+    pub fn handleReadSheet(self: *OAuthHandler, r: zap.Request) !void {
+        return try self.controller.readSheet(r);
+    }
 };
