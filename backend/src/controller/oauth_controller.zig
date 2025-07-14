@@ -1,19 +1,19 @@
 const std = @import("std");
 const zap = @import("zap");
 const OAuthService = @import("../service/oauth_service.zig").OAuthService;
-const SessionService = @import("../service/session_service.zig").SessionService;
 const sendErrorJson = @import("../handler/error_handler.zig").sendErrorJson;
 const constants = @import("../config/constants.zig");
 const User = @import("../model/user.zig").User;
+const jwt_util = @import("../util/jwt.zig");
 
 pub const OAuthController = struct {
     oauth_service: *OAuthService,
-    session_service: *SessionService,
+    jwt_secret: []const u8,
 
-    pub fn init(oauth_service: *OAuthService, session_service: *SessionService) OAuthController {
+    pub fn init(oauth_service: *OAuthService, jwt_secret: []const u8) OAuthController {
         return .{
             .oauth_service = oauth_service,
-            .session_service = session_service,
+            .jwt_secret = jwt_secret,
         };
     }
 
@@ -70,18 +70,27 @@ pub const OAuthController = struct {
             .role = if (std.mem.eql(u8, "user@example.com", "admin@example.com")) "admin" else "user",
         };
 
-        // 세션 생성 및 쿠키 발급
-        const session_id = try self.session_service.createSession(user);
+        // JWT payload 생성
+        const now = std.time.timestamp();
+        const exp = now + 60 * 60 * 24;
+        const payload = try std.fmt.allocPrint(self.oauth_service.allocator, "{{\"sub\":\"{s}\",\"name\":\"{s}\",\"email\":\"{s}\",\"role\":\"{s}\",\"exp\":{d}}}", .{ user.id, user.name, user.email, user.role, exp });
+        defer self.oauth_service.allocator.free(payload);
 
+        // JWT 생성
+        const jwt = try jwt_util.createJwt(self.oauth_service.allocator, payload, self.jwt_secret);
+        defer self.oauth_service.allocator.free(jwt);
+
+        // JWT를 쿠키로 발급
         try r.setCookie(.{
-            .name = constants.SESSION_COOKIE_NAME,
-            .value = session_id,
+            .name = "jwt",
+            .value = jwt,
             .http_only = true,
             .path = "/",
             .max_age_s = 60 * 60 * 24,
+            .secure = false, // 개발환경에서는 반드시 false!
         });
 
-        // 팝업 닫기용 HTML (예외적으로 HTML 반환)
+        // 팝업 닫기용 HTML
         const close_html =
             "<!DOCTYPE html><html><body><script>window.opener&&window.opener.postMessage({type:'LOGIN_SUCCESS'},'*');window.close();</script><p>로그인 성공! 창을 닫습니다...</p></body></html>";
         r.setStatusNumeric(200);
@@ -91,15 +100,18 @@ pub const OAuthController = struct {
 
     pub fn me(self: *OAuthController, r: zap.Request) !void {
         r.parseCookies(false);
-        const session_id = r.getCookieStr(self.oauth_service.allocator, constants.SESSION_COOKIE_NAME) catch null;
-        if (session_id) |sid| {
-            if (self.session_service.getUser(sid)) |user| {
+        const jwt = r.getCookieStr(self.oauth_service.allocator, "jwt") catch null;
+        if (jwt) |token| {
+            const payload = jwt_util.verifyJwt(self.oauth_service.allocator, token, self.jwt_secret) catch null;
+            if (payload) |pl| {
+                // 간단 JSON 파싱 (name, email, role)
+                const name = extractJsonString(pl, "\"name\":\"") orelse "";
+                const email = extractJsonString(pl, "\"email\":\"") orelse "";
+                const role = extractJsonString(pl, "\"role\":\"") orelse "";
+                const json_response = try std.fmt.allocPrint(self.oauth_service.allocator, "{{\"name\":\"{s}\",\"email\":\"{s}\",\"role\":\"{s}\"}}", .{ name, email, role });
+                defer self.oauth_service.allocator.free(json_response);
                 r.setStatusNumeric(200);
                 try r.setHeader("Content-Type", "application/json; charset=utf-8");
-                // 예시: user가 구조체라면 아래처럼 직렬화
-                // 실제로는 zig의 json 직렬화 라이브러리를 사용하는 것이 좋음
-                const json_response = try std.fmt.allocPrint(self.oauth_service.allocator, "{{\"name\":\"{s}\",\"email\":\"{s}\"}}", .{ user.name, user.email });
-                defer self.oauth_service.allocator.free(json_response);
                 try r.sendBody(json_response);
                 return;
             }
@@ -108,14 +120,9 @@ pub const OAuthController = struct {
         try r.sendBody("{\"error\":true,\"message\":\"Not logged in\"}");
     }
 
-    pub fn logout(self: *OAuthController, r: zap.Request) !void {
-        r.parseCookies(false);
-        const session_id = r.getCookieStr(self.oauth_service.allocator, constants.SESSION_COOKIE_NAME) catch null;
-        if (session_id) |sid| {
-            self.session_service.destroySession(sid);
-        }
+    pub fn logout(_: *OAuthController, r: zap.Request) !void {
         try r.setCookie(.{
-            .name = constants.SESSION_COOKIE_NAME,
+            .name = "jwt",
             .value = "",
             .http_only = true,
             .path = "/",
@@ -125,3 +132,15 @@ pub const OAuthController = struct {
         try r.sendBody("{\"success\":true}");
     }
 };
+
+/// 매우 단순한 JSON 파서 (key: "value"만 추출)
+fn extractJsonString(json: []const u8, key: []const u8) ?[]const u8 {
+    if (std.mem.indexOf(u8, json, key)) |start| {
+        const val_start = start + key.len;
+        if (val_start >= json.len) return null;
+        var val_end = val_start;
+        while (val_end < json.len and json[val_end] != '"') : (val_end += 1) {}
+        return json[val_start..val_end];
+    }
+    return null;
+}

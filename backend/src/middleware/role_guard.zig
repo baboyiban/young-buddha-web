@@ -5,7 +5,7 @@ const zap = @import("zap");
 const HandlerFn = @import("../router/router.zig").HandlerFn;
 
 pub fn requireRole(r: zap.Request, roles: []const []const u8) !void {
-    const user = try access_control.requireLogin(main.global_session_service.?, r);
+    const user = try access_control.requireLogin(r);
     for (roles) |role| {
         if (std.mem.eql(u8, user.role, role)) return;
     }
