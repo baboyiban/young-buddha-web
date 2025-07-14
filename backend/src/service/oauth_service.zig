@@ -1,13 +1,9 @@
 const std = @import("std");
 const zap = @import("zap");
 const Env = @import("../config/env.zig").Env;
+const constants = @import("../config/constants.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const rand = std.crypto.random;
-
-// 상수화
-pub const SESSION_COOKIE_NAME = "session";
-pub const OAUTH_STATE_COOKIE_NAME = "oauth_state";
-pub const STATIC_FILES_PATH_KEY = "../frontend/src";
 
 pub const OAuthService = struct {
     allocator: std.mem.Allocator,
@@ -15,7 +11,7 @@ pub const OAuthService = struct {
     client_id: []const u8,
     client_secret: []const u8,
     redirect_uri: []const u8,
-    scope: []const u8 = "openid email profile",
+    scope: []const u8 = constants.GOOGLE_SCOPE,
 
     pub fn init(allocator: std.mem.Allocator, env: Env) !OAuthService {
         return .{
@@ -125,9 +121,8 @@ pub const OAuthService = struct {
         return response;
     }
 
-    // JSON 파싱 견고화 (간단한 zig 내장 파싱, 외부 라이브러리 사용 권장)
+    // 매우 단순한 파싱, zig 공식 json 파서가 안정화되면 교체 권장
     pub fn parseAccessToken(self: *OAuthService, json_response: []const u8) ![]u8 {
-        // 매우 단순한 파싱, zig 공식 json 파서가 안정화되면 교체 권장
         const search_pattern = "\"access_token\"";
         const start_marker = std.mem.indexOf(u8, json_response, search_pattern) orelse {
             return error.InvalidTokenResponse;

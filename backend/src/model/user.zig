@@ -1,1 +1,6 @@
-// 사용자 관련 모델 정의 (필요시 추가)
+pub const User = struct {
+    id: []const u8,
+    name: []const u8,
+    email: []const u8,
+    picture: ?[]const u8,
+};

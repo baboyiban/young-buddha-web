@@ -1,9 +1,7 @@
 const std = @import("std");
 const zap = @import("zap");
 const Env = @import("../config/env.zig").Env;
-
-// 상수화
-pub const STATIC_FILES_PATH_KEY = "STATIC_FILES_PATH";
+const constants = @import("../config/constants.zig");
 
 pub const StaticHandler = struct {
     allocator: std.mem.Allocator,
@@ -12,7 +10,7 @@ pub const StaticHandler = struct {
     pub fn init(allocator: std.mem.Allocator, env: Env) !StaticHandler {
         return .{
             .allocator = allocator,
-            .base_path = env.get(STATIC_FILES_PATH_KEY) orelse "../frontend/src",
+            .base_path = env.get(constants.STATIC_FILES_PATH_KEY) orelse "../frontend/src",
         };
     }
 
@@ -22,7 +20,13 @@ pub const StaticHandler = struct {
         const path = r.path orelse "/";
         var file_path: []const u8 = undefined;
 
-        if (std.mem.eql(u8, path, "/auth/google/callback")) {
+        if (std.mem.eql(u8, path, "/api/")) {
+            r.setStatusNumeric(404);
+            try r.sendBody("Not Found");
+            return;
+        }
+
+        if (std.mem.eql(u8, path, "/api/auth/google/callback")) {
             file_path = try std.fs.path.join(self.allocator, &.{ self.base_path, "index.html" });
         } else {
             file_path = try self.resolvePath(path);
