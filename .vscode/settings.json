@@ -1,2 +1,4 @@
+// .vscode/settings.json 추가
 {
+    "css.lint.unknownAtRules": "ignore"
 }

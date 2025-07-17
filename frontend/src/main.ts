@@ -7,7 +7,7 @@ import {
   updateNavbarActive,
 } from "./lib/navbar";
 import { bindLoginButton } from "./lib/login";
-import { loadHomeSheetData } from "./lib/homeSheet";
+import { loadHomeSheetData } from "./lib/mission";
 
 const isDev = true; // 개발 모드
 

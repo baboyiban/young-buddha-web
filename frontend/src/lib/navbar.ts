@@ -15,7 +15,7 @@ export function updateNavbarActive() {
   if (!navbar) return;
   const links = navbar.querySelectorAll("a[data-path]");
   links.forEach((link) => {
-    if ((link as HTMLAnchorElement).getAttribute("data-path") === hash) {
+    if ((link as HTMLElement).getAttribute("data-path") === hash) {
       link.classList.add("purple");
     } else {
       link.classList.remove("purple");
