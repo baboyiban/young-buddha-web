@@ -134,29 +134,6 @@ pub const OAuthController = struct {
         r.setStatusNumeric(200);
         try r.sendBody("{\"success\":true}");
     }
-
-    pub fn readSheet(self: *OAuthController, r: zap.Request) !void {
-        // r.parseCookies(false); // 제거
-        const jwt = r.getCookieStr(self.oauth_service.allocator, "jwt") catch null;
-        if (jwt) |token| {
-            const payload = jwt_util.verifyJwt(self.oauth_service.allocator, token, self.jwt_secret) catch null;
-            if (payload) |pl| {
-                const access_token = extractJsonString(pl, "\"access_token\":\"") orelse {
-                    return sendErrorJson(self.oauth_service.allocator, r, 401, "No access_token in JWT");
-                };
-                const spreadsheet_id = try self.oauth_service.getQueryParam(r, "spreadsheet_id");
-                const range = try self.oauth_service.getQueryParam(r, "range");
-                const values_json = try self.oauth_service.getSpreadsheetValues(access_token, spreadsheet_id, range);
-
-                r.setStatusNumeric(200);
-                try r.setHeader("Content-Type", "application/json; charset=utf-8");
-                try r.sendBody(values_json);
-                return;
-            }
-        }
-        r.setStatusNumeric(401);
-        try r.sendBody("{\"error\":true,\"message\":\"Not logged in\"}");
-    }
 };
 
 /// 매우 단순한 JSON 파서 (key: "value"만 추출)

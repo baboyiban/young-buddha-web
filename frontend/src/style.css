@@ -7,9 +7,13 @@
 }
 
 .button {
-  @apply rounded-lg bg-white px-[0.75rem] py-[0.5rem];
+  @apply rounded-lg px-[0.75rem] py-[0.5rem];
 }
 
-.button.active {
+.button.white {
+  @apply bg-white;
+}
+
+.button.purple {
   @apply bg-dark-purple text-white;
 }

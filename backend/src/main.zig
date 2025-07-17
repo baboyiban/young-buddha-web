@@ -7,11 +7,15 @@ const OAuthController = @import("controller/oauth_controller.zig").OAuthControll
 const OAuthService = @import("service/oauth_service.zig").OAuthService;
 const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 const Env = @import("config/env.zig").Env;
+const SheetService = @import("service/sheet_service.zig").SheetService;
+const SheetController = @import("controller/sheet_controller.zig").SheetController;
+const SheetHandler = @import("handler/sheet_handler.zig").SheetHandler;
 
 pub var global_router: ?Router = null;
 pub var global_oauth_handler: ?*OAuthHandler = null;
 pub var global_static_handler: ?*StaticHandler = null;
 pub var global_jwt_secret: []const u8 = "";
+pub var global_sheet_handler: ?*SheetHandler = null;
 
 fn requestCallback(r: zap.Request) anyerror!void {
     const router = &global_router.?;
@@ -38,6 +42,11 @@ pub fn main() !void {
     var static_handler = try StaticHandler.init(allocator, env);
     defer static_handler.deinit();
     global_static_handler = &static_handler;
+
+    var sheet_service = SheetService.init(allocator);
+    var sheet_controller = SheetController.init(&sheet_service, jwt_secret);
+    var sheet_handler = SheetHandler.init(&sheet_controller);
+    global_sheet_handler = &sheet_handler;
 
     var router = Router.init(allocator);
     defer router.deinit();

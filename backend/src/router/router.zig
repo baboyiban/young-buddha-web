@@ -74,11 +74,14 @@ fn handleMe(r: zap.Request) anyerror!void {
 fn handleLogout(r: zap.Request) anyerror!void {
     try main.global_oauth_handler.?.handleLogout(r);
 }
-fn handleReadSheet(r: zap.Request) anyerror!void {
-    try main.global_oauth_handler.?.handleReadSheet(r);
-}
 fn handleStatic(r: zap.Request) anyerror!void {
     try main.global_static_handler.?.serve(r);
+}
+fn handleReadSheet(r: zap.Request) anyerror!void {
+    try main.global_sheet_handler.?.handleReadSheet(r);
+}
+fn handleWriteSheet(r: zap.Request) anyerror!void {
+    try main.global_sheet_handler.?.handleWriteSheet(r);
 }
 
 pub fn registerRoutes(router: *Router) !void {
@@ -87,4 +90,5 @@ pub fn registerRoutes(router: *Router) !void {
     try router.get("/api/auth/me", role_guard.AuthRequired(&.{ "user", "admin" }, handleMe));
     try router.delete("/api/auth/current", role_guard.AuthRequired(&.{ "user", "admin" }, handleLogout));
     try router.get("/api/sheet/read", role_guard.AuthRequired(&.{ "user", "admin" }, handleReadSheet));
+    try router.post("/api/sheet/write", role_guard.AuthRequired(&.{ "user", "admin" }, handleWriteSheet));
 }
