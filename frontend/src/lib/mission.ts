@@ -28,38 +28,36 @@ export async function loadHomeSheetData() {
     const firstRow = data[0];
     const items = firstRow.map((cell: string) => cell || ''); // 빈 셀은 빈 문자열로 처리
 
-    // HTML 렌더링
+    // 값 포맷팅 (null, undefined, '-' → '')
+    const val = (v: any) => (!v || v === '-') ? '' : String(v);
+
+    // 여러 값을 콤마로 연결
+    const join = (...vals: any[]) => vals.map(val).filter(v => v).join(', ');
+
+    // HTML 블록 만들기
+    const block = (title: string, ...vals: any[]) => {
+      const content = join(...vals);
+      return content ? `<div>${title}</div><div>${content}</div>` : '';
+    };
+
     const html = `
-    <div>🌴${items[0] ?? ''} ${items[1] ?? ''}요일 청년붓다 소임🌴</div>
-    <div>
-      <div>발우공양 당번</div>
-      <div>${items[2] ?? ''}${items[3] ? `, ${items[3]}` : ''}</div>
-    </div>
-    <div>
-      <div>발공 바라지</div>
-      <div>${items[4] ?? ''}${items[5] ? `, ${items[5]}` : ''}</div>
-    </div>
-    <div>
-      <div>아침 설거지</div>
-      <div>${items[6] ?? ''}${items[7] ? `, ${items[7]}` : ''}${items[8] ? `, ${items[8]}` : ''}</div>
-    </div>
-    <div>
-      <div>걸레빨기</div>
-      <div>${items[9] ? `(애벌/세탁) ${items[9]}` : ''}${items[10] ? `, (널기) ${items[10]}` : ''}${items[11] ? `, (걷고/개기) ${items[11]}` : ''}</div>
-    </div>
-    <div>
-      <div>사시예불전 방석깔기</div>
-      <div>${items[12] ? items[12] : items[12] == undefined ? '' : '상근자 전원'}${items[13] ? `, ${items[13]}` : ''}</div>
-    </div>
-    <div>
-      <div>저녁공양 당번</div>
-      <div>${items[14] ?? ''}${items[15] ? `, ${items[15]}` : ''}${items[16] ? `, ${items[16]}` : ''}</div>
-    </div>
-    <div>
-      <div>저녁예불 방석한줄깔기</div>
-      <div>${items[17] ?? ''}</div>
-    </div>
-    `
+    <div>🌴${val(items[0])} ${val(items[1])}요일 청년붓다 소임🌴</div>
+    ${block('발우공양 당번', items[2], items[3])}
+    ${block('발공 바라지', items[4], items[5])}
+    ${block('아침 설거지', items[6], items[7], items[8])}
+    ${block('걸레빨기',
+      items[9] ? `(애벌/세탁) ${items[9]}` : '',
+      items[10] ? `(널기) ${items[10]}` : '',
+      items[11] ? `(걷고/개기) ${items[11]}` : ''
+    )}
+    ${block('사시예불전 방석깔기',
+      items[12] || (items[12] === undefined ? '' : '상근자 전원'),
+      items[13]
+    )}
+    ${block('저녁공양 당번', items[14], items[15], items[16])}
+    ${block('저녁예불 방석한줄깔기', items[17])}
+    `;
+
     resultDiv.innerHTML = html;
 
 
