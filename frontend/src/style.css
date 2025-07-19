@@ -6,6 +6,18 @@
   --color-dark-purple: #8080ff;
 }
 
+@media (max-width: 768px) {
+  /* 스크롤바 자체를 숨기기 */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  body {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+  }
+}
+
 .button {
   @apply rounded-lg px-[0.75rem] py-[0.5rem];
 }
