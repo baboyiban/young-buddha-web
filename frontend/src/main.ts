@@ -9,7 +9,7 @@ import {
 import { bindLoginButton } from "./lib/login";
 import { loadHomeSheetData } from "./lib/mission";
 
-const isDev = true; // 개발 모드
+const isDev = false; // 개발 모드
 
 // 개발 모드에서는 roles를 모두 []로 변경
 if (isDev) {
