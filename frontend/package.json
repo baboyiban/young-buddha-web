@@ -1,15 +1,18 @@
 {
-  "name": "frontend",
+  "name": "young-buddha-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "lint": "tsc --noEmit --skipLibCheck"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^24.0.15",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",

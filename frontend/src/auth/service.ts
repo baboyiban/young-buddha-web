@@ -1,11 +1,12 @@
 import { apiClient } from "../api/client";
 import { ApiError } from "../types";
+import { API_ENDPOINTS, STORAGE_KEYS } from "../lib/constants";
 import type { AuthResponse, User } from "../types";
 
 export class AuthService {
   async getCurrentUser(): Promise<User> {
     try {
-      return await apiClient.get<User>("/api/auth/me");
+      return await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
     } catch (error) {
       if (error instanceof ApiError) {
         // 토큰 만료나 무효한 토큰인 경우 자동으로 정리
@@ -18,7 +19,7 @@ export class AuthService {
   }
 
   async startGoogleAuth(): Promise<string> {
-    const response = await apiClient.post<AuthResponse>("/api/auth/google");
+    const response = await apiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.GOOGLE);
     if (!response.auth_url) {
       throw new Error("인증 URL을 받지 못했습니다");
     }
@@ -27,8 +28,9 @@ export class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await apiClient.delete("/api/auth/current");
+      await apiClient.delete(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
+      // 에러는 무시하고 계속 진행
     } finally {
       this.clearAuthData();
       this.redirectToLogin();
@@ -37,10 +39,10 @@ export class AuthService {
 
   clearAuthData(): void {
     // 로컬 스토리지 정리
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("user");
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
 
     // 쿠키 정리 (httpOnly 쿠키는 서버에서 처리)
     document.cookie.split(";").forEach((cookie) => {
