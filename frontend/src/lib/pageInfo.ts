@@ -21,4 +21,14 @@ export const pageInfo: Record<string, PageInfo> = {
     file: "/pages/payment.html",
     roles: ["user", "admin"],
   },
+  "/privacy": {
+    title: "개인정보 처리방침",
+    file: "/pages/privacy.html",
+    roles: [],
+  },
+  "/term": {
+    title: "이용 약관",
+    file: "/pages/term.html",
+    roles: [],
+  },
 };

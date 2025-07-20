@@ -29,8 +29,7 @@ export async function loadHomeSheetData() {
     const items = firstRow.map((cell: string) => cell && cell !== '-' ? cell : '');
 
     const html = `
-    <div class="flex flex-col items-center justify-center-safe h-full
-    *:mb-[1rem] *:text-center *:*:mb-[0.5rem]
+    <div class="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem]
     ">
       <div class="">🌴${items[0]} ${items[1]}요일 청년붓다 소임🌴</div>
       

@@ -3,13 +3,13 @@ import { pageInfo } from "./lib/pageInfo";
 import { includeComponent } from "./lib/components";
 import { router } from "./lib/router";
 import {
-  updateNavbarVisibilityForRoute,
   updateNavbarActive,
 } from "./lib/navbar";
+import { updateLayoutVisibilityForRoute } from "./lib/visibility";
 import { bindLoginButton } from "./lib/login";
 import { loadHomeSheetData } from "./lib/mission";
 
-const isDev = false; // 개발 모드
+const isDev = true; // 개발 모드
 
 // 개발 모드에서는 roles를 모두 []로 변경
 if (isDev) {
@@ -25,16 +25,19 @@ pageInfo["/login"].bindFn = bindLoginButton;
 includeComponent("navbar", "navbar.html", () => {
   updateNavbarActive();
 });
+includeComponent("footer", "footer.html", () => {
+  updateNavbarActive();
+});
 includeComponent("payment", "payment.html", () => {
   updateNavbarActive();
 });
 
 router();
-updateNavbarVisibilityForRoute();
+updateLayoutVisibilityForRoute();
 updateNavbarActive();
 
 window.addEventListener("hashchange", () => {
   router();
-  updateNavbarVisibilityForRoute();
+  updateLayoutVisibilityForRoute();
   updateNavbarActive();
 });

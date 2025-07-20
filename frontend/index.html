@@ -1,18 +1,23 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title id="page-title"></title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title id="page-title"></title>
-  <link rel="stylesheet" href="/src/style.css" />
-</head>
-
-<body class="bg-gray h-[calc(100svh)] flex flex-col gap-[0.25rem]">
-  <main id="page-content" class="h-[calc(100svh-48px)] *:p-[0.5rem]"></main>
-  <div id="navbar" class="fixed bottom-0 left-0 right-0 z-10 bg-transparent"></div>
-  <script type="module" src="/src/main.ts"></script>
-</body>
-
+  <body class="bg-gray flex flex-col">
+    <main
+      id="page-content"
+      class="min-h-svh p-[0.25rem] *:p-[1rem] *:bg-white *:rounded-lg *:min-h-[calc(100svh-0.5rem-48px+4px)] flex flex-col gap-[0.25rem]"
+    ></main>
+    <footer id="footer" class="*:p-[1rem] pb-[48px]"></footer>
+    <navbar
+      id="navbar"
+      class="fixed bottom-0 left-0 right-0 z-10 bg-transparent"
+    ></navbar>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
