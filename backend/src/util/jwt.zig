@@ -2,7 +2,10 @@ const std = @import("std");
 const crypto = std.crypto;
 
 /// base64url 인코딩 (패딩 없음)
-pub fn base64UrlEncode(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
+pub fn base64UrlEncode(allocator: std.mem.Allocator, input: []const u8) !struct {
+    buf: []u8, // 할당한 전체 버퍼
+    slice: []u8, // 실제 base64url 결과 슬라이스
+} {
     const encoder = std.base64.standard.Encoder;
     const encoded_len = encoder.calcSize(input.len);
     var buf = try allocator.alloc(u8, encoded_len);
@@ -14,7 +17,7 @@ pub fn base64UrlEncode(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
         if (c == '+') buf[j] = '-' else if (c == '/') buf[j] = '_' else if (c == '=') continue else buf[j] = c;
         j += 1;
     }
-    return buf[0..j];
+    return .{ .buf = buf, .slice = buf[0..j] };
 }
 
 /// base64url 디코딩
@@ -55,17 +58,17 @@ pub fn createJwt(allocator: std.mem.Allocator, payload: []const u8, secret: []co
     const header = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
     const header_b64 = try base64UrlEncode(allocator, header);
     const payload_b64 = try base64UrlEncode(allocator, payload);
-    const msg = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ header_b64, payload_b64 });
-    defer allocator.free(header_b64);
-    defer allocator.free(payload_b64);
+    const msg = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ header_b64.slice, payload_b64.slice });
+    defer allocator.free(header_b64.buf);
+    defer allocator.free(payload_b64.buf);
 
     const sig = try hmacSha256(allocator, secret, msg);
     const sig_b64 = try base64UrlEncode(allocator, sig);
     defer allocator.free(sig);
 
-    const jwt = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ msg, sig_b64 });
+    const jwt = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ msg, sig_b64.slice });
     defer allocator.free(msg);
-    defer allocator.free(sig_b64);
+    defer allocator.free(sig_b64.buf);
     return jwt;
 }
 
