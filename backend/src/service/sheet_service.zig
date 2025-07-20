@@ -50,8 +50,11 @@ pub const SheetService = struct {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            // Google API 에러를 JSON 형태로 반환
-            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}", .{ @intFromEnum(req.response.status), error_response });
+            // Google API 에러를 JSON 형태로 반환 (details를 문자열로 이스케이프)
+            const escaped_details = try self.escapeJsonString(error_response);
+            defer self.allocator.free(escaped_details);
+
+            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}", .{ @intFromEnum(req.response.status), escaped_details });
             return error_json;
         }
 
@@ -59,7 +62,10 @@ pub const SheetService = struct {
 
         // 응답이 JSON인지 확인 (간단한 체크)
         if (response.len == 0 or response[0] != '{') {
-            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Invalid response format\",\"details\":\"{s}\"}}", .{response});
+            const escaped_response = try self.escapeJsonString(response);
+            defer self.allocator.free(escaped_response);
+
+            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Invalid response format\",\"details\":\"{s}\"}}", .{escaped_response});
             self.allocator.free(response);
             return error_json;
         }
@@ -129,7 +135,11 @@ pub const SheetService = struct {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}", .{ @intFromEnum(req.response.status), error_response });
+            // Google API 에러를 JSON 형태로 반환 (details를 문자열로 이스케이프)
+            const escaped_details = try self.escapeJsonString(error_response);
+            defer self.allocator.free(escaped_details);
+
+            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}", .{ @intFromEnum(req.response.status), escaped_details });
             return error_json;
         }
 
@@ -201,5 +211,27 @@ pub const SheetService = struct {
 
         const values_array = request_body[array_start..i];
         return try std.fmt.allocPrint(self.allocator, "{{\"values\":{s}}}", .{values_array});
+    }
+
+    fn escapeJsonString(self: *SheetService, input: []const u8) ![]u8 {
+        var escaped = std.ArrayList(u8).init(self.allocator);
+        defer escaped.deinit();
+
+        for (input) |char| {
+            switch (char) {
+                '"' => try escaped.appendSlice("\\\""),
+                '\\' => try escaped.appendSlice("\\\\"),
+                '\n' => try escaped.appendSlice("\\n"),
+                '\r' => try escaped.appendSlice("\\r"),
+                '\t' => try escaped.appendSlice("\\t"),
+                0x00...0x08, 0x0B, 0x0C, 0x0E...0x1F => {
+                    // 다른 제어 문자들은 공백으로 대체
+                    try escaped.append(' ');
+                },
+                else => try escaped.append(char),
+            }
+        }
+
+        return escaped.toOwnedSlice();
     }
 };
