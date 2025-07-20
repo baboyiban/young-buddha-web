@@ -81,5 +81,7 @@ export async function loadHomeSheetData() {
 
   } catch (error) {
     console.error('스프레드시트 로드 오류:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    resultDiv.innerHTML = `오류 발생: ${errorMessage}`;
   }
 }
