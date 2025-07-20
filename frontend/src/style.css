@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --color-gray: #efefef;
+  --color-gray: #f2f2f2;
+  --color-dark-gray: #cccccc;
   --color-purple: #ccccff;
   --color-dark-purple: #8080ff;
+  --color-red: #ffcccc;
+  --color-dark-red: #ff8080;
 }
 
 @media (max-width: 768px) {
@@ -11,10 +14,10 @@
   ::-webkit-scrollbar {
     display: none;
   }
-  
+
   body {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;     /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
 }
 
@@ -22,15 +25,12 @@
   @apply rounded-lg px-[0.75rem] py-[0.5rem];
 }
 
-.button.white, .button.gray, .button.purple {
-  @apply bg-blend-difference backdrop-blur-lg;
-}
-.button.white {
+.button.default {
   @apply bg-white/75;
-}
-.button.gray {
-  @apply bg-gray/75;
 }
 .button.purple {
   @apply bg-dark-purple/75 text-white;
+}
+.button.red {
+  @apply bg-dark-red/75 text-white;
 }
