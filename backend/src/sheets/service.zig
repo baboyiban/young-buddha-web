@@ -1,16 +1,50 @@
 const std = @import("std");
 
-pub const SheetService = struct {
-    allocator: std.mem.Allocator,
+const auth = @import("../auth/service.zig");
 
-    pub fn init(allocator: std.mem.Allocator) SheetService {
+pub const SheetsService = struct {
+    allocator: std.mem.Allocator,
+    auth_service: *auth.AuthService,
+
+    pub fn init(allocator: std.mem.Allocator, auth_service: *auth.AuthService) SheetsService {
         return .{
             .allocator = allocator,
+            .auth_service = auth_service,
         };
     }
 
     pub fn getSpreadsheetValues(
-        self: *SheetService,
+        self: *SheetsService,
+        access_token: []const u8,
+        refresh_token: []const u8,
+        spreadsheet_id: []const u8,
+        range: []const u8,
+    ) ![]u8 {
+
+        // URL 디코딩
+        const decoded_range = try self.urlDecode(range);
+        defer self.allocator.free(decoded_range);
+
+        // 먼저 현재 토큰으로 시도
+        const result = try self.callSheetsApi(access_token, spreadsheet_id, decoded_range);
+
+        // 401 오류인 경우 토큰 갱신 시도
+        if (std.mem.indexOf(u8, result, "\"error\":true") != null and
+            std.mem.indexOf(u8, result, "401") != null)
+        {
+            if (refresh_token.len > 0) {
+                const new_access_token = try self.auth_service.refreshAccessToken(refresh_token);
+                defer self.allocator.free(new_access_token);
+
+                return try self.callSheetsApi(new_access_token, spreadsheet_id, decoded_range);
+            } else {}
+        }
+
+        return result;
+    }
+
+    fn callSheetsApi(
+        self: *SheetsService,
         access_token: []const u8,
         spreadsheet_id: []const u8,
         range: []const u8,
@@ -18,17 +52,20 @@ pub const SheetService = struct {
         var client: std.http.Client = .{ .allocator = self.allocator };
         defer client.deinit();
 
+        // Range를 URL 인코딩
+        const encoded_range = try self.urlEncode(range);
+        defer self.allocator.free(encoded_range);
+
         const url = try std.fmt.allocPrint(
             self.allocator,
             "https://sheets.googleapis.com/v4/spreadsheets/{s}/values/{s}",
-            .{ spreadsheet_id, range },
+            .{ spreadsheet_id, encoded_range },
         );
         defer self.allocator.free(url);
 
         const uri = try std.Uri.parse(url);
         var server_header_buffer: [16 * 1024]u8 = undefined;
 
-        // Authorization 헤더 추가
         const auth_header = std.http.Header{
             .name = "Authorization",
             .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
@@ -45,47 +82,59 @@ pub const SheetService = struct {
         try req.finish();
         try req.wait();
 
-        // HTTP 상태 코드 확인
         if (req.response.status != .ok) {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            // Google API 에러를 JSON 형태로 반환 (details를 문자열로 이스케이프)
             const escaped_details = try self.escapeJsonString(error_response);
             defer self.allocator.free(escaped_details);
 
-            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}", .{ @intFromEnum(req.response.status), escaped_details });
-            return error_json;
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}",
+                .{ @intFromEnum(req.response.status), escaped_details },
+            );
         }
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
 
-        // 응답이 JSON인지 확인 (간단한 체크)
+        // 응답 유효성 검사
         if (response.len == 0 or response[0] != '{') {
             const escaped_response = try self.escapeJsonString(response);
             defer self.allocator.free(escaped_response);
-
-            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Invalid response format\",\"details\":\"{s}\"}}", .{escaped_response});
             self.allocator.free(response);
-            return error_json;
+
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"error\":true,\"message\":\"Invalid response format\",\"details\":\"{s}\"}}",
+                .{escaped_response},
+            );
         }
 
         return response;
     }
 
     pub fn writeSpreadsheetValues(
-        self: *SheetService,
+        self: *SheetsService,
         access_token: []const u8,
         request_body: []const u8,
     ) ![]u8 {
-        // JSON에서 필요한 값들 추출
+        // 요청 본문에서 필요한 값들 추출
         const spreadsheet_id = self.extractJsonField(request_body, "spreadsheet_id") orelse {
-            return try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Missing spreadsheet_id\"}}", .{});
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"error\":true,\"message\":\"Missing spreadsheet_id\"}}",
+                .{},
+            );
         };
         defer self.allocator.free(spreadsheet_id);
 
         const range = self.extractJsonField(request_body, "range") orelse {
-            return try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Missing range\"}}", .{});
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"error\":true,\"message\":\"Missing range\"}}",
+                .{},
+            );
         };
         defer self.allocator.free(range);
 
@@ -102,7 +151,6 @@ pub const SheetService = struct {
         const uri = try std.Uri.parse(url);
         var server_header_buffer: [16 * 1024]u8 = undefined;
 
-        // Authorization 헤더 추가
         const auth_header = std.http.Header{
             .name = "Authorization",
             .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
@@ -130,30 +178,36 @@ pub const SheetService = struct {
         try req.finish();
         try req.wait();
 
-        // HTTP 상태 코드 확인
         if (req.response.status != .ok) {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            // Google API 에러를 JSON 형태로 반환 (details를 문자열로 이스케이프)
             const escaped_details = try self.escapeJsonString(error_response);
             defer self.allocator.free(escaped_details);
 
-            const error_json = try std.fmt.allocPrint(self.allocator, "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}", .{ @intFromEnum(req.response.status), escaped_details });
-            return error_json;
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}",
+                .{ @intFromEnum(req.response.status), escaped_details },
+            );
         }
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
 
-        // 성공 응답 반환
         if (response.len == 0 or response[0] != '{') {
-            return try std.fmt.allocPrint(self.allocator, "{{\"success\":true,\"message\":\"Data saved successfully\"}}", .{});
+            self.allocator.free(response);
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"success\":true,\"message\":\"Data saved successfully\"}}",
+                .{},
+            );
         }
 
         return response;
     }
 
-    fn extractJsonField(self: *SheetService, json: []const u8, field: []const u8) ?[]u8 {
+    // 헬퍼 메서드들
+    fn extractJsonField(self: *SheetsService, json: []const u8, field: []const u8) ?[]u8 {
         const search_key = std.fmt.allocPrint(self.allocator, "\"{s}\":", .{field}) catch return null;
         defer self.allocator.free(search_key);
 
@@ -179,7 +233,7 @@ pub const SheetService = struct {
         return null;
     }
 
-    fn createSheetsApiBody(self: *SheetService, request_body: []const u8) ![]u8 {
+    fn createSheetsApiBody(self: *SheetsService, request_body: []const u8) ![]u8 {
         // values 필드 추출
         const values_start = std.mem.indexOf(u8, request_body, "\"values\":") orelse {
             return try std.fmt.allocPrint(self.allocator, "{{\"values\":[]}}", .{});
@@ -213,7 +267,7 @@ pub const SheetService = struct {
         return try std.fmt.allocPrint(self.allocator, "{{\"values\":{s}}}", .{values_array});
     }
 
-    fn escapeJsonString(self: *SheetService, input: []const u8) ![]u8 {
+    fn escapeJsonString(self: *SheetsService, input: []const u8) ![]u8 {
         var escaped = std.ArrayList(u8).init(self.allocator);
         defer escaped.deinit();
 
@@ -225,7 +279,6 @@ pub const SheetService = struct {
                 '\r' => try escaped.appendSlice("\\r"),
                 '\t' => try escaped.appendSlice("\\t"),
                 0x00...0x08, 0x0B, 0x0C, 0x0E...0x1F => {
-                    // 다른 제어 문자들은 공백으로 대체
                     try escaped.append(' ');
                 },
                 else => try escaped.append(char),
@@ -233,5 +286,58 @@ pub const SheetService = struct {
         }
 
         return escaped.toOwnedSlice();
+    }
+
+    fn urlDecode(self: *SheetsService, input: []const u8) ![]u8 {
+        var result = std.ArrayList(u8).init(self.allocator);
+        defer result.deinit();
+
+        var i: usize = 0;
+        while (i < input.len) {
+            if (input[i] == '%' and i + 2 < input.len) {
+                // %XX 형태의 인코딩 디코딩
+                const hex_str = input[i + 1 .. i + 3];
+                const decoded_byte = std.fmt.parseInt(u8, hex_str, 16) catch {
+                    try result.append(input[i]);
+                    i += 1;
+                    continue;
+                };
+                try result.append(decoded_byte);
+                i += 3;
+            } else if (input[i] == '+') {
+                // + -> 공백
+                try result.append(' ');
+                i += 1;
+            } else {
+                try result.append(input[i]);
+                i += 1;
+            }
+        }
+
+        return result.toOwnedSlice();
+    }
+
+    fn urlEncode(self: *SheetsService, input: []const u8) ![]u8 {
+        var result = std.ArrayList(u8).init(self.allocator);
+        defer result.deinit();
+
+        for (input) |byte| {
+            switch (byte) {
+                'A'...'Z', 'a'...'z', '0'...'9', '-', '_', '.', '~' => {
+                    try result.append(byte);
+                },
+                ' ' => {
+                    try result.appendSlice("%20");
+                },
+                '!' => {
+                    try result.appendSlice("%21");
+                },
+                else => {
+                    try result.writer().print("%{X:0>2}", .{byte});
+                },
+            }
+        }
+
+        return result.toOwnedSlice();
     }
 };

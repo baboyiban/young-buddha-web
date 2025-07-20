@@ -1,13 +1,11 @@
 import "./style.css";
-import { pageInfo } from "./lib/pageInfo";
+import { pageInfo, router } from "./router";
 import { includeComponent } from "./lib/components";
-import { router } from "./lib/router";
-import {
-  updateNavbarActive,
-} from "./lib/navbar";
+import { updateNavbarActive } from "./lib/navbar";
 import { updateLayoutVisibilityForRoute } from "./lib/visibility";
-import { bindLoginButton } from "./lib/login";
-import { loadHomeSheetData } from "./lib/mission";
+import { setupGoogleLogin } from "./auth";
+import { loadMissionData } from "./pages/mission";
+import { authService } from "./auth/service";
 
 const isDev = false; // 개발 모드
 
@@ -18,10 +16,11 @@ if (isDev) {
   }
 }
 
-// bindFn 할당
-pageInfo["/"].bindFn = loadHomeSheetData;
-pageInfo["/login"].bindFn = bindLoginButton;
+// 페이지별 초기화 함수 할당
+pageInfo["/"].bindFn = loadMissionData;
+pageInfo["/login"].bindFn = setupGoogleLogin;
 
+// 컴포넌트 로드
 includeComponent("navbar", "navbar.html", () => {
   updateNavbarActive();
 });
@@ -32,12 +31,34 @@ includeComponent("payment", "payment.html", () => {
   updateNavbarActive();
 });
 
-router();
-updateLayoutVisibilityForRoute();
-updateNavbarActive();
+// 앱 초기화
+async function initApp(): Promise<void> {
+  // 현재 경로가 로그인 페이지가 아니고, 권한이 필요한 페이지라면 인증 상태 체크
+  const currentPath = location.hash.replace(/^#/, "") || "/";
+  const currentPageInfo = pageInfo[currentPath];
 
-window.addEventListener("hashchange", () => {
-  router();
+  if (
+    currentPath !== "/login" &&
+    currentPageInfo?.roles &&
+    currentPageInfo.roles.length > 0
+  ) {
+    const isAuthenticated = await authService.checkAuthStatus();
+    if (!isAuthenticated) {
+      location.hash = "#/login";
+    }
+  }
+
+  await router();
+  updateLayoutVisibilityForRoute();
+  updateNavbarActive();
+}
+
+// 앱 시작
+initApp();
+
+// 라우트 변경 감지
+window.addEventListener("hashchange", async () => {
+  await router();
   updateLayoutVisibilityForRoute();
   updateNavbarActive();
 });

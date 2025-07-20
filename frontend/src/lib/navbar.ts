@@ -1,4 +1,4 @@
-import { logout } from "./auth";
+import { authService } from "../auth";
 
 export function updateNavbarActive() {
   const hash = location.hash.replace(/^#/, "") || "/";
@@ -18,9 +18,8 @@ export function updateNavbarActive() {
   if (logoutBtn && !logoutBtn.hasAttribute("data-listener-added")) {
     logoutBtn.addEventListener("click", async () => {
       try {
-        await logout();
+        await authService.logout();
       } catch (error) {
-        console.error("로그아웃 오류:", error);
         alert("로그아웃 중 오류가 발생했습니다.");
       }
     });

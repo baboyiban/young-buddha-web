@@ -1,21 +1,14 @@
 const std = @import("std");
 const zap = @import("zap");
-const Router = @import("router/router.zig").Router;
-const registerRoutes = @import("router/router.zig").registerRoutes;
-const OAuthHandler = @import("handler/oauth_handler.zig").OAuthHandler;
-const OAuthController = @import("controller/oauth_controller.zig").OAuthController;
-const OAuthService = @import("service/oauth_service.zig").OAuthService;
-const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
+const Router = @import("web/router.zig").Router;
+const setupRoutes = @import("web/router.zig").setupRoutes;
 const Env = @import("config/env.zig").Env;
-const SheetService = @import("service/sheet_service.zig").SheetService;
-const SheetController = @import("controller/sheet_controller.zig").SheetController;
-const SheetHandler = @import("handler/sheet_handler.zig").SheetHandler;
+const globals = @import("config/globals.zig");
+const auth = @import("auth/mod.zig");
+const sheets = @import("sheets/mod.zig");
+const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 
 pub var global_router: ?Router = null;
-pub var global_oauth_handler: ?*OAuthHandler = null;
-pub var global_static_handler: ?*StaticHandler = null;
-pub var global_jwt_secret: []const u8 = "";
-pub var global_sheet_handler: ?*SheetHandler = null;
 
 fn requestCallback(r: zap.Request) anyerror!void {
     const router = &global_router.?;
@@ -30,28 +23,28 @@ pub fn main() !void {
     var env = try Env.init(allocator);
     defer env.deinit();
 
-    // JWT 시크릿 환경변수에서 읽기
-    const jwt_secret = env.get("JWT_SECRET") orelse return error.MissingJwtSecret;
-    global_jwt_secret = jwt_secret;
+    // 전역 상태 초기화
+    try globals.init(allocator, &env);
 
-    var oauth_service = try OAuthService.init(allocator, env);
-    var oauth_controller = OAuthController.init(&oauth_service, jwt_secret);
-    var oauth_handler = OAuthHandler.init(&oauth_controller);
-    global_oauth_handler = &oauth_handler;
+    // 서비스 초기화
+    var auth_service = try auth.Service.init(allocator, env);
+    var sheets_service = sheets.Service.init(allocator, &auth_service);
 
+    // 컨트롤러 초기화
+    var auth_controller = auth.Controller.init(&auth_service);
+    var sheets_controller = sheets.Controller.init(&sheets_service);
+
+    // 정적 파일 핸들러
     var static_handler = try StaticHandler.init(allocator, env);
     defer static_handler.deinit();
-    global_static_handler = &static_handler;
 
-    var sheet_service = SheetService.init(allocator);
-    var sheet_controller = SheetController.init(&sheet_service, jwt_secret);
-    var sheet_handler = SheetHandler.init(&sheet_controller);
-    global_sheet_handler = &sheet_handler;
+    // 전역 컨트롤러들 설정
+    globals.setControllers(&auth_controller, &sheets_controller, &static_handler);
 
     var router = Router.init(allocator);
     defer router.deinit();
 
-    try registerRoutes(&router);
+    try setupRoutes(&router);
 
     global_router = router;
 

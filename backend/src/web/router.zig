@@ -1,8 +1,9 @@
 const std = @import("std");
 const zap = @import("zap");
-const main = @import("../main.zig");
-const role_guard = @import("../middleware/role_guard.zig");
-const sendErrorJson = @import("../handler/error_handler.zig").sendErrorJson;
+const globals = @import("../config/globals.zig");
+const auth = @import("../auth/mod.zig");
+const sheets = @import("../sheets/mod.zig");
+const StaticHandler = @import("../handler/static_handler.zig").StaticHandler;
 
 pub const HandlerFn = *const fn (zap.Request) anyerror!void;
 
@@ -27,23 +28,21 @@ pub const Router = struct {
         self.routes.deinit();
     }
 
-    pub fn add(self: *Router, method: []const u8, path: []const u8, handler: HandlerFn) !void {
-        try self.routes.append(.{ .method = method, .path = path, .handler = handler });
+    pub fn get(self: *Router, path: []const u8, handler: HandlerFn) !void {
+        try self.routes.append(.{ .method = "GET", .path = path, .handler = handler });
     }
 
-    pub fn get(self: *Router, path: []const u8, handler: HandlerFn) !void {
-        try self.add("GET", path, handler);
-    }
     pub fn post(self: *Router, path: []const u8, handler: HandlerFn) !void {
-        try self.add("POST", path, handler);
+        try self.routes.append(.{ .method = "POST", .path = path, .handler = handler });
     }
+
     pub fn delete(self: *Router, path: []const u8, handler: HandlerFn) !void {
-        try self.add("DELETE", path, handler);
+        try self.routes.append(.{ .method = "DELETE", .path = path, .handler = handler });
     }
 
     pub fn route(self: *Router, r: zap.Request) !void {
         if (r.path) |path| {
-            // API 라우트 먼저 확인
+            // API 라우트 확인
             for (self.routes.items) |rt| {
                 if (std.mem.eql(u8, path, rt.path) and std.mem.eql(u8, r.method.?, rt.method)) {
                     try rt.handler(r);
@@ -51,44 +50,60 @@ pub const Router = struct {
                 }
             }
 
-            // API 라우트가 없으면 정적 파일 서빙
+            // 정적 파일 서빙
             if (!std.mem.startsWith(u8, path, "/api/")) {
-                try handleStatic(r);
+                try globals.static_handler.?.serve(r);
                 return;
             }
         }
-        return try sendErrorJson(std.heap.page_allocator, r, 404, "Not found");
+
+        // 404 에러
+        const error_json = try std.fmt.allocPrint(
+            globals.allocator,
+            "{{\"error\":true,\"message\":\"Not found\"}}",
+            .{},
+        );
+        defer globals.allocator.free(error_json);
+
+        r.setStatusNumeric(404);
+        try r.setHeader("Content-Type", "application/json; charset=utf-8");
+        try r.sendBody(error_json);
     }
 };
 
-// 전역 핸들러 인스턴스를 사용하는 함수
+// 라우트 핸들러들
 fn handleGoogleAuth(r: zap.Request) anyerror!void {
-    try main.global_oauth_handler.?.handleGoogleAuth(r);
-}
-fn handleGoogleCallback(r: zap.Request) anyerror!void {
-    try main.global_oauth_handler.?.handleGoogleCallback(r);
-}
-fn handleMe(r: zap.Request) anyerror!void {
-    try main.global_oauth_handler.?.handleMe(r);
-}
-fn handleLogout(r: zap.Request) anyerror!void {
-    try main.global_oauth_handler.?.handleLogout(r);
-}
-fn handleStatic(r: zap.Request) anyerror!void {
-    try main.global_static_handler.?.serve(r);
-}
-fn handleReadSheet(r: zap.Request) anyerror!void {
-    try main.global_sheet_handler.?.handleReadSheet(r);
-}
-fn handleWriteSheet(r: zap.Request) anyerror!void {
-    try main.global_sheet_handler.?.handleWriteSheet(r);
+    try globals.auth_controller.?.googleAuth(r);
 }
 
-pub fn registerRoutes(router: *Router) !void {
+fn handleGoogleCallback(r: zap.Request) anyerror!void {
+    try globals.auth_controller.?.googleCallback(r);
+}
+
+fn handleMe(r: zap.Request) anyerror!void {
+    try globals.auth_controller.?.me(r);
+}
+
+fn handleLogout(r: zap.Request) anyerror!void {
+    try globals.auth_controller.?.logout(r);
+}
+
+fn handleReadSheet(r: zap.Request) anyerror!void {
+    try globals.sheets_controller.?.readSheet(r);
+}
+
+fn handleWriteSheet(r: zap.Request) anyerror!void {
+    try globals.sheets_controller.?.writeSheet(r);
+}
+
+pub fn setupRoutes(router: *Router) !void {
+    // 인증 라우트
     try router.post("/api/auth/google", handleGoogleAuth);
     try router.get("/api/auth/google/callback", handleGoogleCallback);
-    try router.get("/api/auth/me", role_guard.AuthRequired(&.{ "user", "admin" }, handleMe));
-    try router.delete("/api/auth/current", role_guard.AuthRequired(&.{ "user", "admin" }, handleLogout));
-    try router.get("/api/sheet/read", role_guard.AuthRequired(&.{ "user", "admin" }, handleReadSheet));
-    try router.post("/api/sheet/write", role_guard.AuthRequired(&.{ "user", "admin" }, handleWriteSheet));
+    try router.get("/api/auth/me", handleMe);
+    try router.delete("/api/auth/current", auth.Middleware.AuthRequired(&.{ "user", "admin" }, handleLogout));
+
+    // 시트 라우트
+    try router.get("/api/sheet/read", handleReadSheet);
+    try router.post("/api/sheet/write", handleWriteSheet);
 }

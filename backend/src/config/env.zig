@@ -40,4 +40,23 @@ pub const Env = struct {
     pub fn get(self: Env, key: []const u8) ?[]const u8 {
         return self.vars.get(key);
     }
+
+    pub fn getBool(self: Env, key: []const u8, default: bool) bool {
+        const value = self.get(key) orelse return default;
+        return std.mem.eql(u8, value, "true") or std.mem.eql(u8, value, "1");
+    }
+
+    pub fn getInt(self: Env, key: []const u8, comptime T: type, default: T) T {
+        const value = self.get(key) orelse return default;
+        return std.fmt.parseInt(T, value, 10) catch default;
+    }
+
+    pub fn isProduction(self: Env) bool {
+        const node_env = self.get("NODE_ENV") orelse "development";
+        return std.mem.eql(u8, node_env, "production");
+    }
+
+    pub fn isDevelopment(self: Env) bool {
+        return !self.isProduction();
+    }
 };
