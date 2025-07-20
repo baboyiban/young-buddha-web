@@ -16,14 +16,16 @@ export async function loadMissionData(): Promise<void> {
   resultDiv.innerHTML = "데이터를 불러오는 중...";
 
   try {
-    // 임시로 고정된 행 사용 (테스트용)
-    const testRow = 159; // 데이터가 있는 것으로 알려진 행
+    // 현재 날짜에 맞는 행 계산 (2025년 7월 17일이 159행)
+    const today = new Date();
+    const baseDate = new Date('2025-07-17');
+    const daysDiff = Math.floor((today.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
+    const currentRow = 159 + daysDiff;
 
     const config: SpreadsheetConfig = {
       spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
-      range: `[NEW] 생활소임_2학기!A${testRow}:R${testRow}`,
+      range: `[NEW] 생활소임_2학기!A${currentRow}:R${currentRow}`,
     };
-
 
     const data = await sheetsService.readSpreadsheet(config);
 
