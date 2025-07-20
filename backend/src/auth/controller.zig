@@ -75,23 +75,11 @@ pub const AuthController = struct {
             .secure = globals.isProduction(),
         });
 
-        // 팝업 닫기용 HTML
-        const close_html =
-            \\<!DOCTYPE html>
-            \\<html>
-            \\<body>
-            \\<script>
-            \\window.opener && window.opener.postMessage({type:'LOGIN_SUCCESS'},'*');
-            \\window.close();
-            \\</script>
-            \\<p>로그인 성공! 창을 닫습니다...</p>
-            \\</body>
-            \\</html>
-        ;
-
-        r.setStatusNumeric(200);
-        try r.setHeader("Content-Type", "text/html; charset=utf-8");
-        try r.sendBody(close_html);
+        // 메인 페이지로 리다이렉트
+        const redirect_url = "/?login=success";
+        try r.setHeader("Location", redirect_url);
+        r.setStatusNumeric(302);
+        try r.sendBody("");
     }
 
     pub fn me(self: *AuthController, r: zap.Request) !void {
