@@ -6,7 +6,9 @@ export function hasRequiredRole(user: any, requiredRoles?: string[]) {
 
 export async function getCurrentUser() {
   const res = await fetch("/api/auth/me", { credentials: "include" });
-  if (!res.ok) throw new Error("Not authenticated");
+  if (!res.ok || res.status === 401 || res.status === 403) {
+    throw new Error("Not authenticated");
+  }
   const user = await res.json();
   user.roles = user.role ? [user.role] : [];
   return user;
