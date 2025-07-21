@@ -102,6 +102,6 @@ pub fn setupRoutes(router: *Router) !void {
     try router.delete("/api/auth/current", auth.Middleware.AuthRequired(&.{ "user", "admin" }, handleLogout));
 
     // 시트 라우트
-    try router.get("/api/sheet/read", handleReadSheet);
-    try router.post("/api/sheet/write", handleWriteSheet);
+    try router.get("/api/sheets/read", handleReadSheet);
+    try router.post("/api/sheets/write", handleWriteSheet);
 }
