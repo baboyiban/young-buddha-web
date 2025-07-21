@@ -3,6 +3,7 @@ const zap = @import("zap");
 const User = @import("../model/user.zig").User;
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
+const json_util = @import("../util/json.zig");
 
 pub fn getUserFromRequest(r: anytype) ?User {
     r.parseCookies(false);
@@ -15,11 +16,11 @@ pub fn getUserFromRequest(r: anytype) ?User {
         defer globals.allocator.free(payload);
 
         return User{
-            .id = extractJsonString(payload, "\"sub\":\"") orelse "",
-            .name = extractJsonString(payload, "\"name\":\"") orelse "",
-            .email = extractJsonString(payload, "\"email\":\"") orelse "",
+            .id = json_util.extractJsonString(payload, "\"sub\":\"") orelse "",
+            .name = json_util.extractJsonString(payload, "\"name\":\"") orelse "",
+            .email = json_util.extractJsonString(payload, "\"email\":\"") orelse "",
             .picture = null,
-            .role = extractJsonString(payload, "\"role\":\"") orelse "",
+            .role = json_util.extractJsonString(payload, "\"role\":\"") orelse "",
         };
     }
     return null;
@@ -52,15 +53,4 @@ pub fn AuthRequired(
         }
     };
     return Handler.thunk;
-}
-
-fn extractJsonString(json: []const u8, key: []const u8) ?[]const u8 {
-    if (std.mem.indexOf(u8, json, key)) |start| {
-        const val_start = start + key.len;
-        if (val_start >= json.len) return null;
-        var val_end = val_start;
-        while (val_end < json.len and json[val_end] != '"') : (val_end += 1) {}
-        return json[val_start..val_end];
-    }
-    return null;
 }

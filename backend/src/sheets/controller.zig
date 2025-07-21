@@ -6,6 +6,7 @@ const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const error_handler = @import("../handler/error_handler.zig");
+const json_util = @import("../util/json.zig");
 
 pub const SheetsController = struct {
     service: *Service,
@@ -85,11 +86,11 @@ pub const SheetsController = struct {
         };
         defer self.service.allocator.free(payload);
 
-        const access_token = self.extractJsonString(payload, "\"access_token\":\"") orelse {
+        const access_token = json_util.extractJsonString(payload, "\"access_token\":\"") orelse {
             return error.NoAccessToken;
         };
 
-        const refresh_token = self.extractJsonString(payload, "\"refresh_token\":\"") orelse "";
+        const refresh_token = json_util.extractJsonString(payload, "\"refresh_token\":\"") orelse "";
 
         return TokenPair{
             .access_token = try self.service.allocator.dupe(u8, access_token),
@@ -124,16 +125,5 @@ pub const SheetsController = struct {
 
     fn sendError(self: *SheetsController, r: zap.Request, status: u16, code: []const u8, message: []const u8) !void {
         try error_handler.sendErrorJson(self.service.allocator, r, status, code, message);
-    }
-
-    fn extractJsonString(_: *SheetsController, json: []const u8, key: []const u8) ?[]const u8 {
-        if (std.mem.indexOf(u8, json, key)) |start| {
-            const val_start = start + key.len;
-            if (val_start >= json.len) return null;
-            var val_end = val_start;
-            while (val_end < json.len and json[val_end] != '"') : (val_end += 1) {}
-            return json[val_start..val_end];
-        }
-        return null;
     }
 };

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const auth = @import("../auth/service.zig");
+const json_util = @import("../util/json.zig");
 
 pub const SheetsService = struct {
     allocator: std.mem.Allocator,
@@ -52,7 +53,6 @@ pub const SheetsService = struct {
         var client: std.http.Client = .{ .allocator = self.allocator };
         defer client.deinit();
 
-        // Range를 URL 인코딩
         const encoded_range = try self.urlEncode(range);
         defer self.allocator.free(encoded_range);
 
@@ -86,7 +86,7 @@ pub const SheetsService = struct {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            const escaped_details = try self.escapeJsonString(error_response);
+            const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
             defer self.allocator.free(escaped_details);
 
             return try std.fmt.allocPrint(
@@ -98,9 +98,8 @@ pub const SheetsService = struct {
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
 
-        // 응답 유효성 검사
         if (response.len == 0 or response[0] != '{') {
-            const escaped_response = try self.escapeJsonString(response);
+            const escaped_response = try json_util.escapeJsonString(self.allocator, response);
             defer self.allocator.free(escaped_response);
             self.allocator.free(response);
 
@@ -182,7 +181,7 @@ pub const SheetsService = struct {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            const escaped_details = try self.escapeJsonString(error_response);
+            const escaped_details = try json_util.escapeJsonString(error_response);
             defer self.allocator.free(escaped_details);
 
             return try std.fmt.allocPrint(
@@ -207,34 +206,7 @@ pub const SheetsService = struct {
     }
 
     // 헬퍼 메서드들
-    fn extractJsonField(self: *SheetsService, json: []const u8, field: []const u8) ?[]u8 {
-        const search_key = std.fmt.allocPrint(self.allocator, "\"{s}\":", .{field}) catch return null;
-        defer self.allocator.free(search_key);
-
-        if (std.mem.indexOf(u8, json, search_key)) |start| {
-            const val_start = start + search_key.len;
-            if (val_start >= json.len) return null;
-
-            // 공백 건너뛰기
-            var i = val_start;
-            while (i < json.len and (json[i] == ' ' or json[i] == '\t' or json[i] == '\n')) : (i += 1) {}
-
-            if (i >= json.len) return null;
-
-            if (json[i] == '"') {
-                // 문자열 값
-                i += 1;
-                const str_start = i;
-                while (i < json.len and json[i] != '"') : (i += 1) {}
-                if (i >= json.len) return null;
-                return std.fmt.allocPrint(self.allocator, "{s}", .{json[str_start..i]}) catch null;
-            }
-        }
-        return null;
-    }
-
     fn createSheetsApiBody(self: *SheetsService, request_body: []const u8) ![]u8 {
-        // values 필드 추출
         const values_start = std.mem.indexOf(u8, request_body, "\"values\":") orelse {
             return try std.fmt.allocPrint(self.allocator, "{{\"values\":[]}}", .{});
         };
@@ -243,7 +215,6 @@ pub const SheetsService = struct {
         var bracket_count: i32 = 0;
         var i = values_json_start;
 
-        // 공백 건너뛰기
         while (i < request_body.len and (request_body[i] == ' ' or request_body[i] == '\t' or request_body[i] == '\n')) : (i += 1) {}
 
         if (i >= request_body.len or request_body[i] != '[') {
@@ -265,27 +236,6 @@ pub const SheetsService = struct {
 
         const values_array = request_body[array_start..i];
         return try std.fmt.allocPrint(self.allocator, "{{\"values\":{s}}}", .{values_array});
-    }
-
-    fn escapeJsonString(self: *SheetsService, input: []const u8) ![]u8 {
-        var escaped = std.ArrayList(u8).init(self.allocator);
-        defer escaped.deinit();
-
-        for (input) |char| {
-            switch (char) {
-                '"' => try escaped.appendSlice("\\\""),
-                '\\' => try escaped.appendSlice("\\\\"),
-                '\n' => try escaped.appendSlice("\\n"),
-                '\r' => try escaped.appendSlice("\\r"),
-                '\t' => try escaped.appendSlice("\\t"),
-                0x00...0x08, 0x0B, 0x0C, 0x0E...0x1F => {
-                    try escaped.append(' ');
-                },
-                else => try escaped.append(char),
-            }
-        }
-
-        return escaped.toOwnedSlice();
     }
 
     fn urlDecode(self: *SheetsService, input: []const u8) ![]u8 {
