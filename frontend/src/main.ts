@@ -1,12 +1,12 @@
 import "./style.css";
 import { router, pageInfo } from "./router";
-import { includeComponent } from "./lib";
 import { updateNavbarActive } from "./lib/navbar";
 import { updateLayoutVisibilityForRoute } from "./lib/visibility";
 import { setupGoogleLogin } from "./auth";
 import { loadMissionData } from "./pages/mission";
 import { authService } from "./auth/service";
 import { ROUTES } from "./config";
+import { includeComponent } from "./lib/components";
 
 // 페이지별 초기화 함수 할당
 pageInfo[ROUTES.HOME].bindFn = loadMissionData;

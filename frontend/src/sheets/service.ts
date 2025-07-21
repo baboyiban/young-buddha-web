@@ -1,6 +1,6 @@
 import { apiClient } from "../api/client";
 import { authService } from "../auth/service";
-import { handleAuthError } from "../lib";
+import { handleAuthError } from "../lib/error";
 import { type SpreadsheetConfig, type SpreadsheetData } from "../types";
 
 interface CacheEntry {

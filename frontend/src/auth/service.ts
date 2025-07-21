@@ -1,8 +1,8 @@
 import { apiClient } from "../api/client";
-import { handleAuthError } from "../lib";
 import { API_ENDPOINTS } from "../lib/constants";
 import { STORAGE_KEYS } from "../config";
 import type { AuthResponse, User } from "../types";
+import { handleAuthError } from "../lib/error";
 
 export class AuthService {
   async getCurrentUser(): Promise<User> {
