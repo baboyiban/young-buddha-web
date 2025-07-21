@@ -99,7 +99,7 @@ pub fn setupRoutes(router: *Router) !void {
     try router.post("/api/auth/google", handleGoogleAuth);
     try router.get("/api/auth/google/callback", handleGoogleCallback);
     try router.get("/api/auth/me", handleMe);
-    try router.delete("/api/auth/current", auth.Middleware.AuthRequired(&.{ "user", "admin" }, handleLogout));
+    try router.delete("/api/auth/current", handleLogout);
 
     // 시트 라우트
     try router.get("/api/sheets/read", handleReadSheet);
