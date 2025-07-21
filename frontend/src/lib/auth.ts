@@ -25,13 +25,11 @@ export class AuthService {
   async logout(): Promise<void> {
     try {
       await apiClient.delete(API_ENDPOINTS.AUTH.LOGOUT);
-      document.cookie = `jwt=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
     } catch (error) {
       console.error("로그아웃 중 오류:", error);
-    } finally {
-      this.clearAuthData();
-      this.redirectToLogin();
     }
+    this.clearAuthData();
+    location.hash = "#/login";
   }
 
   clearAuthData(): void {
@@ -42,15 +40,10 @@ export class AuthService {
     document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-      if (name.includes("token") || name.includes("auth")) {
+      if (name.includes("token") || name.includes("auth") || name === "jwt") {
         document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
       }
     });
-  }
-
-  redirectToLogin(): void {
-    location.hash = "#/login";
-    setTimeout(() => location.reload(), 100);
   }
 
   static getJwtFromCookie(): string | null {
