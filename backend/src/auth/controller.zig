@@ -5,6 +5,7 @@ const User = @import("../model/user.zig").User;
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const constants = @import("../config/constants.zig");
+const error_handler = @import("../handler/error_handler.zig");
 
 pub const AuthController = struct {
     service: *Service,
@@ -36,30 +37,30 @@ pub const AuthController = struct {
         r.parseCookies(false);
 
         const code = self.service.getQueryParam(r, "code") catch {
-            return self.sendError(r, 400, "Missing authorization code");
+            return self.sendError(r, 400, "MISSING_AUTH_CODE", "Missing authorization code");
         };
         const state = self.service.getQueryParam(r, "state") catch {
-            return self.sendError(r, 400, "Missing state parameter");
+            return self.sendError(r, 400, "MISSING_STATE", "Missing state parameter");
         };
 
         const saved_state = self.service.getSessionCookie(r, constants.OAUTH_STATE_COOKIE_NAME) orelse {
-            return self.sendError(r, 401, "Invalid session: no state cookie");
+            return self.sendError(r, 401, "INVALID_SESSION", "Invalid session: no state cookie");
         };
 
         if (!std.mem.eql(u8, state, saved_state)) {
-            return self.sendError(r, 401, "State mismatch");
+            return self.sendError(r, 401, "STATE_MISMATCH", "State mismatch");
         }
 
         // Google에서 토큰 교환
         const tokens = self.service.exchangeGoogleCode(code) catch {
-            return self.sendError(r, 500, "Failed to exchange authorization code");
+            return self.sendError(r, 500, "EXCHANGE_FAILED", "Failed to exchange authorization code");
         };
         defer self.service.allocator.free(tokens.access_token);
         defer if (tokens.refresh_token.len > 0) self.service.allocator.free(tokens.refresh_token);
 
         // 사용자 정보 가져오기
         const user = self.service.getGoogleUserInfo(tokens.access_token) catch {
-            return self.sendError(r, 500, "Failed to get user info");
+            return self.sendError(r, 500, "USERINFO_FAILED", "Failed to get user info");
         };
 
         // JWT 생성 및 쿠키 설정
@@ -88,14 +89,11 @@ pub const AuthController = struct {
 
         if (jwt_cookie) |token| {
             const payload = jwt.verifyJwt(self.service.allocator, token, globals.jwt_secret) catch |err| {
-                const error_response = switch (err) {
-                    error.TokenExpired => "{\"error\":true,\"message\":\"Token expired\",\"code\":\"TOKEN_EXPIRED\"}",
-                    error.InvalidSignature => "{\"error\":true,\"message\":\"Invalid token\",\"code\":\"INVALID_TOKEN\"}",
-                    else => "{\"error\":true,\"message\":\"Invalid token\",\"code\":\"INVALID_TOKEN\"}",
-                };
-
-                r.setStatusNumeric(401);
-                try r.sendBody(error_response);
+                switch (err) {
+                    error.TokenExpired => try self.sendError(r, 401, "TOKEN_EXPIRED", "Token expired"),
+                    error.InvalidSignature => try self.sendError(r, 401, "INVALID_TOKEN", "Invalid token"),
+                    else => try self.sendError(r, 401, "INVALID_TOKEN", "Invalid token"),
+                }
                 return;
             };
             defer self.service.allocator.free(payload);
@@ -156,15 +154,8 @@ pub const AuthController = struct {
         try r.sendBody(json);
     }
 
-    fn sendError(self: *AuthController, r: zap.Request, status: u16, message: []const u8) !void {
-        const error_json = try std.fmt.allocPrint(
-            self.service.allocator,
-            "{{\"error\":true,\"message\":\"{s}\"}}",
-            .{message},
-        );
-        defer self.service.allocator.free(error_json);
-
-        try self.sendJson(r, status, error_json);
+    fn sendError(self: *AuthController, r: zap.Request, status: u16, code: []const u8, message: []const u8) !void {
+        try error_handler.sendErrorJson(self.service.allocator, r, status, code, message);
     }
 
     fn extractJsonString(_: *AuthController, json: []const u8, key: []const u8) ?[]const u8 {

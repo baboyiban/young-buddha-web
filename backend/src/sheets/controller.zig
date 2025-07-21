@@ -5,6 +5,7 @@ const auth = @import("../auth/middleware.zig");
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
+const error_handler = @import("../handler/error_handler.zig");
 
 pub const SheetsController = struct {
     service: *Service,
@@ -27,14 +28,14 @@ pub const SheetsController = struct {
 
         // 쿼리 파라미터 추출
         const spreadsheet_id = self.getQueryParam(r, "spreadsheet_id") catch {
-            return self.sendError(r, 400, "Missing spreadsheet_id parameter");
+            return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", "Missing spreadsheet_id parameter");
         };
         const range = self.getQueryParam(r, "range") catch {
-            return self.sendError(r, 400, "Missing range parameter");
+            return self.sendError(r, 400, "MISSING_RANGE", "Missing range parameter");
         };
 
         const values_json = self.service.getSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range) catch {
-            return self.sendError(r, 500, "Failed to read spreadsheet data");
+            return self.sendError(r, 500, "READ_FAILED", "Failed to read spreadsheet data");
         };
         defer self.service.allocator.free(values_json);
 
@@ -55,12 +56,12 @@ pub const SheetsController = struct {
 
         // 요청 본문 확인
         const body = r.body orelse {
-            return self.sendError(r, 400, "Missing request body");
+            return self.sendError(r, 400, "MISSING_BODY", "Missing request body");
         };
 
         // Google Sheets API 호출
         const response_json = self.service.writeSpreadsheetValues(tokens.access_token, body) catch {
-            return self.sendError(r, 500, "Failed to write spreadsheet data");
+            return self.sendError(r, 500, "WRITE_FAILED", "Failed to write spreadsheet data");
         };
         defer self.service.allocator.free(response_json);
 
@@ -105,17 +106,14 @@ pub const SheetsController = struct {
         return error.ParamNotFound;
     }
 
-    fn handleAuthError(_: *SheetsController, r: zap.Request, err: anyerror) !void {
-        const error_response = switch (err) {
-            error.TokenExpired => "{\"error\":true,\"message\":\"Token expired\",\"code\":\"TOKEN_EXPIRED\"}",
-            error.InvalidSignature => "{\"error\":true,\"message\":\"Invalid token\",\"code\":\"INVALID_TOKEN\"}",
-            error.NoToken => "{\"error\":true,\"message\":\"Not logged in\",\"code\":\"NO_TOKEN\"}",
-            error.NoAccessToken => "{\"error\":true,\"message\":\"No access token in JWT\",\"code\":\"NO_ACCESS_TOKEN\"}",
-            else => "{\"error\":true,\"message\":\"Authentication failed\",\"code\":\"AUTH_FAILED\"}",
-        };
-
-        r.setStatusNumeric(401);
-        try r.sendBody(error_response);
+    fn handleAuthError(self: *SheetsController, r: zap.Request, err: anyerror) !void {
+        switch (err) {
+            error.TokenExpired => try self.sendError(r, 401, "TOKEN_EXPIRED", "Token expired"),
+            error.InvalidSignature => try self.sendError(r, 401, "INVALID_TOKEN", "Invalid token"),
+            error.NoToken => try self.sendError(r, 401, "NO_TOKEN", "Not logged in"),
+            error.NoAccessToken => try self.sendError(r, 401, "NO_ACCESS_TOKEN", "No access token in JWT"),
+            else => try self.sendError(r, 401, "AUTH_FAILED", "Authentication failed"),
+        }
     }
 
     fn sendJson(_: *SheetsController, r: zap.Request, status: u16, json: []const u8) !void {
@@ -124,15 +122,8 @@ pub const SheetsController = struct {
         try r.sendBody(json);
     }
 
-    fn sendError(self: *SheetsController, r: zap.Request, status: u16, message: []const u8) !void {
-        const error_json = try std.fmt.allocPrint(
-            self.service.allocator,
-            "{{\"error\":true,\"message\":\"{s}\"}}",
-            .{message},
-        );
-        defer self.service.allocator.free(error_json);
-
-        try self.sendJson(r, status, error_json);
+    fn sendError(self: *SheetsController, r: zap.Request, status: u16, code: []const u8, message: []const u8) !void {
+        try error_handler.sendErrorJson(self.service.allocator, r, status, code, message);
     }
 
     fn extractJsonString(_: *SheetsController, json: []const u8, key: []const u8) ?[]const u8 {

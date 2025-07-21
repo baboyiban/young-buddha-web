@@ -15,7 +15,6 @@ pageInfo[ROUTES.LOGIN].bindFn = setupGoogleLogin;
 // 컴포넌트 로드
 includeComponent("navbar", "navbar.html", updateNavbarActive);
 includeComponent("footer", "footer.html", updateNavbarActive);
-includeComponent("payment", "payment.html", updateNavbarActive);
 
 // 앱 초기화
 async function initApp(): Promise<void> {
@@ -25,7 +24,8 @@ async function initApp(): Promise<void> {
   // 권한 체크 및 리다이렉션
   if (
     currentPath !== ROUTES.LOGIN &&
-    currentPageInfo?.roles && currentPageInfo.roles.length > 0
+    currentPageInfo?.roles &&
+    currentPageInfo.roles.length > 0
   ) {
     const isAuthenticated = await authService.checkAuthStatus();
     if (!isAuthenticated) {
