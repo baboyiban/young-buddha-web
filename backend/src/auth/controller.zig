@@ -86,6 +86,7 @@ pub const AuthController = struct {
         const jwt_cookie = r.getCookieStr(self.service.allocator, "jwt") catch null;
 
         if (jwt_cookie) |token| {
+            defer self.service.allocator.free(token);
             const payload = jwt.verifyJwt(self.service.allocator, token, globals.jwt_secret) catch |err| {
                 switch (err) {
                     error.TokenExpired => try self.sendError(r, 401, "TOKEN_EXPIRED", "Token expired"),

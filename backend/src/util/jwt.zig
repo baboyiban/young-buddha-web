@@ -24,16 +24,16 @@ pub fn base64UrlEncode(allocator: std.mem.Allocator, input: []const u8) !struct 
 pub fn base64UrlDecode(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
     // - → +, _ → /
     const buf = try allocator.dupe(u8, input);
+    defer allocator.free(buf);
     for (buf) |*c| {
         if (c.* == '-') c.* = '+' else if (c.* == '_') c.* = '/';
     }
     // 패딩 추가
     const pad = (4 - (buf.len % 4)) % 4;
     const padded = try allocator.alloc(u8, buf.len + pad);
+    defer allocator.free(padded);
     std.mem.copyForwards(u8, padded, buf);
     for (padded[buf.len..]) |*c| c.* = '=';
-
-    defer allocator.free(buf);
 
     // Calculate decoded length
     const decoder = std.base64.standard.Decoder;
