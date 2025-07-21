@@ -7,6 +7,7 @@ const globals = @import("../config/globals.zig");
 const constants = @import("../config/constants.zig");
 const error_handler = @import("../handler/error_handler.zig");
 const json_util = @import("../util/json.zig");
+const errors = @import("../config/errors.zig").Errors;
 
 pub const AuthController = struct {
     service: *Service,
@@ -38,28 +39,28 @@ pub const AuthController = struct {
         r.parseCookies(false);
 
         const code = self.service.getQueryParam(r, "code") catch {
-            return self.sendError(r, 400, "MISSING_AUTH_CODE", "Missing authorization code");
+            return self.sendError(r, 400, "MISSING_AUTH_CODE", errors.MissingAuthCode);
         };
         const state = self.service.getQueryParam(r, "state") catch {
-            return self.sendError(r, 400, "MISSING_STATE", "Missing state parameter");
+            return self.sendError(r, 400, "MISSING_STATE", errors.MissingState);
         };
 
         const saved_state = self.service.getSessionCookie(r, constants.OAUTH_STATE_COOKIE_NAME) orelse {
-            return self.sendError(r, 401, "INVALID_SESSION", "Invalid session: no state cookie");
+            return self.sendError(r, 401, "INVALID_SESSION", errors.InvalidSession);
         };
 
         if (!std.mem.eql(u8, state, saved_state)) {
-            return self.sendError(r, 401, "STATE_MISMATCH", "State mismatch");
+            return self.sendError(r, 401, "STATE_MISMATCH", errors.StateMismatch);
         }
 
         const tokens = self.service.exchangeGoogleCode(code) catch {
-            return self.sendError(r, 500, "EXCHANGE_FAILED", "Failed to exchange authorization code");
+            return self.sendError(r, 500, "EXCHANGE_FAILED", errors.ExchangeFailed);
         };
         defer self.service.allocator.free(tokens.access_token);
         defer if (tokens.refresh_token.len > 0) self.service.allocator.free(tokens.refresh_token);
 
         const user = self.service.getGoogleUserInfo(tokens.access_token) catch {
-            return self.sendError(r, 500, "USERINFO_FAILED", "Failed to get user info");
+            return self.sendError(r, 500, "USERINFO_FAILED", errors.UserInfoFailed);
         };
 
         const jwt_token = try self.createUserJwt(user, tokens);

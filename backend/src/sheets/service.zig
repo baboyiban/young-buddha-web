@@ -119,7 +119,7 @@ pub const SheetsService = struct {
         request_body: []const u8,
     ) ![]u8 {
         // 요청 본문에서 필요한 값들 추출
-        const spreadsheet_id = self.extractJsonField(request_body, "spreadsheet_id") orelse {
+        const spreadsheet_id = json_util.extractJsonString(request_body, "\"spreadsheet_id\":") orelse {
             return try std.fmt.allocPrint(
                 self.allocator,
                 "{{\"error\":true,\"message\":\"Missing spreadsheet_id\"}}",
@@ -128,7 +128,7 @@ pub const SheetsService = struct {
         };
         defer self.allocator.free(spreadsheet_id);
 
-        const range = self.extractJsonField(request_body, "range") orelse {
+        const range = json_util.extractJsonString(request_body, "\"range\":") orelse {
             return try std.fmt.allocPrint(
                 self.allocator,
                 "{{\"error\":true,\"message\":\"Missing range\"}}",
@@ -181,7 +181,7 @@ pub const SheetsService = struct {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
 
-            const escaped_details = try json_util.escapeJsonString(error_response);
+            const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
             defer self.allocator.free(escaped_details);
 
             return try std.fmt.allocPrint(

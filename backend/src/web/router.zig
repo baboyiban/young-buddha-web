@@ -4,6 +4,7 @@ const globals = @import("../config/globals.zig");
 const auth = @import("../auth/mod.zig");
 const sheets = @import("../sheets/mod.zig");
 const StaticHandler = @import("../handler/static_handler.zig").StaticHandler;
+const errors = @import("../config/errors.zig").Errors;
 
 pub const HandlerFn = *const fn (zap.Request) anyerror!void;
 
@@ -42,7 +43,6 @@ pub const Router = struct {
 
     pub fn route(self: *Router, r: zap.Request) !void {
         if (r.path) |path| {
-            // API 라우트 확인
             for (self.routes.items) |rt| {
                 if (std.mem.eql(u8, path, rt.path) and std.mem.eql(u8, r.method.?, rt.method)) {
                     try rt.handler(r);
@@ -50,18 +50,16 @@ pub const Router = struct {
                 }
             }
 
-            // 정적 파일 서빙
             if (!std.mem.startsWith(u8, path, "/api/")) {
                 try globals.static_handler.?.serve(r);
                 return;
             }
         }
 
-        // 404 에러
         const error_json = try std.fmt.allocPrint(
             globals.allocator,
-            "{{\"error\":true,\"message\":\"Not found\"}}",
-            .{},
+            "{{\"error\":true,\"message\":\"{s}\"}}",
+            .{errors.NotFound},
         );
         defer globals.allocator.free(error_json);
 

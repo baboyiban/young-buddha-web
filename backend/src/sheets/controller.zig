@@ -7,6 +7,7 @@ const globals = @import("../config/globals.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const error_handler = @import("../handler/error_handler.zig");
 const json_util = @import("../util/json.zig");
+const errors = @import("../config/errors.zig").Errors;
 
 pub const SheetsController = struct {
     service: *Service,
@@ -16,7 +17,6 @@ pub const SheetsController = struct {
     }
 
     pub fn readSheet(self: *SheetsController, r: zap.Request) !void {
-        // JWT에서 access_token과 refresh_token 추출
         const tokens = self.getTokensFromJwt(r) catch |err| {
             return self.handleAuthError(r, err);
         };
@@ -27,16 +27,15 @@ pub const SheetsController = struct {
             }
         }
 
-        // 쿼리 파라미터 추출
         const spreadsheet_id = self.getQueryParam(r, "spreadsheet_id") catch {
-            return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", "Missing spreadsheet_id parameter");
+            return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", errors.MissingSpreadsheetId);
         };
         const range = self.getQueryParam(r, "range") catch {
-            return self.sendError(r, 400, "MISSING_RANGE", "Missing range parameter");
+            return self.sendError(r, 400, "MISSING_RANGE", errors.MissingRange);
         };
 
         const values_json = self.service.getSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range) catch {
-            return self.sendError(r, 500, "READ_FAILED", "Failed to read spreadsheet data");
+            return self.sendError(r, 500, "READ_FAILED", errors.ReadFailed);
         };
         defer self.service.allocator.free(values_json);
 
