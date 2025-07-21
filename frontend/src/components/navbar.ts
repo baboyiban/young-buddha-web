@@ -1,18 +1,6 @@
 import { authService } from "../lib/auth";
 
-export function updateNavbarActive() {
-  const hash = location.hash.replace(/^#/, "") || "/";
-  const navbar = document.getElementById("navbar");
-  if (!navbar) return;
-  const links = navbar.querySelectorAll("a[data-path]");
-  links.forEach((link) => {
-    if ((link as HTMLElement).getAttribute("data-path") === hash) {
-      link.classList.add("purple");
-    } else {
-      link.classList.remove("purple");
-    }
-  });
-
+function setupLogoutButton() {
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn && !logoutBtn.hasAttribute("data-listener-added")) {
     logoutBtn.addEventListener("click", async () => {
@@ -24,4 +12,19 @@ export function updateNavbarActive() {
     });
     logoutBtn.setAttribute("data-listener-added", "true");
   }
+}
+
+export function updateNavbar() {
+  const hash = location.hash.replace(/^#/, "") || "/";
+  const navbar = document.getElementById("navbar");
+  if (!navbar) return;
+  const links = navbar.querySelectorAll("a[data-path]");
+  links.forEach((link) => {
+    if ((link as HTMLElement).getAttribute("data-path") === hash) {
+      link.classList.add("purple");
+    } else {
+      link.classList.remove("purple");
+    }
+  });
+  setupLogoutButton();
 }

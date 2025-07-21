@@ -2,7 +2,7 @@ import "./style.css";
 import { updateLayoutVisibilityForRoute } from "./lib/visibility";
 import { loadMissionData } from "./pages/mission";
 import { includeComponent } from "./lib/components";
-import { updateNavbarActive } from "./components/navbar";
+import { updateNavbar } from "./components/navbar";
 import { pageInfo, router } from "./lib/router";
 import { authService, setupGoogleLogin } from "./lib/auth";
 import { ROUTES } from "./lib/config";
@@ -12,8 +12,8 @@ pageInfo[ROUTES.HOME].bindFn = loadMissionData;
 pageInfo[ROUTES.LOGIN].bindFn = setupGoogleLogin;
 
 // 컴포넌트 로드
-includeComponent("navbar", "navbar.html", updateNavbarActive);
-includeComponent("footer", "footer.html", updateNavbarActive);
+includeComponent("navbar", "navbar.html");
+includeComponent("footer", "footer.html");
 
 // 앱 초기화
 async function initApp(): Promise<void> {
@@ -32,7 +32,7 @@ async function initApp(): Promise<void> {
   }
   await router();
   updateLayoutVisibilityForRoute();
-  updateNavbarActive();
+  updateNavbar();
 }
 
 // 앱 시작
