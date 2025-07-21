@@ -1,4 +1,4 @@
-import { ApiError } from "../types";
+import { AppError } from "../lib/error";
 import type { ApiResponse } from "../types";
 
 class ApiClient {
@@ -8,9 +8,9 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T = any>(
+  private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const config: RequestInit = {
@@ -35,10 +35,11 @@ class ApiClient {
           // JSON 파싱 실패 시 기본 에러
         }
 
-        throw new ApiError(
+        throw new AppError(
           errorData.message || `HTTP ${response.status}`,
+          errorData.code,
           response.status,
-          errorData.code
+          errorData.data,
         );
       }
 
@@ -54,10 +55,10 @@ class ApiClient {
         return responseText as unknown as T;
       }
     } catch (error) {
-      if (error instanceof ApiError) {
+      if (error instanceof AppError) {
         throw error;
       }
-      throw new ApiError("Network error", 0);
+      throw new AppError("Network error", "NETWORK_ERROR", 0);
     }
   }
 

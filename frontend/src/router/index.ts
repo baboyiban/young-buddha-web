@@ -29,7 +29,7 @@ export async function router(): Promise<void> {
   if (route.roles && route.roles.length > 0) {
     try {
       await requireRole(route.roles);
-    } catch (error) {
+    } catch {
       return; // requireRole에서 이미 리다이렉트 처리됨
     }
   }
@@ -43,11 +43,11 @@ export async function router(): Promise<void> {
     // 현재 경로 업데이트
     currentPath = hash;
 
-    // 페이지별 초기화 함수 실행
+    // 페이지별 초기화 함수 실행 (비동기 지원)
     if (route.bindFn) {
-      route.bindFn();
+      await route.bindFn();
     }
-  } catch (error) {
+  } catch {
     document.getElementById("page-content")!.innerHTML =
       "<h2>페이지를 로드할 수 없습니다.</h2>";
   }

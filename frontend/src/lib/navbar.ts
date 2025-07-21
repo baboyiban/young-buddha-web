@@ -19,7 +19,7 @@ export function updateNavbarActive() {
     logoutBtn.addEventListener("click", async () => {
       try {
         await authService.logout();
-      } catch (error) {
+      } catch {
         alert("로그아웃 중 오류가 발생했습니다.");
       }
     });

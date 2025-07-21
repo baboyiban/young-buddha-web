@@ -1,10 +1,7 @@
 import { apiClient } from "../api/client";
 import { authService } from "../auth/service";
-import {
-  ApiError,
-  type SpreadsheetConfig,
-  type SpreadsheetData,
-} from "../types";
+import { handleAuthError } from "../lib";
+import { type SpreadsheetConfig, type SpreadsheetData } from "../types";
 
 interface CacheEntry {
   data: string[][];
@@ -31,7 +28,7 @@ export class SheetsService {
       });
 
       const response = await apiClient.get<SpreadsheetData>(
-        `/api/sheet/read?${params}`
+        `/api/sheet/read?${params}`,
       );
 
       if (!response.values || !Array.isArray(response.values)) {
@@ -46,21 +43,14 @@ export class SheetsService {
 
       return response.values;
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        // 인증 오류 시 자동 처리
-        if (error.code === "TOKEN_EXPIRED") {
-          authService.clearAuthData();
-          authService.redirectToLogin();
-          throw new Error("로그인이 만료되었습니다. 다시 로그인해주세요.");
-        }
-      }
+      handleAuthError(error, authService);
       throw error;
     }
   }
 
   async writeSpreadsheet(
     config: SpreadsheetConfig,
-    values: string[][]
+    values: string[][],
   ): Promise<void> {
     try {
       await apiClient.post("/api/sheet/write", {
@@ -69,14 +59,7 @@ export class SheetsService {
         values: values,
       });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        // 인증 오류 시 자동 처리
-        if (error.code === "TOKEN_EXPIRED") {
-          authService.clearAuthData();
-          authService.redirectToLogin();
-          throw new Error("로그인이 만료되었습니다. 다시 로그인해주세요.");
-        }
-      }
+      handleAuthError(error, authService);
       throw error;
     }
   }

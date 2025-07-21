@@ -34,13 +34,5 @@ export interface PageInfo {
   title: string;
   file: string;
   roles?: string[];
-  bindFn?: () => void;
-}
-
-// 에러 타입
-export class ApiError extends Error {
-  constructor(message: string, public status: number, public code?: string) {
-    super(message);
-    this.name = "ApiError";
-  }
+  bindFn?: () => void | Promise<void>;
 }

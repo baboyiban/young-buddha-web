@@ -1,6 +1,7 @@
 import { apiClient } from "../api/client";
-import { ApiError } from "../types";
-import { API_ENDPOINTS, STORAGE_KEYS } from "../lib/constants";
+import { handleAuthError } from "../lib";
+import { API_ENDPOINTS } from "../lib/constants";
+import { STORAGE_KEYS } from "../config";
 import type { AuthResponse, User } from "../types";
 
 export class AuthService {
@@ -8,18 +9,15 @@ export class AuthService {
     try {
       return await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
     } catch (error) {
-      if (error instanceof ApiError) {
-        // 토큰 만료나 무효한 토큰인 경우 자동으로 정리
-        if (error.code === "TOKEN_EXPIRED" || error.code === "INVALID_TOKEN") {
-          this.clearAuthData();
-        }
-      }
+      handleAuthError(error, this);
       throw error;
     }
   }
 
   async startGoogleAuth(): Promise<string> {
-    const response = await apiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.GOOGLE);
+    const response = await apiClient.post<AuthResponse>(
+      API_ENDPOINTS.AUTH.GOOGLE,
+    );
     if (!response.auth_url) {
       throw new Error("인증 URL을 받지 못했습니다");
     }
@@ -30,7 +28,7 @@ export class AuthService {
     try {
       await apiClient.delete(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
-      // 에러는 무시하고 계속 진행
+      console.error("로그아웃 중 오류:", error);
     } finally {
       this.clearAuthData();
       this.redirectToLogin();
@@ -39,7 +37,7 @@ export class AuthService {
 
   clearAuthData(): void {
     // 로컬 스토리지 정리
-    Object.values(STORAGE_KEYS).forEach(key => {
+    Object.values(STORAGE_KEYS).forEach((key) => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
