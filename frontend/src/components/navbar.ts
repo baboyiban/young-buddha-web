@@ -14,7 +14,12 @@ function setupLogoutButton() {
   }
 }
 
-export function updateNavbar() {
+export function setupNavbar() {
+  setupLogoutButton();
+  updateNavbarActiveState();
+}
+
+export function updateNavbarActiveState() {
   const hash = location.hash.replace(/^#/, "") || "/";
   const navbar = document.getElementById("navbar");
   if (!navbar) return;
@@ -26,5 +31,4 @@ export function updateNavbar() {
       link.classList.remove("purple");
     }
   });
-  setupLogoutButton();
 }
