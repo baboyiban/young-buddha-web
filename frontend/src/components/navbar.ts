@@ -1,4 +1,4 @@
-import { authService } from "../auth";
+import { authService } from "../lib/auth";
 
 export function updateNavbarActive() {
   const hash = location.hash.replace(/^#/, "") || "/";
@@ -13,7 +13,6 @@ export function updateNavbarActive() {
     }
   });
 
-  // 로그아웃 버튼 이벤트 리스너 추가 (중복 방지)
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn && !logoutBtn.hasAttribute("data-listener-added")) {
     logoutBtn.addEventListener("click", async () => {

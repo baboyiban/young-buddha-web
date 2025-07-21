@@ -1,7 +1,7 @@
-import { apiClient } from "../api/client";
-import { authService } from "../auth/service";
-import { handleAuthError } from "../lib/error";
-import { type SpreadsheetConfig, type SpreadsheetData } from "../types";
+import { apiClient } from "./api";
+import { authService } from "./auth";
+import { handleAuthError } from "./error";
+import type { SpreadsheetConfig, SpreadsheetData } from "./types";
 
 interface CacheEntry {
   data: string[][];
@@ -10,37 +10,27 @@ interface CacheEntry {
 
 export class SheetsService {
   private cache = new Map<string, CacheEntry>();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5분 캐시
+  private readonly CACHE_DURATION = 5 * 60 * 1000;
 
   async readSpreadsheet(config: SpreadsheetConfig): Promise<string[][]> {
     const cacheKey = `${config.spreadsheetId}:${config.range}`;
-
-    // 캐시 확인
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return cached.data;
     }
-
     try {
       const params = new URLSearchParams({
         spreadsheet_id: config.spreadsheetId,
         range: config.range,
       });
-
       const response = await apiClient.get<SpreadsheetData>(
         `/api/sheet/read?${params}`,
       );
-
-      if (!response.values || !Array.isArray(response.values)) {
-        return [];
-      }
-
-      // 캐시 저장
+      if (!response.values || !Array.isArray(response.values)) return [];
       this.cache.set(cacheKey, {
         data: response.values,
         timestamp: Date.now(),
       });
-
       return response.values;
     } catch (error) {
       handleAuthError(error, authService);
@@ -56,7 +46,7 @@ export class SheetsService {
       await apiClient.post("/api/sheet/write", {
         spreadsheet_id: config.spreadsheetId,
         range: config.range,
-        values: values,
+        values,
       });
     } catch (error) {
       handleAuthError(error, authService);
@@ -66,3 +56,25 @@ export class SheetsService {
 }
 
 export const sheetsService = new SheetsService();
+
+export function calculateRowFromDate(
+  baseDate: string,
+  baseRow: number,
+): number {
+  const base = new Date(baseDate);
+  const today = new Date();
+  const timeDiff = today.getTime() - base.getTime();
+  const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+  return baseRow + daysDiff;
+}
+
+export function createDateBasedRange(
+  sheetName: string,
+  baseDate: string,
+  baseRow: number,
+  startCol = "A",
+  endCol = "R",
+): string {
+  const currentRow = calculateRowFromDate(baseDate, baseRow);
+  return `${sheetName}!${startCol}${currentRow}:${endCol}${currentRow}`;
+}

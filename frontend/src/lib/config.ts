@@ -17,19 +17,19 @@ export const ROLES = {
   ADMIN: "admin",
 } as const;
 
-// 에러 코드도 여기서 관리 가능
-export const ERROR_CODES = {
-  UNAUTHORIZED: "UNAUTHORIZED",
-  FORBIDDEN: "FORBIDDEN",
-  NOT_FOUND: "NOT_FOUND",
-  SERVER_ERROR: "SERVER_ERROR",
-  NETWORK_ERROR: "NETWORK_ERROR",
-  TOKEN_EXPIRED: "TOKEN_EXPIRED",
-  INVALID_TOKEN: "INVALID_TOKEN",
-  NO_TOKEN: "NO_TOKEN",
-} as const;
-
 export const STORAGE_KEYS = {
   TOKEN: "token",
   USER: "user",
+} as const;
+
+export const API_ENDPOINTS = {
+  AUTH: {
+    ME: "/api/auth/me",
+    GOOGLE: "/api/auth/google",
+    LOGOUT: "/api/auth/current",
+  },
+  SHEETS: {
+    BASE: "/api/sheets",
+    DATA: "/api/sheets/data",
+  },
 } as const;

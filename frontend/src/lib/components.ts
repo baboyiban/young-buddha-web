@@ -8,20 +8,17 @@ export interface ComponentOptions {
 export async function includeComponent(
   id: string,
   file: string,
-  callback?: () => void
+  callback?: () => void,
 ): Promise<void> {
   const el = document.getElementById(id);
   if (!el) {
     console.warn(`Component with id "${id}" not found`);
     return;
   }
-
   try {
     const response = await fetch(`/components/${file}`);
-    if (!response.ok) {
+    if (!response.ok)
       throw new Error(`Failed to load component: ${response.statusText}`);
-    }
-
     const html = await response.text();
     el.innerHTML = html;
     callback?.();
@@ -30,10 +27,11 @@ export async function includeComponent(
   }
 }
 
-export async function loadComponents(components: ComponentOptions[]): Promise<void> {
+export async function loadComponents(
+  components: ComponentOptions[],
+): Promise<void> {
   const promises = components.map(({ id, file, callback }) =>
-    includeComponent(id, file, callback)
+    includeComponent(id, file, callback),
   );
-
   await Promise.allSettled(promises);
 }

@@ -1,12 +1,11 @@
 import "./style.css";
-import { router, pageInfo } from "./router";
-import { updateNavbarActive } from "./lib/navbar";
 import { updateLayoutVisibilityForRoute } from "./lib/visibility";
-import { setupGoogleLogin } from "./auth";
 import { loadMissionData } from "./pages/mission";
-import { authService } from "./auth/service";
-import { ROUTES } from "./config";
 import { includeComponent } from "./lib/components";
+import { updateNavbarActive } from "./components/navbar";
+import { pageInfo, router } from "./lib/router";
+import { authService, setupGoogleLogin } from "./lib/auth";
+import { ROUTES } from "./lib/config";
 
 // 페이지별 초기화 함수 할당
 pageInfo[ROUTES.HOME].bindFn = loadMissionData;
@@ -20,8 +19,6 @@ includeComponent("footer", "footer.html", updateNavbarActive);
 async function initApp(): Promise<void> {
   const currentPath = location.hash.replace(/^#/, "") || ROUTES.HOME;
   const currentPageInfo = pageInfo[currentPath];
-
-  // 권한 체크 및 리다이렉션
   if (
     currentPath !== ROUTES.LOGIN &&
     currentPageInfo?.roles &&
@@ -33,7 +30,6 @@ async function initApp(): Promise<void> {
       return;
     }
   }
-
   await router();
   updateLayoutVisibilityForRoute();
   updateNavbarActive();
@@ -41,6 +37,4 @@ async function initApp(): Promise<void> {
 
 // 앱 시작
 initApp();
-
-// 라우트 변경 감지
 window.addEventListener("hashchange", initApp);

@@ -1,4 +1,4 @@
-import type { AuthService } from "../auth";
+import type { AuthService } from "./auth";
 
 export class AppError extends Error {
   constructor(
@@ -23,11 +23,8 @@ export function handleError(error: unknown): void {
 }
 
 export function createErrorMessage(error: unknown): string {
-  if (error instanceof AppError) {
-    return error.message;
-  } else if (error instanceof Error) {
-    return error.message;
-  }
+  if (error instanceof AppError) return error.message;
+  else if (error instanceof Error) return error.message;
   return "알 수 없는 오류가 발생했습니다.";
 }
 
