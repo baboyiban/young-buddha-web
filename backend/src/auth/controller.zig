@@ -6,6 +6,7 @@ const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const constants = @import("../config/constants.zig");
 const error_handler = @import("../handler/error_handler.zig");
+const json_util = @import("../util/json.zig");
 
 pub const AuthController = struct {
     service: *Service,
@@ -51,19 +52,16 @@ pub const AuthController = struct {
             return self.sendError(r, 401, "STATE_MISMATCH", "State mismatch");
         }
 
-        // Google에서 토큰 교환
         const tokens = self.service.exchangeGoogleCode(code) catch {
             return self.sendError(r, 500, "EXCHANGE_FAILED", "Failed to exchange authorization code");
         };
         defer self.service.allocator.free(tokens.access_token);
         defer if (tokens.refresh_token.len > 0) self.service.allocator.free(tokens.refresh_token);
 
-        // 사용자 정보 가져오기
         const user = self.service.getGoogleUserInfo(tokens.access_token) catch {
             return self.sendError(r, 500, "USERINFO_FAILED", "Failed to get user info");
         };
 
-        // JWT 생성 및 쿠키 설정
         const jwt_token = try self.createUserJwt(user, tokens);
         defer self.service.allocator.free(jwt_token);
 
@@ -72,11 +70,10 @@ pub const AuthController = struct {
             .value = jwt_token,
             .http_only = true,
             .path = "/",
-            .max_age_s = 60 * 60 * 24, // 24시간
+            .max_age_s = 60 * 60 * 24,
             .secure = globals.isProduction(),
         });
 
-        // 메인 페이지로 리다이렉트
         const redirect_url = "/?login=success";
         try r.setHeader("Location", redirect_url);
         r.setStatusNumeric(302);
@@ -98,10 +95,9 @@ pub const AuthController = struct {
             };
             defer self.service.allocator.free(payload);
 
-            // 사용자 정보 추출
-            const name = self.extractJsonString(payload, "\"name\":\"") orelse "";
-            const email = self.extractJsonString(payload, "\"email\":\"") orelse "";
-            const role = self.extractJsonString(payload, "\"role\":\"") orelse "";
+            const name = json_util.extractJsonString(payload, "\"name\":\"") orelse "";
+            const email = json_util.extractJsonString(payload, "\"email\":\"") orelse "";
+            const role = json_util.extractJsonString(payload, "\"role\":\"") orelse "";
 
             const response = try std.fmt.allocPrint(
                 self.service.allocator,
@@ -114,7 +110,6 @@ pub const AuthController = struct {
             return;
         }
 
-        // JWT 쿠키가 없는 경우
         r.setStatusNumeric(401);
         try r.sendBody("{\"error\":true,\"message\":\"Not logged in\",\"code\":\"NO_TOKEN\"}");
     }
@@ -132,10 +127,9 @@ pub const AuthController = struct {
         try r.sendBody("{\"success\":true}");
     }
 
-    // 헬퍼 메서드들
     fn createUserJwt(self: *AuthController, user: User, tokens: @import("service.zig").TokenPair) ![]u8 {
         const now = std.time.timestamp();
-        const exp = now + 60 * 60 * 24; // 24시간
+        const exp = now + 60 * 60 * 24;
 
         const payload = try std.fmt.allocPrint(
             self.service.allocator,
@@ -147,8 +141,7 @@ pub const AuthController = struct {
         return jwt.createJwt(self.service.allocator, payload, globals.jwt_secret);
     }
 
-    fn sendJson(self: *AuthController, r: zap.Request, status: u16, json: []const u8) !void {
-        _ = self;
+    fn sendJson(_: *AuthController, r: zap.Request, status: u16, json: []const u8) !void {
         r.setStatusNumeric(status);
         try r.setHeader("Content-Type", "application/json; charset=utf-8");
         try r.sendBody(json);
@@ -156,16 +149,5 @@ pub const AuthController = struct {
 
     fn sendError(self: *AuthController, r: zap.Request, status: u16, code: []const u8, message: []const u8) !void {
         try error_handler.sendErrorJson(self.service.allocator, r, status, code, message);
-    }
-
-    fn extractJsonString(_: *AuthController, json: []const u8, key: []const u8) ?[]const u8 {
-        if (std.mem.indexOf(u8, json, key)) |start| {
-            const val_start = start + key.len;
-            if (val_start >= json.len) return null;
-            var val_end = val_start;
-            while (val_end < json.len and json[val_end] != '"') : (val_end += 1) {}
-            return json[val_start..val_end];
-        }
-        return null;
     }
 };
