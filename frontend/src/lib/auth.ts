@@ -113,7 +113,6 @@ export function setupGoogleLogin(): void {
   if (loginStatus === "success") {
     window.history.replaceState({}, document.title, window.location.pathname);
     location.hash = "#/";
-    location.reload();
   } else if (loginStatus === "error") {
     alert("로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
     window.history.replaceState({}, document.title, window.location.pathname);

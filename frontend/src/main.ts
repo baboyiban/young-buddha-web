@@ -23,6 +23,9 @@ Promise.all([
 
 // 앱 초기화
 async function initApp(): Promise<void> {
+  const appContainer = document.getElementById("app");
+  if (appContainer) appContainer.style.visibility = "hidden";
+
   const currentPath = location.hash.replace(/^#/, "") || ROUTES.HOME;
   const currentPageInfo = pageInfo[currentPath];
   if (
@@ -33,10 +36,13 @@ async function initApp(): Promise<void> {
     const isAuthenticated = await authService.checkAuthStatus();
     if (!isAuthenticated) {
       location.hash = `#${ROUTES.LOGIN}`;
+      if (appContainer) appContainer.style.visibility = "visible";
       return;
     }
   }
   await router();
   updateLayoutVisibilityForRoute();
   updateNavbarActiveState();
+
+  if (appContainer) appContainer.style.visibility = "visible";
 }
