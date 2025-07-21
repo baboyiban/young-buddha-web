@@ -84,7 +84,7 @@ export async function requireAuth(): Promise<User> {
   try {
     return await authService.getCurrentUser();
   } catch (error) {
-    authService.redirectToLogin();
+    location.hash = "#/login";
     throw error;
   }
 }

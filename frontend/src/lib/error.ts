@@ -35,7 +35,7 @@ export function handleAuthError(
   if (error instanceof AppError) {
     if (error.code === "TOKEN_EXPIRED" || error.code === "INVALID_TOKEN") {
       authService.clearAuthData();
-      authService.redirectToLogin();
+      location.hash = "#/login";
       throw new AppError(
         "로그인이 만료되었습니다. 다시 로그인해주세요.",
         "TOKEN_EXPIRED",
