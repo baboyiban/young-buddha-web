@@ -16,6 +16,7 @@ export class AuthService {
   async startGoogleAuth(): Promise<string> {
     const response = await apiClient.post<AuthResponse>(
       API_ENDPOINTS.AUTH.GOOGLE,
+      { redirect_uri: window.location.origin + "/#/login" },
     );
     if (!response.auth_url) throw new Error("인증 URL을 받지 못했습니다");
     return response.auth_url;
@@ -24,6 +25,7 @@ export class AuthService {
   async logout(): Promise<void> {
     try {
       await apiClient.delete(API_ENDPOINTS.AUTH.LOGOUT);
+      document.cookie = `jwt=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
     } catch (error) {
       console.error("로그아웃 중 오류:", error);
     } finally {
@@ -51,9 +53,24 @@ export class AuthService {
     setTimeout(() => location.reload(), 100);
   }
 
+  static getJwtFromCookie(): string | null {
+    const match = document.cookie.match(new RegExp("(^| )jwt=([^;]+)"));
+    return match ? match[2] : null;
+  }
+
   async checkAuthStatus(): Promise<boolean> {
     try {
-      await this.getCurrentUser();
+      const jwt = AuthService.getJwtFromCookie();
+      if (!jwt) {
+        this.clearAuthData();
+        return false;
+      }
+      try {
+        await this.getCurrentUser();
+      } catch {
+        this.clearAuthData();
+        return false;
+      }
       return true;
     } catch {
       this.clearAuthData();
@@ -104,5 +121,8 @@ export function setupGoogleLogin(): void {
     window.history.replaceState({}, document.title, window.location.pathname);
     location.hash = "#/";
     location.reload();
+  } else if (loginStatus === "error") {
+    alert("로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 }

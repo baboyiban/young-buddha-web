@@ -24,7 +24,7 @@ export class SheetsService {
         range: config.range,
       });
       const response = await apiClient.get<SpreadsheetData>(
-        `/api/sheet/read?${params}`,
+        `/api/sheets/read?${params}`,
       );
       if (!response.values || !Array.isArray(response.values)) return [];
       this.cache.set(cacheKey, {
@@ -43,7 +43,7 @@ export class SheetsService {
     values: string[][],
   ): Promise<void> {
     try {
-      await apiClient.post("/api/sheet/write", {
+      await apiClient.post("/api/sheets/write", {
         spreadsheet_id: config.spreadsheetId,
         range: config.range,
         values,
@@ -61,9 +61,9 @@ export function calculateRowFromDate(
   baseDate: string,
   baseRow: number,
 ): number {
-  const base = new Date(baseDate);
-  const today = new Date();
-  const timeDiff = today.getTime() - base.getTime();
+  const baseDateObj = new Date(baseDate);
+  const currentDate = new Date();
+  const timeDiff = currentDate.getTime() - baseDateObj.getTime();
   const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
   return baseRow + daysDiff;
 }

@@ -10,6 +10,7 @@ export const ROUTES = {
   PAYMENT: "/payment",
   PRIVACY: "/privacy",
   TERM: "/term",
+  JWT_COOKIE_NAME: "jwt",
 } as const;
 
 export const ROLES = {
@@ -26,10 +27,12 @@ export const API_ENDPOINTS = {
   AUTH: {
     ME: "/api/auth/me",
     GOOGLE: "/api/auth/google",
-    LOGOUT: "/api/auth/current",
+    CALLBACK: "/api/auth/google/callback",
+    LOGOUT: "/api/auth/logout",
   },
   SHEETS: {
     BASE: "/api/sheets",
-    DATA: "/api/sheets/data",
+    READ: "/api/sheet/read",
+    WRITE: "/api/sheet/write",
   },
 } as const;

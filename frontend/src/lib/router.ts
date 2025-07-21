@@ -1,4 +1,4 @@
-import { requireRole } from "./auth";
+import { requireRole, requireAuth } from "./auth";
 import { ROUTES, ROLES, CONFIG } from "./config";
 import type { PageInfo } from "./types";
 
@@ -7,11 +7,13 @@ export const routes: Record<string, PageInfo> = {
     title: CONFIG.APP_NAME,
     file: "/pages/mission.html",
     roles: [ROLES.USER, ROLES.ADMIN],
+    authRequired: true,
   },
   [ROUTES.LOGIN]: {
     title: "로그인",
     file: "/pages/login.html",
     roles: [],
+    authRequired: false,
   },
   [ROUTES.PAYMENT]: {
     title: "일정불참 결재시트",
@@ -31,7 +33,9 @@ export const routes: Record<string, PageInfo> = {
 };
 
 if (CONFIG.IS_DEV) {
-  Object.values(routes).forEach(route => { route.roles = []; });
+  Object.values(routes).forEach((route) => {
+    route.roles = [];
+  });
 }
 
 let currentPath = "";
@@ -44,15 +48,22 @@ export async function router(): Promise<void> {
     document.title = "404 Not Found";
     const titleEl = document.getElementById("page-title");
     if (titleEl) titleEl.textContent = "404 Not Found";
-    document.getElementById("page-content")!.innerHTML = "<h2>페이지를 찾을 수 없습니다.</h2>";
+    document.getElementById("page-content")!.innerHTML =
+      "<h2>페이지를 찾을 수 없습니다.</h2>";
     return;
   }
   document.title = route.title;
   const titleEl = document.getElementById("page-title");
   if (titleEl) titleEl.textContent = route.title;
   if (route.roles && route.roles.length > 0) {
-    try { await requireRole(route.roles); }
-    catch { return; }
+    try {
+      if (route.authRequired) {
+        await requireAuth();
+      }
+      await requireRole(route.roles);
+    } catch {
+      return;
+    }
   }
   try {
     const response = await fetch(route.file);
@@ -61,7 +72,8 @@ export async function router(): Promise<void> {
     currentPath = hash;
     if (route.bindFn) await route.bindFn();
   } catch {
-    document.getElementById("page-content")!.innerHTML = "<h2>페이지를 로드할 수 없습니다.</h2>";
+    document.getElementById("page-content")!.innerHTML =
+      "<h2>페이지를 로드할 수 없습니다.</h2>";
   }
 }
 
