@@ -28,7 +28,7 @@ export const API_ENDPOINTS = {
     ME: "/api/auth/me",
     GOOGLE: "/api/auth/google",
     CALLBACK: "/api/auth/google/callback",
-    LOGOUT: "/api/auth/logout",
+    LOGOUT: "/api/auth/current",
   },
   SHEETS: {
     BASE: "/api/sheets",
