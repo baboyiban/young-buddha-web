@@ -1,49 +1,44 @@
 import "./style.css";
-import { updateLayoutVisibilityForRoute } from "./lib/visibility";
 import { loadMissionData } from "./pages/mission";
-import { includeComponent } from "./lib/components";
-import { setupNavbar, updateNavbarActiveState } from "./components/navbar";
 import { pageInfo, router } from "./lib/router";
-import { authService, setupGoogleLogin } from "./lib/auth";
+import { authService } from "./lib/auth";
 import { ROUTES } from "./lib/config";
+import { layoutManager, LayoutType } from "./lib/layout";
 
 // 페이지별 초기화 함수 할당
 pageInfo[ROUTES.HOME].bindFn = loadMissionData;
-pageInfo[ROUTES.LOGIN].bindFn = setupGoogleLogin;
 
 // 앱 초기화
 async function initApp(): Promise<void> {
-  // 먼저 인증 상태를 확인하고 적절한 페이지로 라우팅
-  await determineInitialRoute();
+  // 인증 상태 확인
+  const isAuthenticated = await authService.checkAuthStatus();
 
-  // 라우팅 완료 후 UI 업데이트
-  updateLayoutVisibilityForRoute();
-  updateNavbarActiveState();
+  if (isAuthenticated) {
+    // 인증된 사용자: 앱 레이아웃 로드
+    await layoutManager.loadLayout(LayoutType.APP);
+    await determineInitialRoute();
+  } else {
+    // 인증되지 않은 사용자: 로그인 레이아웃 로드
+    await layoutManager.loadLayout(LayoutType.LOGIN);
+  }
 }
 
 // 초기 라우팅 결정
 async function determineInitialRoute(): Promise<void> {
   const currentPath = location.hash.replace(/^#/, "") || ROUTES.HOME;
-  const currentPageInfo = pageInfo[currentPath];
 
-  // 인증이 필요한 페이지인지 확인
-  const requiresAuth =
-    currentPageInfo?.authRequired ||
-    (currentPageInfo?.roles && currentPageInfo.roles.length > 0);
+  // 인증 상태 확인
+  const isAuthenticated = await authService.checkAuthStatus();
 
-  if (requiresAuth) {
-    // 인증 상태 확인
-    const isAuthenticated = await authService.checkAuthStatus();
-
-    if (!isAuthenticated) {
-      // 인증되지 않았으면 로그인 페이지로
-      location.hash = `#${ROUTES.LOGIN}`;
-    }
-  } else if (currentPath === ROUTES.LOGIN) {
-    // 로그인 페이지에 있는데 이미 인증되어 있다면 홈으로
-    const isAuthenticated = await authService.checkAuthStatus();
-    if (isAuthenticated) {
+  if (isAuthenticated) {
+    // 인증된 사용자
+    if (currentPath === ROUTES.LOGIN) {
       location.hash = `#${ROUTES.HOME}`;
+    }
+  } else {
+    // 인증되지 않은 사용자
+    if (currentPath !== ROUTES.LOGIN) {
+      location.hash = `#${ROUTES.LOGIN}`;
     }
   }
 
@@ -51,16 +46,28 @@ async function determineInitialRoute(): Promise<void> {
   await router();
 }
 
-// 컴포넌트 로드 후 앱 시작
-Promise.all([
-  includeComponent("navbar", "navbar.html", setupNavbar),
-  includeComponent("footer", "footer.html"),
-]).then(() => {
-  initApp();
-  window.addEventListener("hashchange", () => {
-    router().then(() => {
-      updateLayoutVisibilityForRoute();
-      updateNavbarActiveState();
-    });
-  });
-});
+// 해시 변경 시 레이아웃 전환 처리
+async function handleRouteChange(): Promise<void> {
+  const isAuthenticated = await authService.checkAuthStatus();
+  const currentPath = location.hash.replace(/^#/, "") || ROUTES.HOME;
+
+  if (isAuthenticated && currentPath !== ROUTES.LOGIN) {
+    // 인증된 사용자가 앱 페이지에 접근
+    if (layoutManager.getCurrentLayout() !== LayoutType.APP) {
+      await layoutManager.loadLayout(LayoutType.APP);
+    }
+    await router();
+  } else if (!isAuthenticated || currentPath === ROUTES.LOGIN) {
+    // 인증되지 않은 사용자이거나 로그인 페이지 접근
+    if (layoutManager.getCurrentLayout() !== LayoutType.LOGIN) {
+      await layoutManager.loadLayout(LayoutType.LOGIN);
+    }
+    if (!isAuthenticated && currentPath !== ROUTES.LOGIN) {
+      location.hash = `#${ROUTES.LOGIN}`;
+    }
+  }
+}
+
+// 앱 시작
+initApp();
+window.addEventListener("hashchange", handleRouteChange);

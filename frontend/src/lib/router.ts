@@ -1,4 +1,4 @@
-import { requireRole, requireAuth } from "./auth";
+import { requireRole, requireAuth, setupGoogleLogin } from "./auth";
 import { ROUTES, ROLES, CONFIG } from "./config";
 import type { PageInfo } from "./types";
 
@@ -14,6 +14,7 @@ export const routes: Record<string, PageInfo> = {
     file: "/pages/login.html",
     roles: [],
     authRequired: false,
+    bindFn: setupGoogleLogin,
   },
   [ROUTES.PAYMENT]: {
     title: "일정불참 결재시트",
