@@ -5,9 +5,14 @@ pub fn extractJsonString(allocator: std.mem.Allocator, json: []const u8, key: []
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, json, .{});
     defer parsed.deinit();
 
-    if (parsed.value.get(key)) |val| {
-        if (val.string) |str| {
-            return str;
+    if (parsed.value == .object) {
+        var it = parsed.value.object.iterator();
+        while (it.next()) |entry| {
+            if (std.mem.eql(u8, entry.key_ptr.*, key)) {
+                if (entry.value_ptr.* == .string) {
+                    return entry.value_ptr.*.string;
+                }
+            }
         }
     }
     return null;
