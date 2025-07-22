@@ -21,6 +21,11 @@
   }
 }
 
+a,
+button {
+  @apply cursor-pointer;
+}
+
 .button {
   @apply rounded-lg px-[0.75rem] py-[0.5rem];
 }
