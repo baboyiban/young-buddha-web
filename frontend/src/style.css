@@ -27,21 +27,21 @@ button {
 }
 
 .button {
-  @apply rounded-lg px-[0.75rem] py-[0.5rem];
+  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem];
 }
 
 .button.default,
 .button.purple,
 .button.red {
-  @apply backdrop-blur-lg;
+  @apply backdrop-blur-[0.05rem];
 }
 
 .button.default {
-  @apply bg-white/75;
+  @apply bg-white/80;
 }
 .button.purple {
-  @apply bg-dark-purple/75 text-white;
+  @apply bg-dark-purple/80 text-white;
 }
 .button.red {
-  @apply bg-dark-red/75 text-white;
+  @apply bg-dark-red/80 text-white;
 }
