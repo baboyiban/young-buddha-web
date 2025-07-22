@@ -1,5 +1,6 @@
 # all
 .env*
+.DS_Store
 
 # backend
 .zig-cache
