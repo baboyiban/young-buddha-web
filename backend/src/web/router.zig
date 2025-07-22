@@ -1,9 +1,9 @@
 const std = @import("std");
 const zap = @import("zap");
 const globals = @import("../config/globals.zig");
-const auth = @import("../auth/mod.zig");
-const sheets = @import("../sheets/mod.zig");
-const StaticHandler = @import("../handler/static_handler.zig").StaticHandler;
+const payment = @import("../payment/router.zig");
+const auth = @import("../auth/router.zig");
+const sheets = @import("../sheets/router.zig");
 const errors = @import("../config/errors.zig").Errors;
 
 pub const HandlerFn = *const fn (zap.Request) anyerror!void;
@@ -69,39 +69,8 @@ pub const Router = struct {
     }
 };
 
-// 라우트 핸들러들
-fn handleGoogleAuth(r: zap.Request) anyerror!void {
-    try globals.auth_controller.?.googleAuth(r);
-}
-
-fn handleGoogleCallback(r: zap.Request) anyerror!void {
-    try globals.auth_controller.?.googleCallback(r);
-}
-
-fn handleMe(r: zap.Request) anyerror!void {
-    try globals.auth_controller.?.me(r);
-}
-
-fn handleLogout(r: zap.Request) anyerror!void {
-    try globals.auth_controller.?.logout(r);
-}
-
-fn handleReadSheet(r: zap.Request) anyerror!void {
-    try globals.sheets_controller.?.readSheet(r);
-}
-
-fn handleWriteSheet(r: zap.Request) anyerror!void {
-    try globals.sheets_controller.?.writeSheet(r);
-}
-
 pub fn setupRoutes(router: *Router) !void {
-    // 인증 라우트
-    try router.post("/api/auth/google", handleGoogleAuth);
-    try router.get("/api/auth/google/callback", handleGoogleCallback);
-    try router.get("/api/auth/me", handleMe);
-    try router.delete("/api/auth/logout", handleLogout);
-
-    // 시트 라우트
-    try router.get("/api/sheets/read", handleReadSheet);
-    try router.post("/api/sheets/write", handleWriteSheet);
+    try auth.setupRoutes(router, globals.auth_controller.?);
+    try sheets.setupRoutes(router, globals.sheets_controller.?);
+    try payment.setupRoutes(router, globals.payment_controller.?);
 }

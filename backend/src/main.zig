@@ -4,9 +4,11 @@ const Router = @import("web/router.zig").Router;
 const setupRoutes = @import("web/router.zig").setupRoutes;
 const Env = @import("config/env.zig").Env;
 const globals = @import("config/globals.zig");
-const auth = @import("auth/mod.zig");
-const sheets = @import("sheets/mod.zig");
+const auth = @import("auth/app.zig");
+const sheets = @import("sheets/app.zig");
+const payment = @import("payment/app.zig");
 const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
+const sqlite = @import("sqlite");
 
 pub var global_router: ?Router = null;
 
@@ -17,29 +19,43 @@ fn requestCallback(r: zap.Request) anyerror!void {
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     var env = try Env.init(allocator);
     defer env.deinit();
 
-    // 전역 상태 초기화
     try globals.init(allocator, &env);
 
-    // 서비스 초기화
-    var auth_service = try auth.Service.init(allocator, env);
-    var sheets_service = sheets.Service.init(allocator, &auth_service);
+    var db = try sqlite.Db.init(.{
+        .mode = sqlite.Db.Mode{ .File = "app.db" },
+        .open_flags = .{ .write = true, .create = true },
+        .threading_mode = .Serialized,
+    });
+    defer db.deinit();
 
-    // 컨트롤러 초기화
-    var auth_controller = auth.Controller.init(&auth_service);
-    var sheets_controller = sheets.Controller.init(&sheets_service);
+    const auth_app = try allocator.create(auth.AuthApp);
+    // 1단계: service만 먼저 초기화
+    auth_app.service = try auth.Service.init(allocator, &env);
+    // 2단계: controller는 반드시 service 필드의 포인터로 초기화
+    auth_app.controller = auth.Controller.init(&auth_app.service);
 
-    // 정적 파일 핸들러
-    var static_handler = try StaticHandler.init(allocator, env);
-    defer static_handler.deinit();
+    const sheets_app = try allocator.create(sheets.SheetsApp);
+    sheets_app.service = sheets.Service.init(allocator, &auth_app.service);
+    sheets_app.controller = sheets.Controller.init(&sheets_app.service);
 
-    // 전역 컨트롤러들 설정
-    globals.setControllers(&auth_controller, &sheets_controller, &static_handler);
+    const payment_app = try allocator.create(payment.PaymentApp);
+    payment_app.service = payment.Service.init(allocator, &db);
+    payment_app.controller = payment.Controller.init(&payment_app.service);
+
+    const static_handler = try allocator.create(StaticHandler);
+    static_handler.* = try StaticHandler.init(allocator, &env);
+
+    globals.setControllers(
+        &auth_app.controller,
+        &sheets_app.controller,
+        static_handler,
+        &payment_app.controller,
+    );
 
     var router = Router.init(allocator);
     defer router.deinit();
@@ -56,4 +72,6 @@ pub fn main() !void {
     try listener.listen();
 
     zap.start(.{ .threads = 1, .workers = 1 });
+
+    defer _ = gpa.deinit();
 }

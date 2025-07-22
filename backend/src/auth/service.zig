@@ -18,7 +18,7 @@ pub const AuthService = struct {
     redirect_uri: []const u8,
     scope: []const u8,
 
-    pub fn init(allocator: std.mem.Allocator, env: Env) !AuthService {
+    pub fn init(allocator: std.mem.Allocator, env: *Env) !AuthService {
         return .{
             .allocator = allocator,
             .client_id = env.get("GOOGLE_CLIENT_ID") orelse return error.MissingGoogleClientId,
