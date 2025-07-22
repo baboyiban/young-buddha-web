@@ -1,7 +1,7 @@
 const std = @import("std");
 
 /// std.json 기반으로 특정 필드 추출
-pub fn extractJsonString(allocator: std.mem.Allocator, json: []const u8, key: []const u8) !?[]const u8 {
+pub fn extractJsonString(allocator: std.mem.Allocator, json: []const u8, key: []const u8) !?[]u8 {
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, json, .{});
     defer parsed.deinit();
 
@@ -10,7 +10,8 @@ pub fn extractJsonString(allocator: std.mem.Allocator, json: []const u8, key: []
         while (it.next()) |entry| {
             if (std.mem.eql(u8, entry.key_ptr.*, key)) {
                 if (entry.value_ptr.* == .string) {
-                    return entry.value_ptr.*.string;
+                    // 반드시 복사해서 반환!
+                    return try allocator.dupe(u8, entry.value_ptr.*.string);
                 }
             }
         }

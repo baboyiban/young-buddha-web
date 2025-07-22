@@ -38,7 +38,7 @@ pub const SheetsService = struct {
                 defer self.allocator.free(new_access_token);
 
                 return try self.callSheetsApi(new_access_token, spreadsheet_id, decoded_range);
-            } else {}
+            }
         }
 
         return result;

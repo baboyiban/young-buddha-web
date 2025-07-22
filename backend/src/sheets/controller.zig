@@ -20,12 +20,9 @@ pub const SheetsController = struct {
         const tokens = self.getTokensFromJwt(r) catch |err| {
             return self.handleAuthError(r, err);
         };
-        defer {
-            self.service.allocator.free(tokens.access_token);
-            if (tokens.refresh_token.len > 0) {
-                self.service.allocator.free(tokens.refresh_token);
-            }
-        }
+        // free는 controller에서만!
+        defer self.service.allocator.free(tokens.access_token);
+        defer self.service.allocator.free(tokens.refresh_token);
 
         const spreadsheet_id = self.getQueryParam(r, "spreadsheet_id") catch {
             return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", errors.MissingSpreadsheetId);
@@ -43,23 +40,16 @@ pub const SheetsController = struct {
     }
 
     pub fn writeSheet(self: *SheetsController, r: zap.Request) !void {
-        // JWT에서 access_token 추출
         const tokens = self.getTokensFromJwt(r) catch |err| {
             return self.handleAuthError(r, err);
         };
-        defer {
-            self.service.allocator.free(tokens.access_token);
-            if (tokens.refresh_token.len > 0) {
-                self.service.allocator.free(tokens.refresh_token);
-            }
-        }
+        defer self.service.allocator.free(tokens.access_token);
+        defer self.service.allocator.free(tokens.refresh_token);
 
-        // 요청 본문 확인
         const body = r.body orelse {
             return self.sendError(r, 400, "MISSING_BODY", "Missing request body");
         };
 
-        // Google Sheets API 호출
         const response_json = self.service.writeSpreadsheetValues(tokens.access_token, body) catch {
             return self.sendError(r, 500, "WRITE_FAILED", "Failed to write spreadsheet data");
         };
@@ -68,12 +58,6 @@ pub const SheetsController = struct {
         try self.sendJson(r, 200, response_json);
     }
 
-    const TokenPair = struct {
-        access_token: []u8,
-        refresh_token: []u8,
-    };
-
-    // 헬퍼 메서드들
     fn getTokensFromJwt(self: *SheetsController, r: zap.Request) !TokenPair {
         r.parseCookies(false);
         const jwt_cookie = r.getCookieStr(self.service.allocator, "jwt") catch {
@@ -85,18 +69,19 @@ pub const SheetsController = struct {
         };
         defer self.service.allocator.free(payload);
 
-        // 변경: std.json 기반으로 값 추출
-        const access_token = try json_util.extractJsonString(self.service.allocator, payload, "access_token") orelse {
-            return error.NoAccessToken;
-        };
-
-        const refresh_token = try json_util.extractJsonString(self.service.allocator, payload, "refresh_token") orelse "";
+        const access_token = try json_util.extractJsonString(self.service.allocator, payload, "access_token") orelse return error.NoAccessToken;
+        const refresh_token = try json_util.extractJsonString(self.service.allocator, payload, "refresh_token") orelse try self.service.allocator.alloc(u8, 0);
 
         return TokenPair{
-            .access_token = try self.service.allocator.dupe(u8, access_token),
-            .refresh_token = if (refresh_token.len > 0) try self.service.allocator.dupe(u8, refresh_token) else "",
+            .access_token = access_token,
+            .refresh_token = refresh_token,
         };
     }
+
+    const TokenPair = struct {
+        access_token: []u8,
+        refresh_token: []u8,
+    };
 
     fn getQueryParam(_: *SheetsController, r: zap.Request, param: []const u8) ![]const u8 {
         const query = r.query orelse return error.MissingQuery;
