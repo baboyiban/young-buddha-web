@@ -78,6 +78,8 @@ async function handleRouteChange(): Promise<void> {
     }
     if (!isAuthenticated && currentPath !== ROUTES.LOGIN) {
       location.hash = `#${ROUTES.LOGIN}`;
+    } else if (currentPath === ROUTES.LOGIN) {
+      await router();
     }
   }
 }

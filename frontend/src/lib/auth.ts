@@ -29,7 +29,23 @@ export class AuthService {
       console.error("로그아웃 중 오류:", error);
     }
     this.clearAuthData();
-    location.hash = "#/login";
+
+    // 로그인 레이아웃으로 전환
+    const appContainer = document.getElementById("app-container");
+    if (appContainer) {
+      // 로그인 레이아웃을 즉시 로드하여 깜빡임 방지
+      fetch("/layouts/login-layout.html")
+        .then(response => response.text())
+        .then(html => {
+          appContainer.innerHTML = html;
+          location.hash = "#/login";
+        })
+        .catch(() => {
+          location.hash = "#/login";
+        });
+    } else {
+      location.hash = "#/login";
+    }
   }
 
   clearAuthData(): void {
