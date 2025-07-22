@@ -1,44 +1,6 @@
-import { requireRole, requireAuth, setupGoogleLogin } from "./auth";
-import { ROUTES, ROLES, CONFIG } from "./config";
-import type { PageInfo } from "./types";
-import { updateNavbarActiveState } from "../components/navbar";
-
-export const routes: Record<string, PageInfo> = {
-  [ROUTES.HOME]: {
-    title: CONFIG.APP_NAME,
-    file: "/pages/mission.html",
-    roles: [ROLES.USER, ROLES.ADMIN],
-    authRequired: true,
-  },
-  [ROUTES.LOGIN]: {
-    title: "로그인",
-    file: "/pages/login.html",
-    roles: [],
-    authRequired: false,
-    bindFn: setupGoogleLogin,
-  },
-  [ROUTES.PAYMENT]: {
-    title: "일정불참 결재시트",
-    file: "/pages/payment.html",
-    roles: [ROLES.USER, ROLES.ADMIN],
-  },
-  [ROUTES.PRIVACY]: {
-    title: "개인정보 처리방침",
-    file: "/pages/privacy.html",
-    roles: [],
-  },
-  [ROUTES.TERM]: {
-    title: "이용 약관",
-    file: "/pages/term.html",
-    roles: [],
-  },
-};
-
-if (CONFIG.IS_DEV) {
-  Object.values(routes).forEach((route) => {
-    route.roles = [];
-  });
-}
+import { requireRole, requireAuth } from "../auth/utils";
+import { updateNavbarActiveState } from "../../components/navbar";
+import { routes } from "./routes";
 
 let currentPath = "";
 
@@ -79,5 +41,3 @@ export async function router(): Promise<void> {
       "<h2>페이지를 로드할 수 없습니다.</h2>";
   }
 }
-
-export { routes as pageInfo };

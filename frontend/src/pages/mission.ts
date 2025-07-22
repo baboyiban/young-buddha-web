@@ -1,5 +1,5 @@
 import { createDateBasedRange, sheetsService } from "../lib/sheets";
-import type { SpreadsheetConfig } from "../lib/types";
+import type { SpreadsheetConfig } from "../types/sheet";
 
 let isLoading = false;
 

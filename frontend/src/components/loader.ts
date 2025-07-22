@@ -1,10 +1,8 @@
-export interface ComponentOptions {
-  id: string;
-  file: string;
-  callback?: () => void;
-  container?: string;
-}
+import type { ComponentOptions } from "./types";
 
+/**
+ * 지정한 id의 엘리먼트에 외부 HTML 컴포넌트를 동적으로 삽입합니다.
+ */
 export async function includeComponent(
   id: string,
   file: string,
@@ -27,6 +25,9 @@ export async function includeComponent(
   }
 }
 
+/**
+ * 여러 컴포넌트를 병렬로 로드합니다.
+ */
 export async function loadComponents(
   components: ComponentOptions[],
 ): Promise<void> {

@@ -1,9 +1,8 @@
-import "./style.css";
 import { loadMissionData } from "./pages/mission";
 import { pageInfo, router } from "./lib/router";
 import { authService } from "./lib/auth";
 import { ROUTES } from "./lib/config";
-import { layoutManager, LayoutType } from "./lib/layout";
+import { layoutManager, LayoutType } from "./layouts";
 
 // 페이지별 초기화 함수 할당
 pageInfo[ROUTES.HOME].bindFn = loadMissionData;

@@ -1,6 +1,6 @@
 import type { ApiResponse } from "./types";
-import { CONFIG } from "./config";
-import { AppError } from "./error";
+import { CONFIG } from "../config";
+import { AppError } from "../error";
 
 class ApiClient {
   private baseUrl: string;

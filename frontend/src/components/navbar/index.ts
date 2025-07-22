@@ -1,6 +1,10 @@
-import { authService } from "../lib/auth";
+import { authService } from "../../lib/auth";
 
-function setupLogoutButton() {
+/**
+ * 로그아웃 버튼에 이벤트 리스너를 바인딩합니다.
+ * 중복 방지를 위해 기존 리스너를 제거 후 새로 추가합니다.
+ */
+export function setupLogoutButton(): void {
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
     // 기존 이벤트 리스너 제거 후 새로 추가 (중복 방지)
@@ -18,12 +22,10 @@ function setupLogoutButton() {
   }
 }
 
-export function setupNavbar() {
-  setupLogoutButton();
-  updateNavbarActiveState();
-}
-
-export function updateNavbarActiveState() {
+/**
+ * 현재 해시에 따라 네비게이션 바의 활성화 상태를 업데이트합니다.
+ */
+export function updateNavbarActiveState(): void {
   const hash = location.hash.replace(/^#/, "") || "/";
   const navbar = document.getElementById("navbar");
   if (!navbar) return;
@@ -35,4 +37,12 @@ export function updateNavbarActiveState() {
       link.classList.remove("purple");
     }
   });
+}
+
+/**
+ * 네비게이션 바를 초기화합니다.
+ */
+export function setupNavbar(): void {
+  setupLogoutButton();
+  updateNavbarActiveState();
 }

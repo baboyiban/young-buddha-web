@@ -1,16 +1,5 @@
-import type { AuthService } from "./auth";
-
-export class AppError extends Error {
-  constructor(
-    message: string,
-    public code?: string,
-    public status?: number,
-    public details?: unknown,
-  ) {
-    super(message);
-    this.name = "AppError";
-  }
-}
+import type { AuthService } from "../auth/service";
+import { AppError } from "./AppError";
 
 export function handleError(error: unknown): void {
   if (error instanceof AppError) {

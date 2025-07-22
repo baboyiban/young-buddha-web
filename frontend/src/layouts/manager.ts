@@ -1,10 +1,6 @@
-import { includeComponent } from "./components";
+import { includeComponent } from "../components/loader";
 import { setupNavbar } from "../components/navbar";
-
-export enum LayoutType {
-  LOGIN = "login",
-  APP = "app",
-}
+import { LayoutType } from "./types";
 
 class LayoutManager {
   private currentLayout: LayoutType | null = null;
