@@ -1,6 +1,7 @@
 import { requireRole, requireAuth, setupGoogleLogin } from "./auth";
 import { ROUTES, ROLES, CONFIG } from "./config";
 import type { PageInfo } from "./types";
+import { updateNavbarActiveState } from "../components/navbar";
 
 export const routes: Record<string, PageInfo> = {
   [ROUTES.HOME]: {
@@ -71,6 +72,7 @@ export async function router(): Promise<void> {
     const html = await response.text();
     document.getElementById("page-content")!.innerHTML = html;
     currentPath = hash;
+    updateNavbarActiveState();
     if (route.bindFn) await route.bindFn();
   } catch {
     document.getElementById("page-content")!.innerHTML =
