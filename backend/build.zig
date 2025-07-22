@@ -11,6 +11,12 @@ pub fn build(b: *std.Build) void {
         .openssl = false,
     });
 
+    // SQLite 의존성 추가
+    const sqlite = b.dependency("sqlite", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     // 실행 파일 생성
     const exe = b.addExecutable(.{
         .name = "young-buddha-web",
@@ -19,7 +25,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    exe.root_module.addImport("zap", zap_dep.module("zap"));
+    exe.root_module.addImport("sqlite", sqlite.module("sqlite")); // SQLite
+    exe.root_module.addImport("zap", zap_dep.module("zap")); // Zap
 
     b.installArtifact(exe);
 
