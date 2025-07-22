@@ -119,7 +119,8 @@ pub const SheetsService = struct {
         request_body: []const u8,
     ) ![]u8 {
         // 요청 본문에서 필요한 값들 추출
-        const spreadsheet_id = json_util.extractJsonString(request_body, "\"spreadsheet_id\":") orelse {
+        // 변경: std.json 기반으로 값 추출
+        const spreadsheet_id = try json_util.extractJsonString(self.allocator, request_body, "spreadsheet_id") orelse {
             return try std.fmt.allocPrint(
                 self.allocator,
                 "{{\"error\":true,\"message\":\"Missing spreadsheet_id\"}}",
@@ -128,7 +129,7 @@ pub const SheetsService = struct {
         };
         defer self.allocator.free(spreadsheet_id);
 
-        const range = json_util.extractJsonString(request_body, "\"range\":") orelse {
+        const range = try json_util.extractJsonString(self.allocator, request_body, "range") orelse {
             return try std.fmt.allocPrint(
                 self.allocator,
                 "{{\"error\":true,\"message\":\"Missing range\"}}",

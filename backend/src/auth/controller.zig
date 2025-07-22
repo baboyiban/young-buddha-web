@@ -97,9 +97,10 @@ pub const AuthController = struct {
             };
             defer self.service.allocator.free(payload);
 
-            const name = json_util.extractJsonString(payload, "\"name\":\"") orelse "";
-            const email = json_util.extractJsonString(payload, "\"email\":\"") orelse "";
-            const role = json_util.extractJsonString(payload, "\"role\":\"") orelse "";
+            // 변경: std.json 기반으로 값 추출
+            const name = try json_util.extractJsonString(self.service.allocator, payload, "name") orelse "";
+            const email = try json_util.extractJsonString(self.service.allocator, payload, "email") orelse "";
+            const role = try json_util.extractJsonString(self.service.allocator, payload, "role") orelse "";
 
             const response = try std.fmt.allocPrint(
                 self.service.allocator,

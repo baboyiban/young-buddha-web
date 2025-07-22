@@ -85,11 +85,12 @@ pub const SheetsController = struct {
         };
         defer self.service.allocator.free(payload);
 
-        const access_token = json_util.extractJsonString(payload, "\"access_token\":\"") orelse {
+        // 변경: std.json 기반으로 값 추출
+        const access_token = try json_util.extractJsonString(self.service.allocator, payload, "access_token") orelse {
             return error.NoAccessToken;
         };
 
-        const refresh_token = json_util.extractJsonString(payload, "\"refresh_token\":\"") orelse "";
+        const refresh_token = try json_util.extractJsonString(self.service.allocator, payload, "refresh_token") orelse "";
 
         return TokenPair{
             .access_token = try self.service.allocator.dupe(u8, access_token),

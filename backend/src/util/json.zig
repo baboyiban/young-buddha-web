@@ -1,12 +1,14 @@
 const std = @import("std");
 
-pub fn extractJsonString(json: []const u8, key: []const u8) ?[]const u8 {
-    if (std.mem.indexOf(u8, json, key)) |start| {
-        const val_start = start + key.len;
-        if (val_start >= json.len) return null;
-        var val_end = val_start;
-        while (val_end < json.len and json[val_end] != '"') : (val_end += 1) {}
-        return json[val_start..val_end];
+/// std.json 기반으로 특정 필드 추출
+pub fn extractJsonString(allocator: std.mem.Allocator, json: []const u8, key: []const u8) !?[]const u8 {
+    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, json, .{});
+    defer parsed.deinit();
+
+    if (parsed.value.get(key)) |val| {
+        if (val.string) |str| {
+            return str;
+        }
     }
     return null;
 }

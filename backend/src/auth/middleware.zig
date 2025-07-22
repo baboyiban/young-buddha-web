@@ -15,12 +15,13 @@ pub fn getUserFromRequest(r: anytype) ?User {
         };
         defer globals.allocator.free(payload);
 
+        // 변경: std.json 기반으로 값 추출
         return User{
-            .id = json_util.extractJsonString(payload, "\"sub\":\"") orelse "",
-            .name = json_util.extractJsonString(payload, "\"name\":\"") orelse "",
-            .email = json_util.extractJsonString(payload, "\"email\":\"") orelse "",
+            .id = json_util.extractJsonString(globals.allocator, payload, "sub") catch null orelse "",
+            .name = json_util.extractJsonString(globals.allocator, payload, "name") catch null orelse "",
+            .email = json_util.extractJsonString(globals.allocator, payload, "email") catch null orelse "",
             .picture = null,
-            .role = json_util.extractJsonString(payload, "\"role\":\"") orelse "",
+            .role = json_util.extractJsonString(globals.allocator, payload, "role") catch null orelse "",
         };
     }
     return null;
