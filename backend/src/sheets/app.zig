@@ -7,12 +7,8 @@ pub const SheetsApp = struct {
     service: Service,
     controller: Controller,
 
-    pub fn init(allocator: std.mem.Allocator, auth_service: *AuthService) SheetsApp {
-        var service = Service.init(allocator, auth_service);
-        const controller = Controller.init(&service);
-        return SheetsApp{
-            .service = service,
-            .controller = controller,
-        };
+    pub fn init(self: *SheetsApp, allocator: std.mem.Allocator, auth_service: *AuthService) void {
+        self.service = Service.init(allocator, auth_service);
+        self.controller = Controller.init(&self.service);
     }
 };

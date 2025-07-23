@@ -7,13 +7,9 @@ pub const DatabaseApp = struct {
     service: Service,
     controller: Controller,
 
-    pub fn init(allocator: std.mem.Allocator, db: *sqlite.Db) !DatabaseApp {
-        var service = Service.init(allocator, db);
-        try service.createTable();
-        const controller = Controller.init(&service);
-        return DatabaseApp{
-            .service = service,
-            .controller = controller,
-        };
+    pub fn init(self: *DatabaseApp, allocator: std.mem.Allocator, db: *sqlite.Db) !void {
+        self.service = Service.init(allocator, db);
+        try self.service.createTable();
+        self.controller = Controller.init(&self.service);
     }
 };

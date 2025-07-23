@@ -7,12 +7,8 @@ pub const AuthApp = struct {
     service: Service,
     controller: Controller,
 
-    pub fn init(allocator: std.mem.Allocator, env: *Env) !AuthApp {
-        var app = AuthApp{
-            .service = try Service.init(allocator, env),
-            .controller = undefined,
-        };
-        app.controller = Controller.init(&app.service);
-        return app;
+    pub fn init(self: *AuthApp, allocator: std.mem.Allocator, env: *Env) !void {
+        self.service = try Service.init(allocator, env);
+        self.controller = Controller.init(&self.service);
     }
 };

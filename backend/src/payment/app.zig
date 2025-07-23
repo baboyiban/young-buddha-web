@@ -7,12 +7,8 @@ pub const PaymentApp = struct {
     service: Service,
     controller: Controller,
 
-    pub fn init(allocator: std.mem.Allocator, auth_service: *AuthService, spreadsheet_id: []const u8) PaymentApp {
-        var service = Service.init(allocator, auth_service, spreadsheet_id);
-        const controller = Controller.init(&service);
-        return PaymentApp{
-            .service = service,
-            .controller = controller,
-        };
+    pub fn init(self: *PaymentApp, allocator: std.mem.Allocator, auth_service: *AuthService, spreadsheet_id: []const u8) void {
+        self.service = Service.init(allocator, auth_service, spreadsheet_id);
+        self.controller = Controller.init(&self.service);
     }
 };

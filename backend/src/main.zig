@@ -27,19 +27,19 @@ pub fn main() !void {
 
     try globals.init(allocator, &env);
 
-    // Auth, Sheets 초기화
+    // Auth, Sheets 초기화 (in-place)
     const auth_app = try allocator.create(auth.AuthApp);
-    auth_app.* = try auth.AuthApp.init(allocator, &env);
+    try auth_app.init(allocator, &env);
 
     const sheets_app = try allocator.create(sheets.SheetsApp);
-    sheets_app.* = sheets.SheetsApp.init(allocator, &auth_app.service);
+    sheets_app.init(allocator, &auth_app.service);
 
-    // Payment 서비스 (Google Sheets 기반)
+    // Payment 서비스
     const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
     const payment_app = try allocator.create(payment.PaymentApp);
-    payment_app.* = payment.PaymentApp.init(allocator, &auth_app.service, payment_spreadsheet_id);
+    payment_app.init(allocator, &auth_app.service, payment_spreadsheet_id);
 
-    // Database 서비스 (예: SQLite 등)
+    // Database 서비스
     var db = try sqlite.Db.init(.{
         .mode = sqlite.Db.Mode{ .File = "app.db" },
         .open_flags = .{ .write = true, .create = true },
@@ -48,13 +48,13 @@ pub fn main() !void {
     defer db.deinit();
 
     const database_app = try allocator.create(database.DatabaseApp);
-    database_app.* = try database.DatabaseApp.init(allocator, &db);
+    try database_app.init(allocator, &db);
 
     // 정적 파일 핸들러
     const static_handler = try allocator.create(StaticHandler);
     static_handler.* = try StaticHandler.init(allocator, &env);
 
-    // 전역 컨트롤러 등록 (database, payment 모두)
+    // 전역 컨트롤러 등록
     globals.setControllers(
         &auth_app.controller,
         &sheets_app.controller,
