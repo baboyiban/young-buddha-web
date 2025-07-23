@@ -1,7 +1,7 @@
 const std = @import("std");
-
 const auth = @import("../auth/service.zig");
 const json_util = @import("../util/json.zig");
+const google_api = @import("../util/google_api.zig");
 
 pub const SheetsService = struct {
     allocator: std.mem.Allocator,
@@ -21,27 +21,24 @@ pub const SheetsService = struct {
         spreadsheet_id: []const u8,
         range: []const u8,
     ) ![]u8 {
+        const context = .{
+            .self = self,
+            .spreadsheet_id = spreadsheet_id,
+            .range = range,
+        };
 
-        // URL 디코딩
-        const decoded_range = try self.urlDecode(range);
-        defer self.allocator.free(decoded_range);
-
-        // 먼저 현재 토큰으로 시도
-        const result = try self.callSheetsApi(access_token, spreadsheet_id, decoded_range);
-
-        // 401 오류인 경우 토큰 갱신 시도
-        if (std.mem.indexOf(u8, result, "\"error\":true") != null and
-            std.mem.indexOf(u8, result, "401") != null)
-        {
-            if (refresh_token.len > 0) {
-                const new_access_token = try self.auth_service.refreshAccessToken(refresh_token);
-                defer self.allocator.free(new_access_token);
-
-                return try self.callSheetsApi(new_access_token, spreadsheet_id, decoded_range);
-            }
-        }
-
-        return result;
+        return try google_api.callGoogleApiWithRefresh(
+            self.allocator,
+            self.auth_service,
+            access_token,
+            refresh_token,
+            context,
+            (struct {
+                pub fn call(ctx: anytype, token: []const u8) anyerror![]u8 {
+                    return ctx.self.callSheetsApi(token, ctx.spreadsheet_id, ctx.range);
+                }
+            }).call,
+        );
     }
 
     pub fn callSheetsApi(
@@ -116,94 +113,31 @@ pub const SheetsService = struct {
     pub fn writeSpreadsheetValues(
         self: *SheetsService,
         access_token: []const u8,
-        request_body: []const u8,
+        refresh_token: []const u8,
+        spreadsheet_id: []const u8,
+        range: []const u8,
+        values_json: []const u8,
     ) ![]u8 {
-        // 요청 본문에서 필요한 값들 추출
-        // 변경: std.json 기반으로 값 추출
-        const spreadsheet_id = try json_util.extractJsonString(self.allocator, request_body, "spreadsheet_id") orelse {
-            return try std.fmt.allocPrint(
-                self.allocator,
-                "{{\"error\":true,\"message\":\"Missing spreadsheet_id\"}}",
-                .{},
-            );
+        const context = .{
+            .self = self,
+            .spreadsheet_id = spreadsheet_id,
+            .range = range,
+            .values_json = values_json,
         };
-        defer self.allocator.free(spreadsheet_id);
 
-        const range = try json_util.extractJsonString(self.allocator, request_body, "range") orelse {
-            return try std.fmt.allocPrint(
-                self.allocator,
-                "{{\"error\":true,\"message\":\"Missing range\"}}",
-                .{},
-            );
-        };
-        defer self.allocator.free(range);
-
-        var client: std.http.Client = .{ .allocator = self.allocator };
-        defer client.deinit();
-
-        const url = try std.fmt.allocPrint(
+        return try google_api.callGoogleApiWithRefresh(
             self.allocator,
-            "https://sheets.googleapis.com/v4/spreadsheets/{s}/values/{s}?valueInputOption=RAW",
-            .{ spreadsheet_id, range },
+            self.auth_service,
+            access_token,
+            refresh_token,
+            context,
+            (struct {
+                pub fn call(ctx: anytype, token: []const u8) anyerror![]u8 {
+                    // 예시: PUT 방식
+                    return ctx.self.putSheetsApi(token, ctx.spreadsheet_id, ctx.range, ctx.values_json);
+                }
+            }).call,
         );
-        defer self.allocator.free(url);
-
-        const uri = try std.Uri.parse(url);
-        var server_header_buffer: [16 * 1024]u8 = undefined;
-
-        const auth_header = std.http.Header{
-            .name = "Authorization",
-            .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
-        };
-        defer self.allocator.free(auth_header.value);
-
-        const content_type_header = std.http.Header{
-            .name = "Content-Type",
-            .value = "application/json",
-        };
-
-        // Google Sheets API에 맞는 요청 본문 생성
-        const api_body = try self.createSheetsApiBody(request_body);
-        defer self.allocator.free(api_body);
-
-        var req = try client.open(.PUT, uri, .{
-            .server_header_buffer = &server_header_buffer,
-            .extra_headers = &.{ auth_header, content_type_header },
-        });
-        defer req.deinit();
-
-        req.transfer_encoding = .{ .content_length = api_body.len };
-        try req.send();
-        try req.writeAll(api_body);
-        try req.finish();
-        try req.wait();
-
-        if (req.response.status != .ok) {
-            const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
-            defer self.allocator.free(error_response);
-
-            const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
-            defer self.allocator.free(escaped_details);
-
-            return try std.fmt.allocPrint(
-                self.allocator,
-                "{{\"error\":true,\"message\":\"Google Sheets API error: {d}\",\"details\":\"{s}\"}}",
-                .{ @intFromEnum(req.response.status), escaped_details },
-            );
-        }
-
-        const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
-
-        if (response.len == 0 or response[0] != '{') {
-            self.allocator.free(response);
-            return try std.fmt.allocPrint(
-                self.allocator,
-                "{{\"success\":true,\"message\":\"Data saved successfully\"}}",
-                .{},
-            );
-        }
-
-        return response;
     }
 
     pub fn appendSheetsApi(
