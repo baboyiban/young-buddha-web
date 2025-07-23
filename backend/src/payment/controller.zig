@@ -17,7 +17,6 @@ pub const PaymentController = struct {
     pub fn list(self: *PaymentController, r: zap.Request) !void {
         const allocator = self.service.allocator;
 
-        // 1. JWT에서 access_token 추출
         r.parseCookies(false);
         const jwt_cookie = r.getCookieStr(allocator, "jwt") catch {
             r.setStatusNumeric(401);
@@ -35,7 +34,6 @@ pub const PaymentController = struct {
         };
         defer allocator.free(access_token);
 
-        // 2. 쿼리 파라미터 last_n 파싱 (기본값 10)
         var last_n: usize = 10;
         if (r.query) |query| {
             if (std.mem.indexOf(u8, query, "last_n=")) |idx| {
@@ -47,10 +45,8 @@ pub const PaymentController = struct {
             }
         }
 
-        // 3. PaymentService 호출
         const requests = try self.service.listRequests(access_token, last_n);
 
-        // 4. JSON 배열로 변환 (모든 string 필드는 encodeJsonString, null은 null)
         var buf = std.ArrayList(u8).init(allocator);
         defer buf.deinit();
         try buf.appendSlice("[");
@@ -108,7 +104,6 @@ pub const PaymentController = struct {
     pub fn create(self: *PaymentController, r: zap.Request) !void {
         const allocator = self.service.allocator;
 
-        // 1. JWT에서 access_token 추출
         r.parseCookies(false);
         const jwt_cookie = r.getCookieStr(allocator, "jwt") catch {
             r.setStatusNumeric(401);
@@ -126,7 +121,9 @@ pub const PaymentController = struct {
         };
         defer allocator.free(access_token);
 
-        // 2. 요청 본문 파싱
+        const refresh_token = json_util.extractJsonString(allocator, payload, "refresh_token") catch null orelse "";
+        defer allocator.free(refresh_token);
+
         const body = r.body orelse {
             r.setStatusNumeric(400);
             return r.sendBody("{\"error\":true,\"message\":\"Missing body\"}");
@@ -169,7 +166,6 @@ pub const PaymentController = struct {
         const approved_at = getStr(obj, "approved_at");
         const comment = getStr(obj, "comment");
 
-        // 3. PaymentRequest 생성
         const req = PaymentRequest{
             .id = 0,
             .name = name,
@@ -184,8 +180,7 @@ pub const PaymentController = struct {
             .comment = comment,
         };
 
-        // 4. PaymentService에 access_token과 함께 전달
-        try self.service.addRequest(access_token, req);
+        try self.service.addRequest(access_token, refresh_token, req);
 
         r.setStatusNumeric(201);
         try r.sendBody("{\"success\":true}");

@@ -2,6 +2,7 @@ const std = @import("std");
 const SheetsService = @import("../sheets/service.zig").SheetsService;
 const PaymentRequest = @import("model.zig").PaymentRequest;
 const json_util = @import("../util/json.zig");
+const google_api = @import("../util/google_api.zig");
 
 pub const PaymentService = struct {
     allocator: std.mem.Allocator,
@@ -20,7 +21,6 @@ pub const PaymentService = struct {
         };
     }
 
-    /// A2:A 전체 읽어서 데이터 행 개수 반환
     pub fn getRowCount(self: *PaymentService, access_token: []const u8) !usize {
         const range = "데이터베이스_일정결재불참시트!A2:A";
         const response = try self.sheets_service.callSheetsApi(access_token, self.spreadsheet_id, range);
@@ -28,7 +28,6 @@ pub const PaymentService = struct {
         return values_json.len;
     }
 
-    /// 마지막 N줄만 반환
     pub fn listRequests(self: *PaymentService, access_token: []const u8, last_n: usize) ![]PaymentRequest {
         const total_rows = try self.getRowCount(access_token);
         if (total_rows == 0) return &[_]PaymentRequest{};
@@ -75,13 +74,16 @@ pub const PaymentService = struct {
         return list;
     }
 
-    /// 새 결재 요청 추가 (append)
-    pub fn addRequest(self: *PaymentService, access_token: []const u8, req: PaymentRequest) !void {
+    pub fn addRequest(
+        self: *PaymentService,
+        access_token: []const u8,
+        refresh_token: []const u8,
+        req: PaymentRequest,
+    ) !void {
         const row_count = try self.getRowCount(access_token);
         const id = row_count + 1;
 
         const range = "데이터베이스_일정불참결재시트";
-        // values: [[id, name, type, request_date, absent_date, time_slot, reason, status, approver, approved_at, comment]]
         var buf = std.ArrayList(u8).init(self.allocator);
         defer buf.deinit();
 
@@ -130,11 +132,26 @@ pub const PaymentService = struct {
 
         const values_json = buf.items;
 
-        std.log.info("append spreadsheet_id: {s}", .{self.spreadsheet_id});
-        std.log.info("append range: {s}", .{range});
-        std.log.info("append values_json: {s}", .{values_json});
-        const result = try self.sheets_service.appendSheetsApi(access_token, self.spreadsheet_id, range, values_json);
-        std.log.info("append result: {s}", .{result});
-        _ = try self.sheets_service.appendSheetsApi(access_token, self.spreadsheet_id, range, values_json);
+        const context = .{
+            .sheets_service = self.sheets_service,
+            .spreadsheet_id = self.spreadsheet_id,
+            .range = range,
+            .values_json = values_json,
+        };
+
+        const result = try google_api.callGoogleApiWithRefresh(
+            self.allocator,
+            self.sheets_service.auth_service,
+            access_token,
+            refresh_token,
+            context,
+            (struct {
+                pub fn call(ctx: anytype, token: []const u8) anyerror![]u8 {
+                    return ctx.sheets_service.appendSheetsApi(token, ctx.spreadsheet_id, ctx.range, ctx.values_json);
+                }
+            }).call,
+        );
+
+        _ = result;
     }
 };
