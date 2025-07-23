@@ -1,17 +1,17 @@
 const std = @import("std");
 const zap = @import("zap");
-const PaymentService = @import("service.zig").PaymentService;
-const PaymentRequest = @import("model.zig").PaymentRequest;
+const DatabaseService = @import("service.zig").DatabaseService;
+const DatabaseRequest = @import("model.zig").DatabaseRequest;
 
-pub const PaymentController = struct {
-    service: *PaymentService,
+pub const DatabaseController = struct {
+    service: *DatabaseService,
 
-    pub fn init(service: *PaymentService) PaymentController {
+    pub fn init(service: *DatabaseService) DatabaseController {
         return .{ .service = service };
     }
 
-    /// POST /api/payment
-    pub fn create(self: *PaymentController, r: zap.Request) !void {
+    /// POST /api/database
+    pub fn create(self: *DatabaseController, r: zap.Request) !void {
         const allocator = self.service.allocator;
         const body = r.body orelse {
             r.setStatusNumeric(400);
@@ -49,7 +49,7 @@ pub const PaymentController = struct {
         const partial_schedule = getStr(obj, "partial_schedule");
         const reason = getStr(obj, "reason");
 
-        const req = PaymentRequest{
+        const req = DatabaseRequest{
             .id = 0,
             .name = name,
             .type = type_,
@@ -64,8 +64,8 @@ pub const PaymentController = struct {
         try r.sendBody("{\"success\":true}");
     }
 
-    /// GET /api/payment
-    pub fn list(self: *PaymentController, r: zap.Request) !void {
+    /// GET /api/database
+    pub fn list(self: *DatabaseController, r: zap.Request) !void {
         const allocator = self.service.allocator;
         const requests = try self.service.listRequests();
 

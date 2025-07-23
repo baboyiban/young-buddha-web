@@ -1,7 +1,7 @@
 const std = @import("std");
 const zap = @import("zap");
 const globals = @import("../config/globals.zig");
-const payment = @import("../payment/router.zig");
+const database = @import("../database/router.zig");
 const auth = @import("../auth/router.zig");
 const sheets = @import("../sheets/router.zig");
 const errors = @import("../config/errors.zig").Errors;
@@ -72,5 +72,5 @@ pub const Router = struct {
 pub fn setupRoutes(router: *Router) !void {
     try auth.setupRoutes(router, globals.auth_controller.?);
     try sheets.setupRoutes(router, globals.sheets_controller.?);
-    try payment.setupRoutes(router, globals.payment_controller.?);
+    try database.setupRoutes(router, globals.database_controller.?);
 }

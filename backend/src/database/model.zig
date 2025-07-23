@@ -1,4 +1,4 @@
-pub const PaymentRequest = struct {
+pub const DatabaseRequest = struct {
     id: i64,
     name: []const u8,
     type: []const u8,

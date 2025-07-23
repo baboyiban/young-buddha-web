@@ -6,7 +6,7 @@ const Env = @import("config/env.zig").Env;
 const globals = @import("config/globals.zig");
 const auth = @import("auth/app.zig");
 const sheets = @import("sheets/app.zig");
-const payment = @import("payment/app.zig");
+const database = @import("database/app.zig");
 const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 const sqlite = @import("sqlite");
 
@@ -43,9 +43,9 @@ pub fn main() !void {
     sheets_app.service = sheets.Service.init(allocator, &auth_app.service);
     sheets_app.controller = sheets.Controller.init(&sheets_app.service);
 
-    const payment_app = try allocator.create(payment.PaymentApp);
-    payment_app.service = payment.Service.init(allocator, &db);
-    payment_app.controller = payment.Controller.init(&payment_app.service);
+    const database_app = try allocator.create(database.DatabaseApp);
+    database_app.service = database.Service.init(allocator, &db);
+    database_app.controller = database.Controller.init(&database_app.service);
 
     const static_handler = try allocator.create(StaticHandler);
     static_handler.* = try StaticHandler.init(allocator, &env);
@@ -54,7 +54,7 @@ pub fn main() !void {
         &auth_app.controller,
         &sheets_app.controller,
         static_handler,
-        &payment_app.controller,
+        &database_app.controller,
     );
 
     var router = Router.init(allocator);
