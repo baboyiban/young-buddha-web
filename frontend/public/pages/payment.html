@@ -1,3 +1,16 @@
-<div class="">
-  <h1>일정 불참 결재 신청 페이지입니다</h1>
+<div class="container">
+  <h2>일정불참 결재시트</h2>
+  <form id="payment-form">
+    <input name="name" placeholder="이름" required />
+    <input name="type" placeholder="유형(연차 등)" required />
+    <input name="request_date" type="date" required />
+    <input name="absent_date" type="date" required />
+    <input name="time_slot" placeholder="시간대(오전/오후 등)" />
+    <input name="reason" placeholder="사유" />
+    <button type="submit">신청</button>
+  </form>
+  <hr />
+  <h3>최근 결재 요청</h3>
+  <div id="payment-list"></div>
 </div>
+<script type="module" src="/pages/payment.ts"></script>
