@@ -6,9 +6,10 @@ const Env = @import("config/env.zig").Env;
 const globals = @import("config/globals.zig");
 const auth = @import("auth/app.zig");
 const sheets = @import("sheets/app.zig");
-const database = @import("database/app.zig");
-const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 const sqlite = @import("sqlite");
+const database = @import("database/app.zig");
+const payment = @import("payment/app.zig");
+const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 
 pub var global_router: ?Router = null;
 
@@ -26,6 +27,19 @@ pub fn main() !void {
 
     try globals.init(allocator, &env);
 
+    // Auth, Sheets 초기화
+    const auth_app = try allocator.create(auth.AuthApp);
+    auth_app.* = try auth.AuthApp.init(allocator, &env);
+
+    const sheets_app = try allocator.create(sheets.SheetsApp);
+    sheets_app.* = sheets.SheetsApp.init(allocator, &auth_app.service);
+
+    // Payment 서비스 (Google Sheets 기반)
+    const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
+    const payment_app = try allocator.create(payment.PaymentApp);
+    payment_app.* = payment.PaymentApp.init(allocator, &auth_app.service, payment_spreadsheet_id);
+
+    // Database 서비스 (예: SQLite 등)
     var db = try sqlite.Db.init(.{
         .mode = sqlite.Db.Mode{ .File = "app.db" },
         .open_flags = .{ .write = true, .create = true },
@@ -33,30 +47,23 @@ pub fn main() !void {
     });
     defer db.deinit();
 
-    const auth_app = try allocator.create(auth.AuthApp);
-    // 1단계: service만 먼저 초기화
-    auth_app.service = try auth.Service.init(allocator, &env);
-    // 2단계: controller는 반드시 service 필드의 포인터로 초기화
-    auth_app.controller = auth.Controller.init(&auth_app.service);
-
-    const sheets_app = try allocator.create(sheets.SheetsApp);
-    sheets_app.service = sheets.Service.init(allocator, &auth_app.service);
-    sheets_app.controller = sheets.Controller.init(&sheets_app.service);
-
     const database_app = try allocator.create(database.DatabaseApp);
-    database_app.service = database.Service.init(allocator, &db);
-    database_app.controller = database.Controller.init(&database_app.service);
+    database_app.* = try database.DatabaseApp.init(allocator, &db);
 
+    // 정적 파일 핸들러
     const static_handler = try allocator.create(StaticHandler);
     static_handler.* = try StaticHandler.init(allocator, &env);
 
+    // 전역 컨트롤러 등록 (database, payment 모두)
     globals.setControllers(
         &auth_app.controller,
         &sheets_app.controller,
         static_handler,
         &database_app.controller,
+        &payment_app.controller,
     );
 
+    // 라우터 초기화 및 등록
     var router = Router.init(allocator);
     defer router.deinit();
 

@@ -3,7 +3,8 @@ const Env = @import("env.zig").Env;
 const AuthController = @import("../auth/controller.zig").AuthController;
 const SheetsController = @import("../sheets/controller.zig").SheetsController;
 const StaticHandler = @import("../handler/static_handler.zig").StaticHandler;
-const DatabaseController = @import("../database/controller.zig").DatabaseController; // 추가
+const DatabaseController = @import("../database/controller.zig").DatabaseController;
+const PaymentController = @import("../payment/controller.zig").PaymentController;
 
 // 전역 상태 관리
 pub var allocator: std.mem.Allocator = undefined;
@@ -15,6 +16,7 @@ pub var auth_controller: ?*AuthController = null;
 pub var sheets_controller: ?*SheetsController = null;
 pub var static_handler: ?*StaticHandler = null;
 pub var database_controller: ?*DatabaseController = null;
+pub var payment_controller: ?*PaymentController = null;
 
 pub fn init(alloc: std.mem.Allocator, environment: *Env) !void {
     allocator = alloc;
@@ -27,11 +29,13 @@ pub fn setControllers(
     sheets: *SheetsController,
     static: *StaticHandler,
     database: *DatabaseController,
+    payment: *PaymentController,
 ) void {
     auth_controller = auth;
     sheets_controller = sheets;
     static_handler = static;
     database_controller = database;
+    payment_controller = payment;
 }
 
 pub fn getEnv() *Env {
