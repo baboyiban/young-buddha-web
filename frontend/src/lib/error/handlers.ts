@@ -1,5 +1,5 @@
 import type { AuthService } from "../auth/service";
-import { AppError } from "./AppError";
+import { AppError } from "./app-error";
 
 export function handleError(error: unknown): void {
   if (error instanceof AppError) {

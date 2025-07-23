@@ -44,7 +44,7 @@ pub const SheetsService = struct {
         return result;
     }
 
-    fn callSheetsApi(
+    pub fn callSheetsApi(
         self: *SheetsService,
         access_token: []const u8,
         spreadsheet_id: []const u8,
@@ -203,6 +203,54 @@ pub const SheetsService = struct {
             );
         }
 
+        return response;
+    }
+
+    pub fn appendSheetsApi(
+        self: *SheetsService,
+        access_token: []const u8,
+        spreadsheet_id: []const u8,
+        range: []const u8,
+        values_json: []const u8,
+    ) ![]u8 {
+        var client: std.http.Client = .{ .allocator = self.allocator };
+        defer client.deinit();
+
+        // Google Sheets append endpoint
+        const url = try std.fmt.allocPrint(
+            self.allocator,
+            "https://sheets.googleapis.com/v4/spreadsheets/{s}/values/{s}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+            .{ spreadsheet_id, range },
+        );
+        defer self.allocator.free(url);
+
+        const uri = try std.Uri.parse(url);
+        var server_header_buffer: [16 * 1024]u8 = undefined;
+
+        const auth_header = std.http.Header{
+            .name = "Authorization",
+            .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
+        };
+        defer self.allocator.free(auth_header.value);
+
+        const content_type_header = std.http.Header{
+            .name = "Content-Type",
+            .value = "application/json",
+        };
+
+        var req = try client.open(.POST, uri, .{
+            .server_header_buffer = &server_header_buffer,
+            .extra_headers = &.{ auth_header, content_type_header },
+        });
+        defer req.deinit();
+
+        req.transfer_encoding = .{ .content_length = values_json.len };
+        try req.send();
+        try req.writeAll(values_json);
+        try req.finish();
+        try req.wait();
+
+        const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
         return response;
     }
 

@@ -2,6 +2,7 @@ import { ROUTES, ROLES, CONFIG } from "../config";
 import type { PageInfo } from "./types";
 import { setupGoogleLogin } from "../auth/hooks";
 import { loadMissionData } from "../../pages/mission";
+import { setupPaymentPage } from "../../pages/payment";
 
 export const routes: Record<string, PageInfo> = {
   [ROUTES.HOME]: {
@@ -22,6 +23,7 @@ export const routes: Record<string, PageInfo> = {
     title: "일정불참 결재시트",
     file: "/pages/payment.html",
     roles: [ROLES.USER, ROLES.ADMIN],
+    bindFn: setupPaymentPage,
   },
   [ROUTES.PRIVACY]: {
     title: "개인정보 처리방침",

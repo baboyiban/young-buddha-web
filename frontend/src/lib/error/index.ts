@@ -1,2 +1,2 @@
-export * from "./AppError";
+export * from "./app-error";
 export * from "./handlers";

@@ -37,7 +37,7 @@ pub fn main() !void {
     // Payment 서비스
     const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
     const payment_app = try allocator.create(payment.PaymentApp);
-    payment_app.init(allocator, &auth_app.service, payment_spreadsheet_id);
+    payment_app.init(allocator, &sheets_app.service, payment_spreadsheet_id);
 
     // Database 서비스
     var db = try sqlite.Db.init(.{

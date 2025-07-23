@@ -1,10 +1,11 @@
 const std = @import("std");
 const zap = @import("zap");
 const globals = @import("../config/globals.zig");
-const database = @import("../database/router.zig");
+const errors = @import("../config/errors.zig").Errors;
 const auth = @import("../auth/router.zig");
 const sheets = @import("../sheets/router.zig");
-const errors = @import("../config/errors.zig").Errors;
+const database = @import("../database/router.zig");
+const payment = @import("../payment/router.zig");
 
 pub const HandlerFn = *const fn (zap.Request) anyerror!void;
 
@@ -73,4 +74,5 @@ pub fn setupRoutes(router: *Router) !void {
     try auth.setupRoutes(router, globals.auth_controller.?);
     try sheets.setupRoutes(router, globals.sheets_controller.?);
     try database.setupRoutes(router, globals.database_controller.?);
+    try payment.setupRoutes(router, globals.payment_controller.?);
 }
