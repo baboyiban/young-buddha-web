@@ -10,27 +10,19 @@ pageInfo[ROUTES.HOME].bindFn = loadMissionData;
 // 앱 초기화
 async function initApp(): Promise<void> {
   try {
-    console.log("앱 초기화 시작");
-
     // 인증 상태 확인
     const isAuthenticated = await authService.checkAuthStatus();
-    console.log("인증 상태:", isAuthenticated);
 
     if (isAuthenticated) {
       // 인증된 사용자: 앱 레이아웃 로드
-      console.log("앱 레이아웃 로드 중...");
       await layoutManager.loadLayout(LayoutType.APP);
       await determineInitialRoute();
     } else {
       // 인증되지 않은 사용자: 로그인 레이아웃 로드
-      console.log("로그인 레이아웃 로드 중...");
       await layoutManager.loadLayout(LayoutType.LOGIN);
       location.hash = `#${ROUTES.LOGIN}`;
-      console.log("라우터 실행 중...");
       await router();
     }
-
-    console.log("앱 초기화 완료");
   } catch (error) {
     console.error("앱 초기화 중 오류:", error);
   }
