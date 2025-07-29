@@ -188,6 +188,56 @@ pub const SheetsService = struct {
         return response;
     }
 
+    pub fn putSheetsApi(
+        self: *SheetsService,
+        access_token: []const u8,
+        spreadsheet_id: []const u8,
+        range: []const u8,
+        values_json: []const u8,
+    ) ![]u8 {
+        var client: std.http.Client = .{ .allocator = self.allocator };
+        defer client.deinit();
+
+        const encoded_range = try self.urlEncode(range);
+        defer self.allocator.free(encoded_range);
+
+        const url = try std.fmt.allocPrint(
+            self.allocator,
+            "https://sheets.googleapis.com/v4/spreadsheets/{s}/values/{s}?valueInputOption=RAW",
+            .{ spreadsheet_id, encoded_range },
+        );
+        defer self.allocator.free(url);
+
+        const uri = try std.Uri.parse(url);
+        var server_header_buffer: [16 * 1024]u8 = undefined;
+
+        const auth_header = std.http.Header{
+            .name = "Authorization",
+            .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
+        };
+        defer self.allocator.free(auth_header.value);
+
+        const content_type_header = std.http.Header{
+            .name = "Content-Type",
+            .value = "application/json",
+        };
+
+        var req = try client.open(.PUT, uri, .{
+            .server_header_buffer = &server_header_buffer,
+            .extra_headers = &.{ auth_header, content_type_header },
+        });
+        defer req.deinit();
+
+        req.transfer_encoding = .{ .content_length = values_json.len };
+        try req.send();
+        try req.writeAll(values_json);
+        try req.finish();
+        try req.wait();
+
+        const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
+        return response;
+    }
+
     // 헬퍼 메서드들
     fn createSheetsApiBody(self: *SheetsService, request_body: []const u8) ![]u8 {
         const values_start = std.mem.indexOf(u8, request_body, "\"values\":") orelse {
