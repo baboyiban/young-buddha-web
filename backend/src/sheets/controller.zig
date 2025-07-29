@@ -63,6 +63,7 @@ pub const SheetsController = struct {
         const jwt_cookie = r.getCookieStr(self.service.allocator, "jwt") catch {
             return error.NoToken;
         };
+        defer if (jwt_cookie) |cookie| self.service.allocator.free(cookie);
 
         const payload = jwt.verifyJwt(self.service.allocator, jwt_cookie.?, globals.jwt_secret) catch |err| {
             return err;
