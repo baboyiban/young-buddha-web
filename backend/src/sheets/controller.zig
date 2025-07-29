@@ -50,7 +50,14 @@ pub const SheetsController = struct {
             return self.sendError(r, 400, "MISSING_BODY", "Missing request body");
         };
 
-        const response_json = self.service.writeSpreadsheetValues(tokens.access_token, body) catch {
+        const spreadsheet_id = self.getQueryParam(r, "spreadsheet_id") catch {
+            return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", "Missing spreadsheet_id parameter");
+        };
+        const range = self.getQueryParam(r, "range") catch {
+            return self.sendError(r, 400, "MISSING_RANGE", "Missing range parameter");
+        };
+
+        const response_json = self.service.writeSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range, body) catch {
             return self.sendError(r, 500, "WRITE_FAILED", "Failed to write spreadsheet data");
         };
         defer self.service.allocator.free(response_json);
