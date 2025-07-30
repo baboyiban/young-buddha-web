@@ -116,19 +116,30 @@ pub fn main() !void {
 
     global_router = router;
 
+    // 포트 설정 (환경 변수에서 읽거나 기본값 8080 사용)
+    const port = env.getInt("PORT", u16, 8080);
+
+    std.log.info("Attempting to start server on port {d}", .{port});
+
     // HTTP 리스너 초기화
     var listener = zap.HttpListener.init(.{
-        .port = 8080,
+        .port = port,
         .on_request = requestCallback,
         .log = true,
     });
 
     listener.listen() catch |err| {
-        std.log.err("Failed to start listener: {any}", .{err});
+        std.log.err("Failed to start listener on port {d}: {any}", .{ port, err });
+        std.log.err("This could be due to:", .{});
+        std.log.err("1. Port {d} is already in use by another process", .{port});
+        std.log.err("2. Insufficient permissions to bind to port {d}", .{port});
+        std.log.err("3. Invalid port number {d}", .{port});
+        std.log.err("Check if another process is using the port with: lsof -i :{d}", .{port});
+        std.log.err("Or try running with a different port using PORT environment variable", .{});
         return err;
     };
 
-    std.log.info("Server started on port 8080", .{});
+    std.log.info("Server started on port {d}", .{port});
 
     // 서버 시작
     zap.start(.{ .threads = 1, .workers = 1 });
