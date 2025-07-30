@@ -35,7 +35,7 @@ echo "Build completed."
 echo "Starting server..."
 PORT=${PORT:-8080}
 export PORT
-zig build run > "$LOG_FILE" 2> "$ERROR_LOG_FILE" &
+PORT=$PORT zig build run > "$LOG_FILE" 2> "$ERROR_LOG_FILE" &
 
 # 프로세스 ID 저장
 SERVER_PID=$!
