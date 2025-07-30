@@ -13,46 +13,88 @@ const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 
 pub var global_router: ?Router = null;
 
-fn requestCallback(r: zap.Request) anyerror!void {
+fn requestCallback(r: zap.Request) void {
     const router = &global_router.?;
-    try router.route(r);
+    router.route(r) catch |err| {
+        std.log.err("Route error: {any}", .{err});
+        // 에러 응답 전송
+        r.setStatusNumeric(500) catch return;
+        r.sendBody("Internal Server Error") catch return;
+    };
 }
 
 pub fn main() !void {
+    std.log.info("Starting Young Buddha Web Server...", .{});
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    var env = try Env.init(allocator);
+    // 환경 변수 초기화
+    var env = Env.init(allocator) catch |err| {
+        std.log.err("Failed to initialize environment: {any}", .{err});
+        return err;
+    };
     defer env.deinit();
 
-    try globals.init(allocator, &env);
+    // 전역 변수 초기화
+    globals.init(allocator, &env) catch |err| {
+        std.log.err("Failed to initialize globals: {any}", .{err});
+        return err;
+    };
 
-    // Auth, Sheets 초기화 (in-place)
-    const auth_app = try allocator.create(auth.AuthApp);
-    try auth_app.init(allocator, &env);
+    // Auth, Sheets 초기화
+    const auth_app = allocator.create(auth.AuthApp) catch |err| {
+        std.log.err("Failed to create auth app: {any}", .{err});
+        return err;
+    };
+    auth_app.init(allocator, &env) catch |err| {
+        std.log.err("Failed to initialize auth app: {any}", .{err});
+        return err;
+    };
 
-    const sheets_app = try allocator.create(sheets.SheetsApp);
+    const sheets_app = allocator.create(sheets.SheetsApp) catch |err| {
+        std.log.err("Failed to create sheets app: {any}", .{err});
+        return err;
+    };
     sheets_app.init(allocator, &auth_app.service);
 
     // Payment 서비스
     const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
-    const payment_app = try allocator.create(payment.PaymentApp);
+    const payment_app = allocator.create(payment.PaymentApp) catch |err| {
+        std.log.err("Failed to create payment app: {any}", .{err});
+        return err;
+    };
     payment_app.init(allocator, &sheets_app.service, payment_spreadsheet_id);
 
     // Database 서비스
-    var db = try sqlite.Db.init(.{
+    var db = sqlite.Db.init(.{
         .mode = sqlite.Db.Mode{ .File = "app.db" },
         .open_flags = .{ .write = true, .create = true },
         .threading_mode = .Serialized,
-    });
+    }) catch |err| {
+        std.log.err("Failed to initialize database: {any}", .{err});
+        return err;
+    };
     defer db.deinit();
 
-    const database_app = try allocator.create(database.DatabaseApp);
-    try database_app.init(allocator, &db);
+    const database_app = allocator.create(database.DatabaseApp) catch |err| {
+        std.log.err("Failed to create database app: {any}", .{err});
+        return err;
+    };
+    database_app.init(allocator, &db) catch |err| {
+        std.log.err("Failed to initialize database app: {any}", .{err});
+        return err;
+    };
 
     // 정적 파일 핸들러
-    const static_handler = try allocator.create(StaticHandler);
-    static_handler.* = try StaticHandler.init(allocator, &env);
+    const static_handler = allocator.create(StaticHandler) catch |err| {
+        std.log.err("Failed to create static handler: {any}", .{err});
+        return err;
+    };
+    static_handler.* = StaticHandler.init(allocator, &env) catch |err| {
+        std.log.err("Failed to initialize static handler: {any}", .{err});
+        return err;
+    };
 
     // 전역 컨트롤러 등록
     globals.setControllers(
@@ -67,18 +109,31 @@ pub fn main() !void {
     var router = Router.init(allocator);
     defer router.deinit();
 
-    try setupRoutes(&router);
+    setupRoutes(&router) catch |err| {
+        std.log.err("Failed to setup routes: {any}", .{err});
+        return err;
+    };
 
     global_router = router;
 
+    // HTTP 리스너 초기화
     var listener = zap.HttpListener.init(.{
         .port = 8080,
         .on_request = requestCallback,
         .log = true,
     });
-    try listener.listen();
 
+    listener.listen() catch |err| {
+        std.log.err("Failed to start listener: {any}", .{err});
+        return err;
+    };
+
+    std.log.info("Server started on port 8080", .{});
+
+    // 서버 시작
     zap.start(.{ .threads = 1, .workers = 1 });
 
     defer _ = gpa.deinit();
+
+    std.log.info("Server shutdown", .{});
 }

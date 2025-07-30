@@ -1,0 +1,16 @@
+[Unit]
+Description=Young Buddha Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/your/project/backend
+ExecStart=/path/to/your/project/backend/zig-out/bin/young-buddha-web
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
