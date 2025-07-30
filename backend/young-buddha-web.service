@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/path/to/your/project/backend
-ExecStart=/path/to/your/project/backend/zig-out/bin/young-buddha-web
+User=ubuntu
+WorkingDirectory=/home/ubuntu/young-buddha-web/backend
+ExecStart=/home/ubuntu/young-buddha-web/backend/zig-out/bin/young-buddha-web
 Restart=always
 RestartSec=10
 StandardOutput=journal

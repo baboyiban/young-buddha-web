@@ -29,29 +29,23 @@ cd backend
 
 운영 환경에서는 systemd를 사용하여 서버를 관리하는 것을 권장합니다.
 
-1. `young-buddha-web.service` 파일의 경로를 실제 경로로 수정하세요:
-   ```ini
-   WorkingDirectory=/실제/프로젝트/경로/backend
-   ExecStart=/실제/프로젝트/경로/backend/zig-out/bin/young-buddha-web
-   ```
-
-2. 서비스 파일을 시스템에 설치:
+1. 서비스 파일을 시스템에 설치:
    ```bash
    sudo cp young-buddha-web.service /etc/systemd/system/
    sudo systemctl daemon-reload
    ```
 
-3. 서비스 시작:
+2. 서비스 시작:
    ```bash
    sudo systemctl start young-buddha-web
    ```
 
-4. 부팅 시 자동 시작 설정:
+3. 부팅 시 자동 시작 설정:
    ```bash
    sudo systemctl enable young-buddha-web
    ```
 
-5. 서비스 상태 확인:
+4. 서비스 상태 확인:
    ```bash
    sudo systemctl status young-buddha-web
    ```
