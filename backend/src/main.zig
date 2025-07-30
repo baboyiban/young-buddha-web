@@ -13,13 +13,13 @@ const StaticHandler = @import("handler/static_handler.zig").StaticHandler;
 
 pub var global_router: ?Router = null;
 
-fn requestCallback(r: zap.Request) void {
+fn requestCallback(r: zap.Request) anyerror!void {
     const router = &global_router.?;
     router.route(r) catch |err| {
         std.log.err("Route error: {any}", .{err});
         // 에러 응답 전송
-        r.setStatusNumeric(500) catch return;
-        r.sendBody("Internal Server Error") catch return;
+        r.setStatusNumeric(500);
+        try r.sendBody("Internal Server Error");
     };
 }
 
