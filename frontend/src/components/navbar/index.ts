@@ -1,4 +1,5 @@
 import { authService } from "../../lib/auth";
+import { CONFIG } from "../../lib/config";
 
 /**
  * 로그아웃 버튼에 이벤트 리스너를 바인딩합니다.
@@ -19,6 +20,16 @@ export function setupLogoutButton(): void {
         alert("로그아웃 중 오류가 발생했습니다.");
       }
     });
+  }
+}
+
+/**
+ * payment 네비게이션 항목을 조건부로 표시합니다.
+ */
+export function updatePaymentNavItem(): void {
+  const paymentNavItem = document.getElementById("payment-nav-item");
+  if (paymentNavItem) {
+    paymentNavItem.style.display = CONFIG.ENABLE_PAYMENT_PAGE ? "block" : "none";
   }
 }
 
@@ -44,5 +55,6 @@ export function updateNavbarActiveState(): void {
  */
 export function setupNavbar(): void {
   setupLogoutButton();
+  updatePaymentNavItem();
   updateNavbarActiveState();
 }

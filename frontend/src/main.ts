@@ -1,11 +1,11 @@
 import { loadMissionData } from "./pages/mission";
-import { pageInfo, router } from "./lib/router";
+import { routes, router } from "./lib/router";
 import { authService } from "./lib/auth";
 import { ROUTES } from "./lib/config";
 import { layoutManager, LayoutType } from "./layouts";
 
 // 페이지별 초기화 함수 할당
-pageInfo[ROUTES.HOME].bindFn = loadMissionData;
+routes[ROUTES.HOME].bindFn = loadMissionData;
 
 // 앱 초기화
 async function initApp(): Promise<void> {

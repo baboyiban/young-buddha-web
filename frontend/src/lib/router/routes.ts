@@ -4,7 +4,7 @@ import { setupGoogleLogin } from "../auth/hooks";
 import { loadMissionData } from "../../pages/mission";
 import { setupPaymentPage } from "../../pages/payment";
 
-export const routes: Record<string, PageInfo> = {
+const baseRoutes: Record<string, PageInfo> = {
   [ROUTES.HOME]: {
     title: CONFIG.APP_NAME,
     file: "/pages/mission.html",
@@ -19,12 +19,6 @@ export const routes: Record<string, PageInfo> = {
     authRequired: false,
     bindFn: setupGoogleLogin,
   },
-  [ROUTES.PAYMENT]: {
-    title: "일정불참 결재시트",
-    file: "/pages/payment.html",
-    roles: [ROLES.USER, ROLES.ADMIN],
-    bindFn: setupPaymentPage,
-  },
   [ROUTES.PRIVACY]: {
     title: "개인정보 처리방침",
     file: "/pages/privacy.html",
@@ -37,10 +31,21 @@ export const routes: Record<string, PageInfo> = {
   },
 };
 
+// payment 페이지를 조건부로 추가
+if (CONFIG.ENABLE_PAYMENT_PAGE) {
+  baseRoutes[ROUTES.PAYMENT] = {
+    title: "일정불참 결재시트",
+    file: "/pages/payment.html",
+    roles: [ROLES.USER, ROLES.ADMIN],
+    bindFn: setupPaymentPage,
+  };
+}
+
 if (CONFIG.IS_DEV) {
-  Object.values(routes).forEach((route) => {
+  Object.values(baseRoutes).forEach((route) => {
     route.roles = [];
   });
 }
 
-export { routes as pageInfo };
+export { baseRoutes as routes };
+export type { PageInfo };
