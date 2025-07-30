@@ -1,0 +1,13 @@
+# Log files
+*.log
+*.log.old
+
+# Build artifacts
+.zig-cache
+zig-out
+
+# Process ID files
+*.pid
+
+# Environment files (if any)
+.env*

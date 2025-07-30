@@ -2,6 +2,10 @@
 .env*
 .DS_Store
 
+# Log files
+*.log
+*.log.old
+
 # backend
 .zig-cache
 zig-out
