@@ -1,5 +1,6 @@
 const std = @import("std");
 const Logger = @import("logger.zig").Logger;
+const error_handler = @import("../error/error_handler.zig");
 
 /// 에러 처리를 위한 매크로들
 pub fn logAndReturn(comptime logger_instance: Logger, comptime message: []const u8, args: anytype, comptime return_error: anyerror) anyerror {

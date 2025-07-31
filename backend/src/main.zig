@@ -1,5 +1,5 @@
 const std = @import("std");
-const Launcher = @import("app/launcher.zig").Launcher;
+const Launcher = @import("core/launcher.zig").Launcher;
 
 /// 애플리케이션 진입점
 /// 메모리 관리와 애플리케이션 생명주기만 담당합니다.

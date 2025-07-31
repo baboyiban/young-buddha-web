@@ -5,9 +5,9 @@ const auth = @import("../auth/middleware.zig");
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
-const error_handler = @import("../handler/error_handler.zig");
+const error_handler = @import("../error/error_handler.zig");
 const json_util = @import("../util/json.zig");
-const errors = @import("../config/errors.zig").Errors;
+const errors = @import("../error/errors.zig").Errors;
 
 pub const SheetsController = struct {
     service: *Service,

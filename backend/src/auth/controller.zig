@@ -1,13 +1,13 @@
 const std = @import("std");
 const zap = @import("zap");
 const Service = @import("service.zig").AuthService;
-const User = @import("../model/user.zig").User;
+const User = @import("model/user.zig").User;
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const constants = @import("../config/constants.zig");
 const ResponseHelper = @import("../util/response.zig").ResponseHelper;
 const json_util = @import("../util/json.zig");
-const errors = @import("../config/errors.zig").Errors;
+const errors = @import("../error/errors.zig").Errors;
 
 pub const AuthController = struct {
     service: *Service,

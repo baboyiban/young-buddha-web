@@ -6,7 +6,7 @@ const auth = @import("../auth/app.zig");
 const sheets = @import("../sheets/app.zig");
 const database = @import("../database/app.zig");
 const payment = @import("../payment/app.zig");
-const StaticHandler = @import("../handler/static_handler.zig").StaticHandler;
+const StaticHandler = @import("../static/static_handler.zig").StaticHandler;
 const Logger = @import("../util/logger.zig").Logger;
 const constants = @import("../config/constants.zig");
 

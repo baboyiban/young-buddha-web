@@ -2,4 +2,4 @@
 pub const Controller = @import("controller.zig").AuthController;
 pub const Service = @import("service.zig").AuthService;
 pub const Middleware = @import("middleware.zig");
-pub const User = @import("../model/user.zig").User;
+pub const User = @import("model/user.zig").User;

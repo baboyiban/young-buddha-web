@@ -1,6 +1,6 @@
 const std = @import("std");
 const zap = @import("zap");
-const User = @import("../model/user.zig").User;
+const User = @import("model/user.zig").User;
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const json_util = @import("../util/json.zig");
