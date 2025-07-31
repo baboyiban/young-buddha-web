@@ -1,6 +1,7 @@
 const std = @import("std");
 const sqlite = @import("sqlite");
 const DatabaseRequest = @import("model.zig").DatabaseRequest;
+const globals = @import("../config/globals.zig");
 
 pub const DatabaseService = struct {
     allocator: std.mem.Allocator,

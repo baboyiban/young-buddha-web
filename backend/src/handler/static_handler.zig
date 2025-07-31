@@ -2,12 +2,14 @@ const std = @import("std");
 const zap = @import("zap");
 const Env = @import("../config/env.zig").Env;
 const constants = @import("../config/constants.zig");
+const globals = @import("../config/globals.zig");
 
 pub const StaticHandler = struct {
     allocator: std.mem.Allocator,
     base_path: []const u8,
 
-    pub fn init(allocator: std.mem.Allocator, env: *Env) !StaticHandler {
+    pub fn init(allocator: std.mem.Allocator) !StaticHandler {
+        const env = globals.getEnv();
         return .{
             .allocator = allocator,
             .base_path = env.get(constants.STATIC_FILES_PATH_KEY) orelse "../frontend/dist",

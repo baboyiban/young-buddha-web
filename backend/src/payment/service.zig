@@ -3,6 +3,7 @@ const SheetsService = @import("../sheets/service.zig").SheetsService;
 const PaymentRequest = @import("model.zig").PaymentRequest;
 const json_util = @import("../util/json.zig");
 const google_api = @import("../util/google_api.zig");
+const globals = @import("../config/globals.zig");
 
 pub const PaymentService = struct {
     allocator: std.mem.Allocator,

@@ -2,6 +2,7 @@ const std = @import("std");
 const auth = @import("../auth/service.zig");
 const json_util = @import("../util/json.zig");
 const google_api = @import("../util/google_api.zig");
+const globals = @import("../config/globals.zig");
 
 pub const SheetsService = struct {
     allocator: std.mem.Allocator,

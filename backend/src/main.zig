@@ -47,7 +47,7 @@ pub fn main() !void {
         std.log.err("Failed to create auth app: {any}", .{err});
         return err;
     };
-    auth_app.init(allocator, &env) catch |err| {
+    auth_app.init(allocator) catch |err| {
         std.log.err("Failed to initialize auth app: {any}", .{err});
         return err;
     };
@@ -91,7 +91,7 @@ pub fn main() !void {
         std.log.err("Failed to create static handler: {any}", .{err});
         return err;
     };
-    static_handler.* = StaticHandler.init(allocator, &env) catch |err| {
+    static_handler.* = StaticHandler.init(allocator) catch |err| {
         std.log.err("Failed to initialize static handler: {any}", .{err});
         return err;
     };

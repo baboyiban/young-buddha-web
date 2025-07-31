@@ -5,6 +5,7 @@ const User = @import("../model/user.zig").User;
 const constants = @import("../config/constants.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const rand = std.crypto.random;
+const globals = @import("../config/globals.zig");
 
 pub const TokenPair = struct {
     access_token: []u8,
@@ -18,7 +19,8 @@ pub const AuthService = struct {
     redirect_uri: []const u8,
     scope: []const u8,
 
-    pub fn init(allocator: std.mem.Allocator, env: *Env) !AuthService {
+    pub fn init(allocator: std.mem.Allocator) !AuthService {
+        const env = globals.getEnv();
         return .{
             .allocator = allocator,
             .client_id = env.get("GOOGLE_CLIENT_ID") orelse return error.MissingGoogleClientId,
