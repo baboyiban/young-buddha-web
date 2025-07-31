@@ -4,7 +4,6 @@
 
 # Log files
 *.log
-*.log.old
 
 # backend
 .zig-cache
