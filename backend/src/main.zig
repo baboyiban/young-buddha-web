@@ -23,128 +23,122 @@ fn requestCallback(r: zap.Request) anyerror!void {
     };
 }
 
-pub fn main() !void {
-    std.log.info("Starting Young Buddha Web Server...", .{});
+const AppContext = struct {
+    allocator: std.mem.Allocator,
+    env: Env,
+    db: sqlite.Db,
+    auth_app: auth.AuthApp,
+    sheets_app: sheets.SheetsApp,
+    payment_app: payment.PaymentApp,
+    database_app: database.DatabaseApp,
+    static_handler: StaticHandler,
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
+    fn init(allocator: std.mem.Allocator) !AppContext {
+        // 환경 변수 초기화
+        var env = try Env.init(allocator);
+        errdefer env.deinit();
 
-    // 환경 변수 초기화
-    var env = Env.init(allocator) catch |err| {
-        std.log.err("Failed to initialize environment: {any}", .{err});
-        return err;
-    };
-    defer env.deinit();
+        // 전역 변수 초기화
+        try globals.init(allocator, &env);
 
-    // 전역 변수 초기화
-    globals.init(allocator, &env) catch |err| {
-        std.log.err("Failed to initialize globals: {any}", .{err});
-        return err;
-    };
+        // 데이터베이스 초기화
+        var db = try sqlite.Db.init(.{
+            .mode = sqlite.Db.Mode{ .File = "app.db" },
+            .open_flags = .{ .write = true, .create = true },
+            .threading_mode = .Serialized,
+        });
+        errdefer db.deinit();
 
-    // Auth, Sheets 초기화
-    const auth_app = allocator.create(auth.AuthApp) catch |err| {
-        std.log.err("Failed to create auth app: {any}", .{err});
-        return err;
-    };
-    auth_app.init(allocator) catch |err| {
-        std.log.err("Failed to initialize auth app: {any}", .{err});
-        return err;
-    };
+        // 앱 컴포넌트들 초기화
+        var auth_app = auth.AuthApp{};
+        try auth_app.init(allocator);
 
-    const sheets_app = allocator.create(sheets.SheetsApp) catch |err| {
-        std.log.err("Failed to create sheets app: {any}", .{err});
-        return err;
-    };
-    sheets_app.init(allocator, &auth_app.service);
+        var sheets_app = sheets.SheetsApp{};
+        sheets_app.init(allocator, &auth_app.service);
 
-    // Payment 서비스
-    const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
-    const payment_app = allocator.create(payment.PaymentApp) catch |err| {
-        std.log.err("Failed to create payment app: {any}", .{err});
-        return err;
-    };
-    payment_app.init(allocator, &sheets_app.service, payment_spreadsheet_id);
+        const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
+        var payment_app = payment.PaymentApp{};
+        payment_app.init(allocator, &sheets_app.service, payment_spreadsheet_id);
 
-    // Database 서비스
-    var db = sqlite.Db.init(.{
-        .mode = sqlite.Db.Mode{ .File = "app.db" },
-        .open_flags = .{ .write = true, .create = true },
-        .threading_mode = .Serialized,
-    }) catch |err| {
-        std.log.err("Failed to initialize database: {any}", .{err});
-        return err;
-    };
-    defer db.deinit();
+        var database_app = database.DatabaseApp{};
+        try database_app.init(allocator, &db);
 
-    const database_app = allocator.create(database.DatabaseApp) catch |err| {
-        std.log.err("Failed to create database app: {any}", .{err});
-        return err;
-    };
-    database_app.init(allocator, &db) catch |err| {
-        std.log.err("Failed to initialize database app: {any}", .{err});
-        return err;
-    };
+        const static_handler = try StaticHandler.init(allocator);
 
-    // 정적 파일 핸들러
-    const static_handler = allocator.create(StaticHandler) catch |err| {
-        std.log.err("Failed to create static handler: {any}", .{err});
-        return err;
-    };
-    static_handler.* = StaticHandler.init(allocator) catch |err| {
-        std.log.err("Failed to initialize static handler: {any}", .{err});
-        return err;
-    };
+        return AppContext{
+            .allocator = allocator,
+            .env = env,
+            .db = db,
+            .auth_app = auth_app,
+            .sheets_app = sheets_app,
+            .payment_app = payment_app,
+            .database_app = database_app,
+            .static_handler = static_handler,
+        };
+    }
 
+    fn deinit(self: *AppContext) void {
+        self.db.deinit();
+        self.env.deinit();
+    }
+};
+
+fn initializeServer(ctx: *AppContext) !void {
     // 전역 컨트롤러 등록
     globals.setControllers(
-        &auth_app.controller,
-        &sheets_app.controller,
-        static_handler,
-        &database_app.controller,
-        &payment_app.controller,
+        &ctx.auth_app.controller,
+        &ctx.sheets_app.controller,
+        &ctx.static_handler,
+        &ctx.database_app.controller,
+        &ctx.payment_app.controller,
     );
 
     // 라우터 초기화 및 등록
-    var router = Router.init(allocator);
+    var router = Router.init(ctx.allocator);
     defer router.deinit();
 
-    setupRoutes(&router) catch |err| {
-        std.log.err("Failed to setup routes: {any}", .{err});
-        return err;
-    };
-
+    try setupRoutes(&router);
     global_router = router;
+}
 
-    // 포트 설정 (환경 변수에서 읽거나 기본값 8080 사용)
-    const port = env.getInt("PORT", u16, 8080);
+fn startHttpServer(ctx: *AppContext) !void {
+    const port = ctx.env.getInt("PORT", u16, 8080);
+    std.log.info("Starting server on port {d}", .{port});
 
-    std.log.info("Attempting to start server on port {d}", .{port});
-
-    // HTTP 리스너 초기화
     var listener = zap.HttpListener.init(.{
         .port = port,
         .on_request = requestCallback,
         .log = true,
     });
 
-    listener.listen() catch |err| {
-        std.log.err("Failed to start listener on port {d}: {any}", .{ port, err });
-        std.log.err("This could be due to:", .{});
-        std.log.err("1. Port {d} is already in use by another process", .{port});
-        std.log.err("2. Insufficient permissions to bind to port {d}", .{port});
-        std.log.err("3. Invalid port number {d}", .{port});
-        std.log.err("Check if another process is using the port with: lsof -i :{d}", .{port});
-        std.log.err("Or try running with a different port using PORT environment variable", .{});
+    try listener.listen();
+    std.log.info("Server started successfully on port {d}", .{port});
+
+    zap.start(.{ .threads = 1, .workers = 1 });
+}
+
+pub fn main() !void {
+    std.log.info("Starting Young Buddha Web Server...", .{});
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var ctx = AppContext.init(allocator) catch |err| {
+        std.log.err("Failed to initialize application context: {any}", .{err});
+        return err;
+    };
+    defer ctx.deinit();
+
+    initializeServer(&ctx) catch |err| {
+        std.log.err("Failed to initialize server: {any}", .{err});
         return err;
     };
 
-    std.log.info("Server started on port {d}", .{port});
-
-    // 서버 시작
-    zap.start(.{ .threads = 1, .workers = 1 });
-
-    defer _ = gpa.deinit();
+    startHttpServer(&ctx) catch |err| {
+        std.log.err("Failed to start HTTP server: {any}", .{err});
+        return err;
+    };
 
     std.log.info("Server shutdown", .{});
 }

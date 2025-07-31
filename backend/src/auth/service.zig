@@ -4,8 +4,12 @@ const Env = @import("../config/env.zig").Env;
 const User = @import("../model/user.zig").User;
 const constants = @import("../config/constants.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
+const Logger = @import("../util/logger.zig").Logger;
+const AuthError = @import("errors.zig").AuthError;
 const rand = std.crypto.random;
 const globals = @import("../config/globals.zig");
+
+const logger = Logger.init("AuthService");
 
 pub const TokenPair = struct {
     access_token: []u8,
@@ -21,11 +25,29 @@ pub const AuthService = struct {
 
     pub fn init(allocator: std.mem.Allocator) !AuthService {
         const env = globals.getEnv();
+
+        const client_id = env.get("GOOGLE_CLIENT_ID") orelse {
+            logger.err("Google Client ID not found in environment variables", .{});
+            return AuthError.MissingGoogleClientId;
+        };
+
+        const client_secret = env.get("GOOGLE_CLIENT_SECRET") orelse {
+            logger.err("Google Client Secret not found in environment variables", .{});
+            return AuthError.MissingGoogleClientSecret;
+        };
+
+        const redirect_uri = env.get("GOOGLE_REDIRECT_URI") orelse {
+            logger.err("Google Redirect URI not found in environment variables", .{});
+            return AuthError.MissingRedirectUri;
+        };
+
+        logger.info("AuthService initialized successfully", .{});
+
         return .{
             .allocator = allocator,
-            .client_id = env.get("GOOGLE_CLIENT_ID") orelse return error.MissingGoogleClientId,
-            .client_secret = env.get("GOOGLE_CLIENT_SECRET") orelse return error.MissingGoogleClientSecret,
-            .redirect_uri = env.get("GOOGLE_REDIRECT_URI") orelse return error.MissingRedirectUri,
+            .client_id = client_id,
+            .client_secret = client_secret,
+            .redirect_uri = redirect_uri,
             .scope = constants.GOOGLE_SCOPE,
         };
     }
@@ -36,21 +58,23 @@ pub const AuthService = struct {
         return std.fmt.allocPrint(self.allocator, "{}", .{std.fmt.fmtSliceHexLower(&state_bytes)});
     }
 
+    /// Google OAuth2 인증 URL을 생성합니다.
     pub fn buildGoogleAuthUrl(self: *AuthService, state: []const u8) ![]u8 {
         return std.fmt.allocPrint(
             self.allocator,
-            "https://accounts.google.com/o/oauth2/v2/auth?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&access_type=offline&prompt=consent",
-            .{ self.client_id, self.redirect_uri, self.scope, state },
+            "{s}?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&access_type=offline&prompt=consent",
+            .{ constants.GOOGLE_AUTH_URL, self.client_id, self.redirect_uri, self.scope, state },
         );
     }
 
+    /// 세션 쿠키를 설정합니다.
     pub fn setSessionCookie(_: *AuthService, r: zap.Request, key: []const u8, value: []const u8) !void {
         try r.setCookie(.{
             .name = key,
             .value = value,
             .http_only = false,
             .path = "/",
-            .max_age_s = 300, // 5분
+            .max_age_s = constants.OAUTH_STATE_EXPIRY_SECONDS,
         });
     }
 
@@ -67,6 +91,7 @@ pub const AuthService = struct {
         return error.ParamNotFound;
     }
 
+    /// Google OAuth2 인증 코드를 액세스 토큰으로 교환합니다.
     pub fn exchangeGoogleCode(self: *AuthService, code: []const u8) !TokenPair {
         var client: std.http.Client = .{ .allocator = self.allocator };
         defer client.deinit();
@@ -78,28 +103,60 @@ pub const AuthService = struct {
         );
         defer self.allocator.free(body);
 
-        const uri = try std.Uri.parse("https://oauth2.googleapis.com/token");
-        var server_header_buffer: [16 * 1024]u8 = undefined;
+        const uri = std.Uri.parse(constants.GOOGLE_TOKEN_URL) catch |err| {
+            std.log.err("Failed to parse OAuth token URL: {any}", .{err});
+            return error.InvalidUrl;
+        };
 
-        var req = try client.open(.POST, uri, .{
+        var server_header_buffer: [16 * 1024]u8 = undefined;
+        var req = client.open(.POST, uri, .{
             .server_header_buffer = &server_header_buffer,
             .extra_headers = &.{.{
                 .name = "Content-Type",
                 .value = "application/x-www-form-urlencoded",
             }},
-        });
+        }) catch |err| {
+            std.log.err("Failed to open HTTP request: {any}", .{err});
+            return error.HttpRequestFailed;
+        };
         defer req.deinit();
 
         req.transfer_encoding = .{ .content_length = body.len };
-        try req.send();
-        try req.writeAll(body);
-        try req.finish();
-        try req.wait();
+        req.send() catch |err| {
+            std.log.err("Failed to send HTTP request: {any}", .{err});
+            return error.HttpRequestFailed;
+        };
+        req.writeAll(body) catch |err| {
+            std.log.err("Failed to write request body: {any}", .{err});
+            return error.HttpRequestFailed;
+        };
+        req.finish() catch |err| {
+            std.log.err("Failed to finish HTTP request: {any}", .{err});
+            return error.HttpRequestFailed;
+        };
+        req.wait() catch |err| {
+            std.log.err("Failed to wait for HTTP response: {any}", .{err});
+            return error.HttpRequestFailed;
+        };
 
-        const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
+        const response = req.reader().readAllAlloc(self.allocator, 10 * 1024) catch |err| {
+            std.log.err("Failed to read HTTP response: {any}", .{err});
+            return error.HttpResponseFailed;
+        };
         defer self.allocator.free(response);
 
-        const access_token = try self.parseJsonString(response, "access_token");
+        // 응답 상태 코드 확인
+        if (req.response.status != .ok) {
+            std.log.err("OAuth token exchange failed with status: {any}", .{req.response.status});
+            std.log.err("Response body: {s}", .{response});
+            return error.OAuthTokenExchangeFailed;
+        }
+
+        const access_token = self.parseJsonString(response, "access_token") catch |err| {
+            std.log.err("Failed to parse access_token from response: {any}", .{err});
+            return error.InvalidTokenResponse;
+        };
+
         const refresh_token = self.parseJsonString(response, "refresh_token") catch "";
 
         return TokenPair{
@@ -114,8 +171,8 @@ pub const AuthService = struct {
 
         const url = try std.fmt.allocPrint(
             self.allocator,
-            "https://www.googleapis.com/oauth2/v1/userinfo?access_token={s}",
-            .{access_token},
+            "{s}?access_token={s}",
+            .{ constants.GOOGLE_USERINFO_URL, access_token },
         );
         defer self.allocator.free(url);
 
@@ -162,7 +219,7 @@ pub const AuthService = struct {
         );
         defer self.allocator.free(body);
 
-        const uri = try std.Uri.parse("https://oauth2.googleapis.com/token");
+        const uri = try std.Uri.parse(constants.GOOGLE_TOKEN_URL);
         var server_header_buffer: [16 * 1024]u8 = undefined;
 
         var req = try client.open(.POST, uri, .{

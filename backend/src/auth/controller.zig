@@ -67,11 +67,11 @@ pub const AuthController = struct {
         defer self.service.allocator.free(jwt_token);
 
         try r.setCookie(.{
-            .name = "jwt",
+            .name = constants.JWT_COOKIE_NAME,
             .value = jwt_token,
             .http_only = true,
             .path = "/",
-            .max_age_s = 60 * 60 * 24,
+            .max_age_s = constants.SESSION_COOKIE_EXPIRY_SECONDS,
             .secure = globals.isProduction(),
         });
 
@@ -83,7 +83,7 @@ pub const AuthController = struct {
 
     pub fn me(self: *AuthController, r: zap.Request) !void {
         r.parseCookies(false);
-        const jwt_cookie = r.getCookieStr(self.service.allocator, "jwt") catch null;
+        const jwt_cookie = r.getCookieStr(self.service.allocator, constants.JWT_COOKIE_NAME) catch null;
 
         if (jwt_cookie) |token| {
             defer self.service.allocator.free(token);
@@ -119,7 +119,7 @@ pub const AuthController = struct {
 
     pub fn logout(_: *AuthController, r: zap.Request) !void {
         try r.setCookie(.{
-            .name = "jwt",
+            .name = constants.JWT_COOKIE_NAME,
             .value = "",
             .http_only = true,
             .path = "/",
@@ -132,7 +132,7 @@ pub const AuthController = struct {
 
     fn createUserJwt(self: *AuthController, user: User, tokens: @import("service.zig").TokenPair) ![]u8 {
         const now = std.time.timestamp();
-        const exp = now + 60 * 60 * 24;
+        const exp = now + constants.JWT_EXPIRY_SECONDS;
 
         const payload = try std.fmt.allocPrint(
             self.service.allocator,
