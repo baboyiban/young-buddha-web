@@ -44,8 +44,12 @@ pub const AppContext = struct {
         const db_path = env.get("DATABASE_URL") orelse constants.DEFAULT_DB_PATH;
         logger.info("Initializing database: {s}", .{db_path});
 
+        // Convert to null-terminated string for SQLite
+        const db_path_z = try allocator.dupeZ(u8, db_path);
+        defer allocator.free(db_path_z);
+
         var db = sqlite.Db.init(.{
-            .mode = sqlite.Db.Mode{ .File = db_path },
+            .mode = sqlite.Db.Mode{ .File = db_path_z },
             .open_flags = .{ .write = true, .create = true },
             .threading_mode = .Serialized,
         }) catch |err| {
