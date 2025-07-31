@@ -25,9 +25,7 @@ pub const AuthService = struct {
     scope: []const u8,
     http_client: HttpClient,
 
-    pub fn init(allocator: std.mem.Allocator) !AuthService {
-        const env = globals.getEnv();
-
+    pub fn init(allocator: std.mem.Allocator, env: *const Env) !AuthService {
         const client_id = env.get("GOOGLE_CLIENT_ID") orelse {
             logger.err("Google Client ID not found in environment variables", .{});
             return AuthError.MissingGoogleClientId;

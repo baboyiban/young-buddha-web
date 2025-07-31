@@ -28,6 +28,12 @@ pub const Launcher = struct {
             return err;
         };
 
+        // 전역 변수 초기화 (안정적인 포인터 사용)
+        globals.init(self.allocator, &self.ctx.?.env) catch |err| {
+            logger.err("Failed to initialize globals: {any}", .{err});
+            return err;
+        };
+
         // 환경변수 검증
         globals.validateEnvironment() catch |err| {
             logger.err("Environment validation failed: {any}", .{err});

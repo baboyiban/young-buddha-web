@@ -34,14 +34,32 @@ pub const AppContext = struct {
         };
         errdefer env.deinit();
 
-        // 전역 변수 초기화
+        // 전역 변수 초기화 - 안정적인 포인터를 위해 app_context 생성 후 수행
+        // Set global environment pointer for components that rely on it
         globals.init(allocator, &env) catch |err| {
             logger.err("Failed to initialize globals: {any}", .{err});
             return err;
         };
+        var app_context = AppContext{
+            .allocator = allocator,
+            .env = env, // env is moved here
+            .db = undefined,
+            .auth_app = undefined,
+            .sheets_app = undefined,
+            .payment_app = undefined,
+            .database_app = undefined,
+            .static_handler = undefined,
+        };
 
         // 데이터베이스 초기화
-        const db_path = env.get("DATABASE_URL") orelse constants.DEFAULT_DB_PATH;
+        const db_url = env.get("DATABASE_URL") orelse constants.DEFAULT_DB_PATH;
+
+        // Remove sqlite: prefix if present
+        const db_path = if (std.mem.startsWith(u8, db_url, "sqlite:"))
+            db_url[7..] // Skip "sqlite:" prefix
+        else
+            db_url;
+
         logger.info("Initializing database: {s}", .{db_path});
 
         // Convert to null-terminated string for SQLite
@@ -63,7 +81,7 @@ pub const AppContext = struct {
             .service = undefined,
             .controller = undefined,
         };
-        auth_app.init(allocator) catch |err| {
+        auth_app.init(allocator, &app_context.env) catch |err| {
             logger.err("Failed to initialize auth app: {any}", .{err});
             return err;
         };
@@ -90,23 +108,20 @@ pub const AppContext = struct {
             return err;
         };
 
-        const static_handler = StaticHandler.init(allocator) catch |err| {
-            logger.err("Failed to initialize static handler: {any}", .{err});
-            return err;
-        };
+        // Delay static handler initialization until after environment is fully set up
+        const static_handler = try StaticHandler.init(allocator);
+
+        // 초기화된 컴포넌트들로 AppContext 업데이트
+        app_context.db = db;
+        app_context.auth_app = auth_app;
+        app_context.sheets_app = sheets_app;
+        app_context.payment_app = payment_app;
+        app_context.database_app = database_app;
+        app_context.static_handler = static_handler;
 
         logger.info("Application context initialized successfully", .{});
 
-        return AppContext{
-            .allocator = allocator,
-            .env = env,
-            .db = db,
-            .auth_app = auth_app,
-            .sheets_app = sheets_app,
-            .payment_app = payment_app,
-            .database_app = database_app,
-            .static_handler = static_handler,
-        };
+        return app_context;
     }
 
     /// 애플리케이션 컨텍스트를 정리합니다.

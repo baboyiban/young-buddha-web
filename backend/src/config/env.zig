@@ -1,25 +1,33 @@
 const std = @import("std");
 
+const EnvVar = struct {
+    key: []const u8,
+    value: []const u8,
+};
+
 pub const Env = struct {
     allocator: std.mem.Allocator,
-    vars: std.StringHashMap([]const u8),
+    vars: std.ArrayList(EnvVar),
 
     pub fn init(allocator: std.mem.Allocator) !Env {
         std.log.info("Starting Env.init", .{});
 
         var self = Env{
             .allocator = allocator,
-            .vars = std.StringHashMap([]const u8).init(allocator),
+            .vars = std.ArrayList(EnvVar).init(allocator),
         };
         std.log.info("Created Env struct", .{});
+
+        // Initialize the ArrayList properly
+        try self.vars.ensureTotalCapacity(20);
 
         // 1. 먼저 루트 .env 로드 (공통 설정)
         const root_env_path = "../.env";
         std.log.info("Attempting to load root .env from: {s}", .{root_env_path});
         if (std.fs.cwd().readFileAlloc(allocator, root_env_path, 1 * 1024 * 1024)) |root_content| {
+            defer allocator.free(root_content);
             std.log.info("Root .env content loaded, parsing...", .{});
             try self.parseEnvContent(root_content);
-            allocator.free(root_content);
             std.log.info("Loaded root .env file", .{});
         } else |err| {
             std.log.warn("Root .env file not found: {s}, skipping", .{@errorName(err)});
@@ -32,10 +40,10 @@ pub const Env = struct {
             std.log.err("Failed to read backend .env: {s}", .{@errorName(err)});
             return error.EnvFileReadFailed;
         };
+        defer allocator.free(content);
 
         std.log.info("Backend .env content loaded, parsing...", .{});
         try self.parseEnvContent(content);
-        try self.vars.put("__full_content__", content);
         std.log.info("Loaded backend .env file", .{});
         return self;
     }
@@ -46,17 +54,47 @@ pub const Env = struct {
         var line_count: u32 = 0;
         while (lines.next()) |line| {
             line_count += 1;
-            const trimmed = std.mem.trim(u8, line, " \r");
+            const trimmed = std.mem.trim(u8, line, " \r\t");
             if (trimmed.len == 0 or std.mem.startsWith(u8, trimmed, "#")) continue;
             if (std.mem.indexOfScalar(u8, trimmed, '=')) |idx| {
-                const key = trimmed[0..idx];
-                const value = trimmed[idx + 1 ..];
+                const key_slice = trimmed[0..idx];
+                const value_slice = trimmed[idx + 1 ..];
+
+                // Trim whitespace from key and value
+                const key = std.mem.trim(u8, key_slice, " \t");
+                const value = std.mem.trim(u8, value_slice, " \t");
+
+                if (key.len == 0) continue;
+
                 std.log.info("Setting env var: {s} = {s}", .{ key, value });
 
                 // Duplicate the key and value to ensure they're owned by our allocator
                 const owned_key = try self.allocator.dupe(u8, key);
                 const owned_value = try self.allocator.dupe(u8, value);
-                try self.vars.put(owned_key, owned_value);
+
+                // Check if key already exists and update it
+                var found = false;
+                for (self.vars.items) |*env_var| {
+                    if (std.mem.eql(u8, env_var.key, owned_key)) {
+                        // Free old value and update
+                        self.allocator.free(env_var.value);
+                        env_var.value = owned_value;
+                        self.allocator.free(owned_key); // Free the duplicated key as it's not needed
+                        found = true;
+                        break;
+                    }
+                }
+
+                // Key doesn't exist, add new entry
+                if (!found) {
+                    try self.vars.append(EnvVar{
+                        .key = owned_key,
+                        .value = owned_value,
+                    });
+                } else {
+                    // If found, the owned_value was already assigned, so we don't need to free it.
+                    // The owned_key was freed inside the loop.
+                }
             }
         }
         std.log.info("Parsed {} lines from env content", .{line_count});
@@ -64,21 +102,20 @@ pub const Env = struct {
 
     pub fn deinit(self: *Env) void {
         // Free all duplicated keys and values
-        var iterator = self.vars.iterator();
-        while (iterator.next()) |entry| {
-            if (!std.mem.eql(u8, entry.key_ptr.*, "__full_content__")) {
-                self.allocator.free(entry.key_ptr.*);
-                self.allocator.free(entry.value_ptr.*);
-            } else {
-                // Free the full content
-                self.allocator.free(entry.value_ptr.*);
-            }
+        for (self.vars.items) |env_var| {
+            self.allocator.free(env_var.key);
+            self.allocator.free(env_var.value);
         }
         self.vars.deinit();
     }
 
     pub fn get(self: Env, key: []const u8) ?[]const u8 {
-        return self.vars.get(key);
+        for (self.vars.items) |env_var| {
+            if (std.mem.eql(u8, env_var.key, key)) {
+                return env_var.value;
+            }
+        }
+        return null;
     }
 
     pub fn getBool(self: Env, key: []const u8, default: bool) bool {

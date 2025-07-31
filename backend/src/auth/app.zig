@@ -13,8 +13,8 @@ pub const AuthApp = struct {
 
     /// AuthApp을 초기화합니다.
     /// allocator: 메모리 할당자
-    pub fn init(self: *AuthApp, allocator: std.mem.Allocator) !void {
-        self.service = try Service.init(allocator);
+    pub fn init(self: *AuthApp, allocator: std.mem.Allocator, env: *const Env) !void {
+        self.service = try Service.init(allocator, env);
         self.controller = Controller.init(&self.service);
 
         std.log.info("Auth module initialized successfully", .{});

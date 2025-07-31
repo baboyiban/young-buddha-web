@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# .env 파일 로드
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+    echo "=== .env file loaded ==="
+else
+    echo "No .env file found"
+fi
+
+echo ""
 echo "=== Environment Variables Check ==="
 echo "GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-'NOT SET'}"
 echo "GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-'NOT SET'}"  

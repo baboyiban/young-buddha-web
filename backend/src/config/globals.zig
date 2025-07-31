@@ -64,10 +64,18 @@ pub fn validateEnvironment() !void {
 
     std.log.info("=== Environment Variables Validation ===", .{});
 
+    if (env == null) {
+        std.log.err("Global env is null!", .{});
+        return error.MissingRequiredEnvironmentVariables;
+    }
+
+    std.log.info("Global env is initialized", .{});
+
     var missing_vars = std.ArrayList([]const u8).init(allocator);
     defer missing_vars.deinit();
 
     for (required_vars) |var_name| {
+        std.log.info("Checking env var: {s}", .{var_name});
         if (getEnv().get(var_name)) |value| {
             // 값이 있지만 비어있는지 확인
             if (value.len == 0) {
