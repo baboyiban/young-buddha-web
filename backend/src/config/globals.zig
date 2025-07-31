@@ -56,6 +56,12 @@ pub fn validateEnvironment() !void {
         "JWT_SECRET",
     };
 
+    const optional_vars = [_][]const u8{
+        "DATABASE_URL",
+        "NODE_ENV",
+        "PORT",
+    };
+
     std.log.info("=== Environment Variables Validation ===", .{});
 
     var missing_vars = std.ArrayList([]const u8).init(allocator);
@@ -86,6 +92,16 @@ pub fn validateEnvironment() !void {
     if (missing_vars.items.len > 0) {
         std.log.err("Missing required environment variables: {any}", .{missing_vars.items});
         return error.MissingRequiredEnvironmentVariables;
+    }
+
+    // 선택적 환경변수 확인
+    std.log.info("=== Optional Environment Variables ===", .{});
+    for (optional_vars) |var_name| {
+        if (getEnv().get(var_name)) |value| {
+            std.log.info("{s}: {s}", .{ var_name, value });
+        } else {
+            std.log.info("{s}: NOT SET (using default)", .{var_name});
+        }
     }
 
     std.log.info("All required environment variables are set", .{});

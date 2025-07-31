@@ -41,8 +41,11 @@ pub const AppContext = struct {
         };
 
         // 데이터베이스 초기화
+        const db_path = env.get("DATABASE_URL") orelse constants.DEFAULT_DB_PATH;
+        logger.info("Initializing database: {s}", .{db_path});
+
         var db = sqlite.Db.init(.{
-            .mode = sqlite.Db.Mode{ .File = constants.DEFAULT_DB_PATH },
+            .mode = sqlite.Db.Mode{ .File = db_path },
             .open_flags = .{ .write = true, .create = true },
             .threading_mode = .Serialized,
         }) catch |err| {

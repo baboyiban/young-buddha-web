@@ -23,4 +23,4 @@ pub const MAX_REQUEST_BODY_SIZE = 10 * 1024; // 10KB
 pub const MAX_RESPONSE_BUFFER_SIZE = 16 * 1024; // 16KB
 
 // 데이터베이스 관련 상수
-pub const DEFAULT_DB_PATH = "app.db";
+pub const DEFAULT_DB_PATH = "data.db";
