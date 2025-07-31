@@ -1,73 +1,130 @@
 import { apiClient } from "../lib/api";
 import type { AbsenceRequest } from "../types/payment";
 
-export function setupPaymentPage() {
-  // 결재 요청 목록 불러오기
-  async function loadPayments() {
-    const listDiv = document.getElementById("payment-list")!;
-    listDiv.innerHTML = "불러오는 중...";
-    try {
-      const payments: AbsenceRequest[] = await apiClient.get(
-        "/api/payment?last_n=10",
-      );
-      if (!payments.length) {
-        listDiv.innerHTML = "결재 요청이 없습니다.";
-        return;
-      }
-      listDiv.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>이름</th><th>유형</th><th>신청일</th><th>불참일</th><th>시간대</th><th>사유</th><th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${payments
-              .map(
-                (p) => `
-              <tr>
-                <td>${p.name}</td>
-                <td>${p.type}</td>
-                <td>${p.request_date}</td>
-                <td>${p.absent_date}</td>
-                <td>${p.time_slot ?? ""}</td>
-                <td>${p.reason ?? ""}</td>
-                <td>${p.status}</td>
-              </tr>
-            `,
-              )
-              .join("")}
-          </tbody>
-        </table>
-      `;
-    } catch (e) {
-      listDiv.innerHTML = "불러오기 실패";
-    }
-  }
+// 상수 정의
+const PAYMENT_CONFIG = {
+  apiEndpoint: "/api/payment",
+  maxRecords: 10,
+  elementIds: {
+    paymentList: "payment-list",
+    paymentForm: "payment-form",
+  },
+} as const;
 
-  // 결재 요청 등록 (이벤트 리스너 중복 방지)
-  const form = document.getElementById(
-    "payment-form",
-  ) as HTMLFormElement | null;
-  if (form) {
-    // 기존 폼을 복제해서 모든 이벤트 리스너 제거
-    const newForm = form.cloneNode(true) as HTMLFormElement;
-    form.parentNode?.replaceChild(newForm, form);
+const UI_MESSAGES = {
+  loading: "불러오는 중...",
+  noPayments: "결재 요청이 없습니다.",
+  loadError: "불러오기 실패",
+  submitSuccess: "신청 완료!",
+  submitError: "신청 실패",
+} as const;
 
-    newForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(newForm).entries());
-      try {
-        await apiClient.post("/api/payment", data);
-        alert("신청 완료!");
-        newForm.reset();
-        loadPayments();
-      } catch (e) {
-        alert("신청 실패");
-      }
-    });
-  }
+const TABLE_HEADERS = [
+  "이름",
+  "유형",
+  "신청일",
+  "불참일",
+  "시간대",
+  "사유",
+  "상태",
+] as const;
 
-  // 페이지 진입 시 목록 로드
+export function setupPaymentPage(): void {
+  setupPaymentForm();
   loadPayments();
+}
+
+async function loadPayments(): Promise<void> {
+  const listDiv = document.getElementById(
+    PAYMENT_CONFIG.elementIds.paymentList
+  );
+  if (!listDiv) return;
+
+  listDiv.innerHTML = UI_MESSAGES.loading;
+
+  try {
+    const payments = await fetchPayments();
+
+    if (payments.length === 0) {
+      listDiv.innerHTML = UI_MESSAGES.noPayments;
+      return;
+    }
+
+    listDiv.innerHTML = createPaymentTable(payments);
+  } catch (error) {
+    listDiv.innerHTML = UI_MESSAGES.loadError;
+    console.error("결재 요청 목록 로드 실패:", error);
+  }
+}
+
+async function fetchPayments(): Promise<AbsenceRequest[]> {
+  const endpoint = `${PAYMENT_CONFIG.apiEndpoint}?last_n=${PAYMENT_CONFIG.maxRecords}`;
+  return await apiClient.get(endpoint);
+}
+
+function createPaymentTable(payments: AbsenceRequest[]): string {
+  const headerRow = TABLE_HEADERS.map((header) => `<th>${header}</th>`).join(
+    ""
+  );
+  const bodyRows = payments.map(createPaymentRow).join("");
+
+  return `
+    <table>
+      <thead>
+        <tr>${headerRow}</tr>
+      </thead>
+      <tbody>
+        ${bodyRows}
+      </tbody>
+    </table>
+  `;
+}
+
+function createPaymentRow(payment: AbsenceRequest): string {
+  return `
+    <tr>
+      <td>${payment.name}</td>
+      <td>${payment.type}</td>
+      <td>${payment.request_date}</td>
+      <td>${payment.absent_date}</td>
+      <td>${payment.time_slot ?? ""}</td>
+      <td>${payment.reason ?? ""}</td>
+      <td>${payment.status}</td>
+    </tr>
+  `;
+}
+
+function setupPaymentForm(): void {
+  const form = document.getElementById(
+    PAYMENT_CONFIG.elementIds.paymentForm
+  ) as HTMLFormElement;
+  if (!form) return;
+
+  // 이벤트 리스너 중복 방지를 위한 폼 복제
+  const cleanForm = cloneFormWithoutListeners(form);
+  cleanForm.addEventListener("submit", handleFormSubmit);
+}
+
+function cloneFormWithoutListeners(form: HTMLFormElement): HTMLFormElement {
+  const newForm = form.cloneNode(true) as HTMLFormElement;
+  form.parentNode?.replaceChild(newForm, form);
+  return newForm;
+}
+
+async function handleFormSubmit(event: Event): Promise<void> {
+  event.preventDefault();
+
+  const form = event.target as HTMLFormElement;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+
+  try {
+    await apiClient.post(PAYMENT_CONFIG.apiEndpoint, data);
+    alert(UI_MESSAGES.submitSuccess);
+    form.reset();
+    await loadPayments();
+  } catch (error) {
+    alert(UI_MESSAGES.submitError);
+    console.error("결재 요청 등록 실패:", error);
+  }
 }
