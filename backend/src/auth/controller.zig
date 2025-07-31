@@ -69,6 +69,7 @@ pub const AuthController = struct {
         const saved_state = self.service.getSessionCookie(r, constants.OAUTH_STATE_COOKIE_NAME) orelse {
             return self.sendError(r, 401, "INVALID_SESSION", errors.InvalidSession);
         };
+        defer self.service.allocator.free(saved_state);
 
         if (!std.mem.eql(u8, state, saved_state)) {
             return self.sendError(r, 401, "STATE_MISMATCH", errors.StateMismatch);

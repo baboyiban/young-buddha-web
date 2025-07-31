@@ -11,6 +11,10 @@ pub const DatabaseService = struct {
         return .{ .allocator = allocator, .db = db };
     }
 
+    pub fn deinit(self: *DatabaseService) void {
+        _ = self;
+    }
+
     pub fn createTable(self: *DatabaseService) !void {
         try self.db.exec(
             \\CREATE TABLE IF NOT EXISTS database_request (

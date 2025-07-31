@@ -11,4 +11,8 @@ pub const SheetsApp = struct {
         self.service = Service.init(allocator, auth_service);
         self.controller = Controller.init(&self.service);
     }
+
+    pub fn deinit(self: *SheetsApp) void {
+        self.service.deinit();
+    }
 };

@@ -12,4 +12,8 @@ pub const DatabaseApp = struct {
         try self.service.createTable();
         self.controller = Controller.init(&self.service);
     }
+
+    pub fn deinit(self: *DatabaseApp) void {
+        self.service.deinit();
+    }
 };

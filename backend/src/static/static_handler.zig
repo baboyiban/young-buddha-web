@@ -16,7 +16,11 @@ pub const StaticHandler = struct {
         };
     }
 
-    pub fn deinit(_: *StaticHandler) void {}
+    pub fn deinit(self: *StaticHandler, allocator: std.mem.Allocator) void {
+        // base_path는 Env에서 관리하므로 여기서 해제하지 않습니다.
+        _ = self;
+        _ = allocator;
+    }
 
     pub fn serve(self: *StaticHandler, r: zap.Request) !void {
         const path = r.path orelse "/";

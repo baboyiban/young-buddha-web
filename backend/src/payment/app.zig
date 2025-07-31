@@ -11,4 +11,8 @@ pub const PaymentApp = struct {
         self.service = Service.init(allocator, sheets_service, spreadsheet_id);
         self.controller = Controller.init(&self.service);
     }
+
+    pub fn deinit(self: *PaymentApp) void {
+        self.service.deinit();
+    }
 };

@@ -133,7 +133,22 @@ pub const AppContext = struct {
     pub fn deinit(self: *AppContext) void {
         logger.info("Cleaning up application context...", .{});
 
+        // Deinitialize components in reverse order of initialization
+        self.static_handler.deinit(self.allocator);
+        self.allocator.destroy(self.static_handler);
+
+        self.database_app.deinit();
+        self.allocator.destroy(self.database_app);
+
+        self.payment_app.deinit();
+        self.allocator.destroy(self.payment_app);
+
+        self.sheets_app.deinit();
+        self.allocator.destroy(self.sheets_app);
+
         self.auth_app.deinit();
+        self.allocator.destroy(self.auth_app);
+
         self.db.deinit();
         self.env.deinit();
 

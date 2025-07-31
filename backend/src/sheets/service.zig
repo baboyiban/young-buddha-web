@@ -15,6 +15,10 @@ pub const SheetsService = struct {
         };
     }
 
+    pub fn deinit(self: *SheetsService) void {
+        _ = self;
+    }
+
     pub fn getSpreadsheetValues(
         self: *SheetsService,
         access_token: []const u8,

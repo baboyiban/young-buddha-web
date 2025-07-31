@@ -20,7 +20,6 @@ pub const AuthApp = struct {
 
     /// AuthApp을 정리합니다.
     pub fn deinit(self: *AuthApp) void {
-        // 필요시 리소스 정리 로직 추가
-        _ = self;
+        self.service.deinit();
     }
 };

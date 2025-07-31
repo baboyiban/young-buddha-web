@@ -22,6 +22,10 @@ pub const PaymentService = struct {
         };
     }
 
+    pub fn deinit(self: *PaymentService) void {
+        _ = self;
+    }
+
     pub fn getRowCount(self: *PaymentService, access_token: []const u8) !usize {
         const range = "데이터베이스_일정결재불참시트!A2:A";
         const response = try self.sheets_service.callSheetsApi(access_token, self.spreadsheet_id, range);

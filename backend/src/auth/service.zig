@@ -53,6 +53,10 @@ pub const AuthService = struct {
         };
     }
 
+    pub fn deinit(self: *AuthService) void {
+        self.http_client.deinit();
+    }
+
     pub fn generateState(self: *AuthService) ![]u8 {
         var state_bytes: [32]u8 = undefined;
         rand.bytes(&state_bytes);
