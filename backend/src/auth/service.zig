@@ -5,6 +5,7 @@ const User = @import("../model/user.zig").User;
 const constants = @import("../config/constants.zig");
 const QueryIterator = @import("../util/query.zig").QueryIterator;
 const Logger = @import("../util/logger.zig").Logger;
+const HttpClient = @import("../util/http_client.zig").HttpClient;
 const AuthError = @import("errors.zig").AuthError;
 const rand = std.crypto.random;
 const globals = @import("../config/globals.zig");
@@ -22,6 +23,7 @@ pub const AuthService = struct {
     client_secret: []const u8,
     redirect_uri: []const u8,
     scope: []const u8,
+    http_client: HttpClient,
 
     pub fn init(allocator: std.mem.Allocator) !AuthService {
         const env = globals.getEnv();
@@ -49,6 +51,7 @@ pub const AuthService = struct {
             .client_secret = client_secret,
             .redirect_uri = redirect_uri,
             .scope = constants.GOOGLE_SCOPE,
+            .http_client = HttpClient.init(allocator),
         };
     }
 

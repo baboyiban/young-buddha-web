@@ -5,7 +5,7 @@ const User = @import("../model/user.zig").User;
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
 const constants = @import("../config/constants.zig");
-const error_handler = @import("../handler/error_handler.zig");
+const ResponseHelper = @import("../util/response.zig").ResponseHelper;
 const json_util = @import("../util/json.zig");
 const errors = @import("../config/errors.zig").Errors;
 
@@ -32,7 +32,7 @@ pub const AuthController = struct {
         );
         defer self.service.allocator.free(response);
 
-        try self.sendJson(r, 200, response);
+        try ResponseHelper.sendJson(r, 200, response);
     }
 
     pub fn googleCallback(self: *AuthController, r: zap.Request) !void {
@@ -109,7 +109,7 @@ pub const AuthController = struct {
             );
             defer self.service.allocator.free(response);
 
-            try self.sendJson(r, 200, response);
+            try ResponseHelper.sendJson(r, 200, response);
             return;
         }
 
@@ -144,13 +144,7 @@ pub const AuthController = struct {
         return jwt.createJwt(self.service.allocator, payload, globals.jwt_secret);
     }
 
-    fn sendJson(_: *AuthController, r: zap.Request, status: u16, json: []const u8) !void {
-        r.setStatusNumeric(status);
-        try r.setHeader("Content-Type", "application/json; charset=utf-8");
-        try r.sendBody(json);
-    }
-
     fn sendError(self: *AuthController, r: zap.Request, status: u16, code: []const u8, message: []const u8) !void {
-        try error_handler.sendErrorJson(self.service.allocator, r, status, code, message);
+        try ResponseHelper.sendError(self.service.allocator, r, status, code, message);
     }
 };
