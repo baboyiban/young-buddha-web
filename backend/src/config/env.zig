@@ -11,7 +11,7 @@ pub const Env = struct {
         };
 
         // 1. 먼저 루트 .env 로드 (공통 설정)
-        const root_env_path = "../../.env";
+        const root_env_path = "../.env";
         if (std.fs.cwd().readFileAlloc(allocator, root_env_path, 1 * 1024 * 1024)) |root_content| {
             try self.parseEnvContent(root_content);
             allocator.free(root_content);
@@ -21,7 +21,7 @@ pub const Env = struct {
         }
 
         // 2. 백엔드 전용 .env 로드 (덮어쓰기)
-        const env_path = "../.env";
+        const env_path = ".env";
         const content = std.fs.cwd().readFileAlloc(allocator, env_path, 1 * 1024 * 1024) catch |err| {
             std.log.err("Failed to read backend .env: {s}", .{@errorName(err)});
             return error.EnvFileReadFailed;
