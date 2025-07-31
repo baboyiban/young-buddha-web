@@ -77,8 +77,15 @@ log_info "PID file: $PID_FILE"
 echo "----------------------------------------"
 
 # 빌드
-log_info "Building server..."
-if ! $BUILD_COMMAND; then
+if [ "$USE_DEBUG_BUILD" = "1" ]; then
+    log_info "Building server in DEBUG mode..."
+    BUILD_CMD="$DEBUG_BUILD_COMMAND"
+else
+    log_info "Building server..."
+    BUILD_CMD="$BUILD_COMMAND"
+fi
+
+if ! $BUILD_CMD; then
     log_error "Build failed"
     exit 1
 fi

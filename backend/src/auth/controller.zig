@@ -83,7 +83,12 @@ pub const AuthController = struct {
 
     pub fn me(self: *AuthController, r: zap.Request) !void {
         r.parseCookies(false);
-        const jwt_cookie = r.getCookieStr(self.service.allocator, constants.JWT_COOKIE_NAME) catch null;
+
+        // 안전한 쿠키 처리
+        const jwt_cookie = r.getCookieStr(self.service.allocator, constants.JWT_COOKIE_NAME) catch |err| blk: {
+            std.log.warn("Failed to get JWT cookie: {}", .{err});
+            break :blk null;
+        };
 
         if (jwt_cookie) |token| {
             defer self.service.allocator.free(token);
