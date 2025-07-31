@@ -16,11 +16,8 @@ echo $SERVER_PID > "$LOG_DIR/server.pid"
 
 # Wait for the server to be ready
 echo "서버를 시작하는 중입니다..."
-timeout 60s tail -f "$LOG_FILE" | while read LOGLINE
-do
-    echo "$LOGLINE"
-    if [[ "$LOGLINE" == *"Server is ready to accept connections"* ]]; then
-        echo "서버가 실행되었습니다. (PID: $SERVER_PID)"
-        pkill -P $ tail
-    fi
-done
+
+# 로그에서 준비 완료 문구를 한 번만 대기하고 종료
+if tail -n +1 -F "$LOG_FILE" 2>/dev/null | grep -m 1 "Server is ready to accept connections"; then
+    echo "서버가 실행되었습니다. (PID: $SERVER_PID)"
+fi

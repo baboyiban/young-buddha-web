@@ -72,6 +72,8 @@ pub const Server = struct {
             return err;
         };
 
+        logger.info("Server is ready to accept connections", .{});
+
         // 서버 시작 (블로킹)
         zap.start(.{ .threads = 1, .workers = 1 });
     }
