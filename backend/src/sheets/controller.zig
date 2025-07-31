@@ -27,14 +27,25 @@ pub const SheetsController = struct {
         const spreadsheet_id = self.getQueryParam(r, "spreadsheet_id") catch {
             return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", errors.MissingSpreadsheetId);
         };
-        const range = self.getQueryParam(r, "range") catch {
+        const encoded_range = self.getQueryParam(r, "range") catch {
             return self.sendError(r, 400, "MISSING_RANGE", errors.MissingRange);
         };
 
-        const values_json = self.service.getSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range) catch {
+        // URL 디코딩
+        const range = self.service.urlDecode(encoded_range) catch {
+            return self.sendError(r, 400, "INVALID_RANGE", "Invalid range format");
+        };
+        defer self.service.allocator.free(range);
+
+        std.log.info("Reading spreadsheet: {s}, encoded_range: {s}, decoded_range: {s}", .{ spreadsheet_id, encoded_range, range });
+
+        const values_json = self.service.getSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range) catch |err| {
+            std.log.err("Failed to get spreadsheet values: {any}", .{err});
             return self.sendError(r, 500, "READ_FAILED", errors.ReadFailed);
         };
         defer self.service.allocator.free(values_json);
+
+        std.log.info("Received response: {s}", .{values_json});
 
         try self.sendJson(r, 200, values_json);
     }
@@ -71,6 +82,10 @@ pub const SheetsController = struct {
             return error.NoToken;
         };
         defer if (jwt_cookie) |cookie| self.service.allocator.free(cookie);
+
+        if (jwt_cookie == null) {
+            return error.NoToken;
+        }
 
         const payload = jwt.verifyJwt(self.service.allocator, jwt_cookie.?, globals.jwt_secret) catch |err| {
             return err;
