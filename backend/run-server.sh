@@ -31,13 +31,15 @@ log_error() {
 }
 
 cleanup_on_exit() {
-    if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
-        log_info "Cleaning up server process $SERVER_PID"
+    # Only cleanup if we're exiting due to an error (not normal completion)
+    if [ "$?" -ne 0 ] && [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        log_info "Cleaning up server process $SERVER_PID due to error"
         kill "$SERVER_PID" 2>/dev/null || true
     fi
 }
 
-trap cleanup_on_exit EXIT
+# Only trap on error, not normal exit
+trap cleanup_on_exit ERR
 
 # 기존 서버 프로세스 확인
 if [ -f "$PID_FILE" ]; then
