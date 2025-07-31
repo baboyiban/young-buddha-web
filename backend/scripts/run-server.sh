@@ -3,13 +3,14 @@
 # Young Buddha Web Server - Simple Run Script
 
 cd "$(dirname "$0")"
+mkdir -p logs
 
 # 기본값 설정
 PORT=8080
 SERVER_BINARY="../zig-out/bin/young-buddha-web"
-LOG_FILE="../logs/server.log"
-ERROR_LOG_FILE="../logs/error.log"
-PID_FILE="../logs/server.pid"
+LOG_FILE="logs/server.log"
+ERROR_LOG_FILE="logs/error.log"
+PID_FILE="logs/server.pid"
 
 echo "[INFO] Building server..."
 zig build || { echo "[ERROR] Build failed"; exit 1; }

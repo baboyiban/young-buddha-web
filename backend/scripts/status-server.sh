@@ -3,6 +3,7 @@
 # Young Buddha Web Server - Status Script
 
 cd "$(dirname "$0")"
+mkdir -p logs
 
 PORT=8080
 PID_FILE="logs/server.pid"
