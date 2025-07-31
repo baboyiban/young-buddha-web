@@ -1,79 +1,67 @@
 import { createDateBasedRange, sheetsService } from "../lib/sheets";
 import { authService } from "../lib/auth/service";
+import {
+  PageStateManager,
+  AsyncHandler,
+  PageConfigFactory,
+} from "../lib/utils";
 import type { SpreadsheetConfig } from "../types/sheet";
 
-// 상수 정의
-const MISSION_CONFIG = {
-  baseDate: "2025-07-17",
-  baseRow: 159,
-  sheetName: "[NEW] 생활소임_2학기",
-  spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
-  columnRange: { start: "A", end: "R" },
-} as const;
+// 페이지 설정
+const MISSION_PAGE_CONFIG = PageConfigFactory.createSheetConfig(
+  {
+    baseDate: "2025-07-17",
+    baseRow: 159,
+    sheetName: "[NEW] 생활소임_2학기",
+    spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
+    columnRange: { start: "A", end: "R" },
+  },
+  {
+    resultContainer: "sheet-home-result",
+  }
+);
 
-const UI_MESSAGES = {
-  loading: "데이터를 불러오는 중...",
-  noData: "데이터가 없습니다.",
-  loginRequired: "로그인이 필요합니다.",
-  loginButton: "로그인하기",
-} as const;
-
-let isLoading = false;
+const pageState = new PageStateManager(
+  MISSION_PAGE_CONFIG.elementIds.resultContainer
+);
 
 export async function loadMissionData(): Promise<void> {
-  if (isLoading) return;
+  await AsyncHandler.handleWithAuth(
+    pageState,
+    () => authService.checkAuthStatus(),
+    async () => {
+      const data = await fetchMissionData();
 
-  const resultDiv = document.getElementById("sheet-home-result");
-  if (!resultDiv) return;
+      if (data.length === 0) {
+        pageState.showEmpty(MISSION_PAGE_CONFIG.messages.noData);
+        return data;
+      }
 
-  isLoading = true;
-  resultDiv.innerHTML = UI_MESSAGES.loading;
+      const missionItems = processMissionData(data[0]);
+      const html = createMissionHtml(missionItems);
+      pageState.showContent(html);
 
-  try {
-    const isAuthenticated = await authService.checkAuthStatus();
-    if (!isAuthenticated) {
-      resultDiv.innerHTML = createLoginPrompt();
-      return;
+      return data;
+    },
+    {
+      loadingMessage: MISSION_PAGE_CONFIG.messages.loading,
+      loginMessage: MISSION_PAGE_CONFIG.messages.loginRequired,
     }
-
-    const data = await fetchMissionData();
-    if (data.length === 0) {
-      resultDiv.innerHTML = UI_MESSAGES.noData;
-      return;
-    }
-
-    const missionItems = processMissionData(data[0]);
-    resultDiv.innerHTML = createMissionHtml(missionItems);
-  } catch (error) {
-    resultDiv.innerHTML = createErrorMessage(error);
-  } finally {
-    isLoading = false;
-  }
-}
-
-function createLoginPrompt(): string {
-  return `
-    <div class="text-center">
-      <p class="mb-4">${UI_MESSAGES.loginRequired}</p>
-      <button onclick="location.hash='#/login'" 
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-        ${UI_MESSAGES.loginButton}
-      </button>
-    </div>
-  `;
+  );
 }
 
 async function fetchMissionData(): Promise<string[][]> {
+  const { sheet } = MISSION_PAGE_CONFIG;
   const range = createDateBasedRange(
-    MISSION_CONFIG.sheetName,
-    MISSION_CONFIG.baseDate,
-    MISSION_CONFIG.baseRow,
-    MISSION_CONFIG.columnRange.start,
-    MISSION_CONFIG.columnRange.end
+    sheet.sheetName,
+    sheet.baseDate,
+    sheet.baseRow,
+    sheet.columnRange.start,
+    sheet.columnRange.end
   );
 
   const config: SpreadsheetConfig = {
-    spreadsheetId: MISSION_CONFIG.spreadsheetId,
+    spreadsheetId: sheet.spreadsheetId,
     range,
   };
 
@@ -82,11 +70,6 @@ async function fetchMissionData(): Promise<string[][]> {
 
 function processMissionData(rawData: string[]): string[] {
   return rawData.map((cell: string) => (cell && cell !== "-" ? cell : ""));
-}
-
-function createErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return `오류 발생: ${message}`;
 }
 
 // 미션 항목 인덱스 정의

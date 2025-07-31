@@ -1,4 +1,7 @@
 import { apiClient } from "../lib/api";
+import { PageStateManager } from "../lib/utils/page-state";
+import { AsyncHandler } from "../lib/utils/async-handler";
+import { DOMUtils } from "../lib/utils/dom";
 import type { AbsenceRequest } from "../types/payment";
 
 // 상수 정의
@@ -29,32 +32,26 @@ const TABLE_HEADERS = [
   "상태",
 ] as const;
 
+const pageState = new PageStateManager(PAYMENT_CONFIG.elementIds.paymentList);
+
 export function setupPaymentPage(): void {
   setupPaymentForm();
   loadPayments();
 }
 
 async function loadPayments(): Promise<void> {
-  const listDiv = document.getElementById(
-    PAYMENT_CONFIG.elementIds.paymentList
-  );
-  if (!listDiv) return;
-
-  listDiv.innerHTML = UI_MESSAGES.loading;
-
-  try {
-    const payments = await fetchPayments();
-
-    if (payments.length === 0) {
-      listDiv.innerHTML = UI_MESSAGES.noPayments;
-      return;
-    }
-
-    listDiv.innerHTML = createPaymentTable(payments);
-  } catch (error) {
-    listDiv.innerHTML = UI_MESSAGES.loadError;
-    console.error("결재 요청 목록 로드 실패:", error);
-  }
+  await AsyncHandler.handleWithPageState(pageState, fetchPayments, {
+    loadingMessage: UI_MESSAGES.loading,
+    emptyCheck: (payments) => payments.length === 0,
+    emptyMessage: UI_MESSAGES.noPayments,
+    onSuccess: (payments) => {
+      const html = createPaymentTable(payments);
+      pageState.showContent(html);
+    },
+    onError: (error) => {
+      console.error("결재 요청 목록 로드 실패:", error);
+    },
+  });
 }
 
 async function fetchPayments(): Promise<AbsenceRequest[]> {
@@ -95,9 +92,9 @@ function createPaymentRow(payment: AbsenceRequest): string {
 }
 
 function setupPaymentForm(): void {
-  const form = document.getElementById(
+  const form = DOMUtils.getElementById<HTMLFormElement>(
     PAYMENT_CONFIG.elementIds.paymentForm
-  ) as HTMLFormElement;
+  );
   if (!form) return;
 
   // 이벤트 리스너 중복 방지를 위한 폼 복제
@@ -113,18 +110,17 @@ function cloneFormWithoutListeners(form: HTMLFormElement): HTMLFormElement {
 
 async function handleFormSubmit(event: Event): Promise<void> {
   event.preventDefault();
-
   const form = event.target as HTMLFormElement;
-  const formData = new FormData(form);
-  const data = Object.fromEntries(formData.entries());
 
-  try {
-    await apiClient.post(PAYMENT_CONFIG.apiEndpoint, data);
-    alert(UI_MESSAGES.submitSuccess);
-    form.reset();
-    await loadPayments();
-  } catch (error) {
-    alert(UI_MESSAGES.submitError);
-    console.error("결재 요청 등록 실패:", error);
-  }
+  await AsyncHandler.handleFormSubmit(
+    form,
+    (data) => apiClient.post(PAYMENT_CONFIG.apiEndpoint, data),
+    {
+      successMessage: UI_MESSAGES.submitSuccess,
+      onSuccess: () => loadPayments(),
+      onError: (error) => {
+        console.error("결재 요청 등록 실패:", error);
+      },
+    }
+  );
 }

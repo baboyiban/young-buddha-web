@@ -1,80 +1,26 @@
 import { loadMissionData } from "./pages/mission";
-import { routes, router } from "./lib/router";
-import { authService } from "./lib/auth";
+import { routes } from "./lib/router";
+import { routeManager } from "./lib/router/route-manager";
 import { ROUTES } from "./lib/config";
-import { layoutManager, LayoutType } from "./layouts";
 
 // 페이지별 초기화 함수 할당
 routes[ROUTES.HOME].bindFn = loadMissionData;
 
-// 앱 초기화
-async function initApp(): Promise<void> {
+// 앱 초기화 및 시작
+async function startApp(): Promise<void> {
   try {
-    // 인증 상태 확인
-    const isAuthenticated = await authService.checkAuthStatus();
+    await routeManager.initialize();
 
-    if (isAuthenticated) {
-      // 인증된 사용자: 앱 레이아웃 로드
-      await layoutManager.loadLayout(LayoutType.APP);
-      await determineInitialRoute();
-    } else {
-      // 인증되지 않은 사용자: 로그인 레이아웃 로드
-      await layoutManager.loadLayout(LayoutType.LOGIN);
-      location.hash = `#${ROUTES.LOGIN}`;
-      await router();
-    }
+    // 라우트 변경 이벤트 리스너 등록
+    window.addEventListener("hashchange", () => {
+      routeManager.handleRouteChange().catch((error) => {
+        console.error("라우트 변경 처리 중 오류:", error);
+      });
+    });
   } catch (error) {
-    console.error("앱 초기화 중 오류:", error);
-  }
-}
-
-// 초기 라우팅 결정
-async function determineInitialRoute(): Promise<void> {
-  const currentPath = location.hash.replace(/^#/, "") || ROUTES.HOME;
-
-  // 인증 상태 확인
-  const isAuthenticated = await authService.checkAuthStatus();
-
-  if (isAuthenticated) {
-    // 인증된 사용자
-    if (currentPath === ROUTES.LOGIN) {
-      location.hash = `#${ROUTES.HOME}`;
-    }
-  } else {
-    // 인증되지 않은 사용자
-    if (currentPath !== ROUTES.LOGIN) {
-      location.hash = `#${ROUTES.LOGIN}`;
-    }
-  }
-
-  // 라우터 실행
-  await router();
-}
-
-// 해시 변경 시 레이아웃 전환 처리
-async function handleRouteChange(): Promise<void> {
-  const isAuthenticated = await authService.checkAuthStatus();
-  const currentPath = location.hash.replace(/^#/, "") || ROUTES.HOME;
-
-  if (isAuthenticated && currentPath !== ROUTES.LOGIN) {
-    // 인증된 사용자가 앱 페이지에 접근
-    if (layoutManager.getCurrentLayout() !== LayoutType.APP) {
-      await layoutManager.loadLayout(LayoutType.APP);
-    }
-    await router();
-  } else if (!isAuthenticated || currentPath === ROUTES.LOGIN) {
-    // 인증되지 않은 사용자이거나 로그인 페이지 접근
-    if (layoutManager.getCurrentLayout() !== LayoutType.LOGIN) {
-      await layoutManager.loadLayout(LayoutType.LOGIN);
-    }
-    if (!isAuthenticated && currentPath !== ROUTES.LOGIN) {
-      location.hash = `#${ROUTES.LOGIN}`;
-    } else if (currentPath === ROUTES.LOGIN) {
-      await router();
-    }
+    console.error("앱 시작 중 오류:", error);
   }
 }
 
 // 앱 시작
-initApp();
-window.addEventListener("hashchange", handleRouteChange);
+startApp();
