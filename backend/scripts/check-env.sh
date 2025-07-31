@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # .env 파일 로드
-if [ -f ".env" ]; then
-    export $(grep -v '^#' .env | xargs)
+if [ -f "../.env" ]; then
+    export $(grep -v '^#' ../.env | xargs)
     echo "=== .env file loaded ==="
 else
     echo "No .env file found"
@@ -16,9 +16,9 @@ echo "GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-'NOT SET'}"
 echo "JWT_SECRET: ${JWT_SECRET:-'NOT SET'}"
 echo ""
 
-if [ -f ".env" ]; then
+if [ -f "../.env" ]; then
     echo "=== .env file contents ==="
-    cat .env
+    cat ../.env
 else
     echo "No .env file found"
 fi
