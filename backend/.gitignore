@@ -10,4 +10,4 @@ zig-out
 *.pid
 
 # Environment files (if any)
-.env*
+.env
