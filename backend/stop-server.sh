@@ -2,51 +2,55 @@
 
 # Young Buddha Web Server 중지 스크립트
 
-# PID 파일 확인
+echo "Stopping Young Buddha Web Server..."
+
+# PID 파일에서 PID 읽기
 PID_FILE="server.pid"
+SERVER_PID=""
 
-if [ ! -f "$PID_FILE" ]; then
-    echo "Server is not running (no PID file found)"
-    exit 1
+if [ -f "$PID_FILE" ]; then
+    SERVER_PID=$(cat "$PID_FILE")
+    echo "Found PID file: $SERVER_PID"
+else
+    echo "PID file not found: $PID_FILE"
 fi
 
-# PID 읽기
-SERVER_PID=$(cat "$PID_FILE")
-
-if [ -z "$SERVER_PID" ]; then
-    echo "Invalid PID file"
-    exit 1
-fi
-
-# 프로세스 존재 여부 확인
-if ! kill -0 $SERVER_PID 2>/dev/null; then
-    echo "Server is not running (process $SERVER_PID not found)"
-    rm -f "$PID_FILE"
-    exit 1
-fi
-
-echo "Stopping server with PID: $SERVER_PID"
-
-# 우아한 종료 시도 (SIGTERM)
-echo "Sending SIGTERM..."
-kill -TERM $SERVER_PID
-
-# 종료 대기
-for i in {1..10}; do
-    if ! kill -0 $SERVER_PID 2>/dev/null; then
-        echo "Server stopped successfully"
+# PID 파일이 없거나 프로세스가 없으면 포트로 찾기
+if [ -z "$SERVER_PID" ] || ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "Looking for process on port 8080..."
+    SERVER_PID=$(lsof -ti:8080 2>/dev/null)
+    
+    if [ -z "$SERVER_PID" ]; then
+        echo "No server process found on port 8080"
         rm -f "$PID_FILE"
-        exit 0
+        exit 1
     fi
-    echo "Waiting for server to stop... ($i/10)"
-    sleep 1
-done
+    
+    echo "Found process: $SERVER_PID"
+fi
 
-# 강제 종료 (SIGKILL)
-echo "Server did not stop gracefully, sending SIGKILL..."
-kill -KILL $SERVER_PID
+# 프로세스 종료
+echo "Killing process $SERVER_PID..."
+kill "$SERVER_PID" 2>/dev/null
+
+# 종료 확인
+sleep 2
+if kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "Process still running, forcing kill..."
+    kill -9 "$SERVER_PID"
+    sleep 1
+    
+    if kill -0 "$SERVER_PID" 2>/dev/null; then
+        echo "ERROR: Process $SERVER_PID could not be killed"
+        exit 1
+    else
+        echo "Process killed successfully with -9"
+    fi
+else
+    echo "Process stopped gracefully"
+fi
 
 # PID 파일 제거
 rm -f "$PID_FILE"
 
-echo "Server stopped forcefully"
+echo "Server stopped successfully"
