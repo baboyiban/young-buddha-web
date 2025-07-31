@@ -146,7 +146,16 @@ pub const AuthService = struct {
         };
         defer self.allocator.free(response);
 
+        // DEBUG: 구글 토큰 요청 파라미터 로그
+        logger.info("[DEBUG] Google OAuth token request params:", .{});
+        logger.info("  code: {s}", .{code});
+        logger.info("  client_id: {s}", .{self.client_id});
+        logger.info("  client_secret: {s}", .{self.client_secret});
+        logger.info("  redirect_uri: {s}", .{self.redirect_uri});
+        logger.info("  body: {s}", .{body});
         // 응답 상태 코드 확인
+        logger.info("[DEBUG] Google OAuth token response status: {any}", .{req.response.status});
+        logger.info("[DEBUG] Google OAuth token response body: {s}", .{response});
         if (req.response.status != .ok) {
             std.log.err("OAuth token exchange failed with status: {any}", .{req.response.status});
             std.log.err("Response body: {s}", .{response});
