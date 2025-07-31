@@ -10,12 +10,30 @@ pub const Env = struct {
             .vars = std.StringHashMap([]const u8).init(allocator),
         };
 
+        // 1. 먼저 루트 .env 로드 (공통 설정)
+        const root_env_path = "../../.env";
+        if (std.fs.cwd().readFileAlloc(allocator, root_env_path, 1 * 1024 * 1024)) |root_content| {
+            try self.parseEnvContent(root_content);
+            allocator.free(root_content);
+            std.log.info("Loaded root .env file", .{});
+        } else |_| {
+            std.log.warn("Root .env file not found, skipping", .{});
+        }
+
+        // 2. 백엔드 전용 .env 로드 (덮어쓰기)
         const env_path = "../.env";
         const content = std.fs.cwd().readFileAlloc(allocator, env_path, 1 * 1024 * 1024) catch |err| {
-            std.log.err("Failed to read .env: {s}", .{@errorName(err)});
+            std.log.err("Failed to read backend .env: {s}", .{@errorName(err)});
             return error.EnvFileReadFailed;
         };
 
+        try self.parseEnvContent(content);
+        try self.vars.put("__full_content__", content);
+        std.log.info("Loaded backend .env file", .{});
+        return self;
+    }
+
+    fn parseEnvContent(self: *Env, content: []const u8) !void {
         var lines = std.mem.splitSequence(u8, content, "\n");
         while (lines.next()) |line| {
             const trimmed = std.mem.trim(u8, line, " \r");
@@ -26,8 +44,6 @@ pub const Env = struct {
                 try self.vars.put(key, value);
             }
         }
-        try self.vars.put("__full_content__", content);
-        return self;
     }
 
     pub fn deinit(self: *Env) void {

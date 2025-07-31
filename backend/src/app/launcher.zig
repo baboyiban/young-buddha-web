@@ -2,6 +2,7 @@ const std = @import("std");
 const AppContext = @import("context.zig").AppContext;
 const Server = @import("server.zig").Server;
 const Logger = @import("../util/logger.zig").Logger;
+const globals = @import("../config/globals.zig");
 
 const logger = Logger.init("Launcher");
 
@@ -24,6 +25,12 @@ pub const Launcher = struct {
         // 애플리케이션 컨텍스트 초기화
         self.ctx = AppContext.init(self.allocator) catch |err| {
             logger.err("Failed to initialize application context: {any}", .{err});
+            return err;
+        };
+
+        // 환경변수 검증
+        globals.validateEnvironment() catch |err| {
+            logger.err("Environment validation failed: {any}", .{err});
             return err;
         };
 

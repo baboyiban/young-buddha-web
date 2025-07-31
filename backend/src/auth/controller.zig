@@ -17,19 +17,40 @@ pub const AuthController = struct {
     }
 
     pub fn googleAuth(self: *AuthController, r: zap.Request) !void {
-        const state = try self.service.generateState();
+        // 메모리 할당 안전성 개선
+        var state: []u8 = undefined;
+        var auth_url: []u8 = undefined;
+        var response: []u8 = undefined;
+
+        // 에러 처리와 함께 state 생성
+        state = self.service.generateState() catch |err| {
+            std.log.err("Failed to generate state: {}", .{err});
+            return self.sendError(r, 500, "INTERNAL_ERROR", "Failed to generate authentication state");
+        };
         defer self.service.allocator.free(state);
 
-        const auth_url = try self.service.buildGoogleAuthUrl(state);
+        // 에러 처리와 함께 auth URL 생성
+        auth_url = self.service.buildGoogleAuthUrl(state) catch |err| {
+            std.log.err("Failed to build auth URL: {}", .{err});
+            return self.sendError(r, 500, "INTERNAL_ERROR", "Failed to build authentication URL");
+        };
         defer self.service.allocator.free(auth_url);
 
-        try self.service.setSessionCookie(r, constants.OAUTH_STATE_COOKIE_NAME, state);
+        // 세션 쿠키 설정
+        self.service.setSessionCookie(r, constants.OAUTH_STATE_COOKIE_NAME, state) catch |err| {
+            std.log.err("Failed to set session cookie: {}", .{err});
+            return self.sendError(r, 500, "INTERNAL_ERROR", "Failed to set session cookie");
+        };
 
-        const response = try std.fmt.allocPrint(
+        // JSON 응답 생성
+        response = std.fmt.allocPrint(
             self.service.allocator,
             "{{\"auth_url\":\"{s}\"}}",
             .{auth_url},
-        );
+        ) catch |err| {
+            std.log.err("Failed to format response: {}", .{err});
+            return self.sendError(r, 500, "INTERNAL_ERROR", "Failed to format response");
+        };
         defer self.service.allocator.free(response);
 
         try ResponseHelper.sendJson(r, 200, response);

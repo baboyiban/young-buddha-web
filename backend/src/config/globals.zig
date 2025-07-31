@@ -47,3 +47,46 @@ pub fn isProduction() bool {
 pub fn isDevelopment() bool {
     return !isProduction();
 }
+
+pub fn validateEnvironment() !void {
+    const required_vars = [_][]const u8{
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_REDIRECT_URI",
+        "JWT_SECRET",
+    };
+
+    std.log.info("=== Environment Variables Validation ===", .{});
+
+    var missing_vars = std.ArrayList([]const u8).init(allocator);
+    defer missing_vars.deinit();
+
+    for (required_vars) |var_name| {
+        if (getEnv().get(var_name)) |value| {
+            // 값이 있지만 비어있는지 확인
+            if (value.len == 0) {
+                std.log.warn("{s}: EMPTY", .{var_name});
+                try missing_vars.append(var_name);
+            } else {
+                // 민감한 정보는 일부만 표시
+                if (std.mem.indexOf(u8, var_name, "SECRET") != null or
+                    std.mem.indexOf(u8, var_name, "CLIENT_SECRET") != null)
+                {
+                    std.log.info("{s}: ***{s} (length: {})", .{ var_name, value[value.len - 4 ..], value.len });
+                } else {
+                    std.log.info("{s}: {s}", .{ var_name, value });
+                }
+            }
+        } else {
+            std.log.err("{s}: NOT SET", .{var_name});
+            try missing_vars.append(var_name);
+        }
+    }
+
+    if (missing_vars.items.len > 0) {
+        std.log.err("Missing required environment variables: {any}", .{missing_vars.items});
+        return error.MissingRequiredEnvironmentVariables;
+    }
+
+    std.log.info("All required environment variables are set", .{});
+}

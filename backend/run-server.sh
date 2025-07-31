@@ -91,6 +91,10 @@ if ! $BUILD_CMD; then
 fi
 log_info "Build completed successfully"
 
+# 환경변수 검증
+log_info "Checking environment variables..."
+./check-env.sh
+
 # 서버 실행
 log_info "Starting server..."
 PORT=${PORT:-$DEFAULT_PORT}
