@@ -34,7 +34,7 @@ pub const Server = struct {
         globals.setControllers(
             &ctx.auth_app.controller,
             &ctx.sheets_app.controller,
-            &ctx.static_handler,
+            ctx.static_handler,
             &ctx.database_app.controller,
             &ctx.payment_app.controller,
         );

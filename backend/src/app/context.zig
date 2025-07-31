@@ -17,11 +17,11 @@ pub const AppContext = struct {
     allocator: std.mem.Allocator,
     env: Env,
     db: sqlite.Db,
-    auth_app: auth.AuthApp,
-    sheets_app: sheets.SheetsApp,
-    payment_app: payment.PaymentApp,
-    database_app: database.DatabaseApp,
-    static_handler: StaticHandler,
+    auth_app: *auth.AuthApp,
+    sheets_app: *sheets.SheetsApp,
+    payment_app: *payment.PaymentApp,
+    database_app: *database.DatabaseApp,
+    static_handler: *StaticHandler,
 
     /// 애플리케이션 컨텍스트를 초기화합니다.
     pub fn init(allocator: std.mem.Allocator) !AppContext {
@@ -77,47 +77,52 @@ pub const AppContext = struct {
         errdefer db.deinit();
 
         // 앱 컴포넌트들 초기화
-        var auth_app = auth.AuthApp{
+        var auth_app_ptr = try allocator.create(auth.AuthApp);
+        auth_app_ptr.* = auth.AuthApp{
             .service = undefined,
             .controller = undefined,
         };
-        auth_app.init(allocator, &app_context.env) catch |err| {
+        auth_app_ptr.init(allocator, &app_context.env) catch |err| {
             logger.err("Failed to initialize auth app: {any}", .{err});
             return err;
         };
 
-        var sheets_app = sheets.SheetsApp{
+        var sheets_app_ptr = try allocator.create(sheets.SheetsApp);
+        sheets_app_ptr.* = sheets.SheetsApp{
             .service = undefined,
             .controller = undefined,
         };
-        sheets_app.init(allocator, &auth_app.service);
+        sheets_app_ptr.init(allocator, &auth_app_ptr.service);
 
         const payment_spreadsheet_id = env.get("PAYMENT_SHEET_ID") orelse "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
-        var payment_app = payment.PaymentApp{
+        var payment_app_ptr = try allocator.create(payment.PaymentApp);
+        payment_app_ptr.* = payment.PaymentApp{
             .service = undefined,
             .controller = undefined,
         };
-        payment_app.init(allocator, &sheets_app.service, payment_spreadsheet_id);
+        payment_app_ptr.init(allocator, &sheets_app_ptr.service, payment_spreadsheet_id);
 
-        var database_app = database.DatabaseApp{
+        var database_app_ptr = try allocator.create(database.DatabaseApp);
+        database_app_ptr.* = database.DatabaseApp{
             .service = undefined,
             .controller = undefined,
         };
-        database_app.init(allocator, &db) catch |err| {
+        database_app_ptr.init(allocator, &db) catch |err| {
             logger.err("Failed to initialize database app: {any}", .{err});
             return err;
         };
 
         // Delay static handler initialization until after environment is fully set up
-        const static_handler = try StaticHandler.init(allocator);
+        const static_handler_ptr = try allocator.create(StaticHandler);
+        static_handler_ptr.* = try StaticHandler.init(allocator);
 
         // 초기화된 컴포넌트들로 AppContext 업데이트
         app_context.db = db;
-        app_context.auth_app = auth_app;
-        app_context.sheets_app = sheets_app;
-        app_context.payment_app = payment_app;
-        app_context.database_app = database_app;
-        app_context.static_handler = static_handler;
+        app_context.auth_app = auth_app_ptr;
+        app_context.sheets_app = sheets_app_ptr;
+        app_context.payment_app = payment_app_ptr;
+        app_context.database_app = database_app_ptr;
+        app_context.static_handler = static_handler_ptr;
 
         logger.info("Application context initialized successfully", .{});
 
