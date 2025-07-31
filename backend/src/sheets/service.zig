@@ -62,8 +62,6 @@ pub const SheetsService = struct {
         );
         defer self.allocator.free(url);
 
-        std.log.info("Making request to Google Sheets API: {s}", .{url});
-
         const uri = try std.Uri.parse(url);
         var server_header_buffer: [16 * 1024]u8 = undefined;
 
@@ -83,13 +81,9 @@ pub const SheetsService = struct {
         try req.finish();
         try req.wait();
 
-        std.log.info("Google Sheets API response status: {d}", .{@intFromEnum(req.response.status)});
-
         if (req.response.status != .ok) {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
-
-            std.log.err("Google Sheets API error response: {s}", .{error_response});
 
             const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
             defer self.allocator.free(escaped_details);
@@ -103,10 +97,7 @@ pub const SheetsService = struct {
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
 
-        std.log.info("Google Sheets API raw response: {s}", .{response});
-
         if (response.len == 0 or response[0] != '{') {
-            std.log.warn("Invalid response format from Google Sheets API: {s}", .{response});
             const escaped_response = try json_util.escapeJsonString(self.allocator, response);
             defer self.allocator.free(escaped_response);
             self.allocator.free(response);

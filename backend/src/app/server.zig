@@ -14,8 +14,7 @@ pub var global_router: ?Router = null;
 /// HTTP 요청 콜백 함수
 fn requestCallback(r: zap.Request) anyerror!void {
     const router = &global_router.?;
-    router.route(r) catch |err| {
-        logger.err("Route error: {any}", .{err});
+    router.route(r) catch {
         r.setStatusNumeric(500);
         try r.sendBody("Internal Server Error");
     };
@@ -28,8 +27,6 @@ pub const Server = struct {
 
     /// 서버를 초기화합니다.
     pub fn init(ctx: *AppContext) !Server {
-        logger.info("Initializing server...", .{});
-
         // 전역 컨트롤러 등록
         globals.setControllers(
             &ctx.auth_app.controller,
@@ -42,13 +39,11 @@ pub const Server = struct {
         // 라우터 초기화
         var router = Router.init(ctx.allocator);
         setupRoutes(&router) catch |err| {
-            logger.err("Failed to setup routes: {any}", .{err});
             router.deinit();
             return err;
         };
 
         global_router = router;
-        logger.info("Server initialized successfully", .{});
 
         return Server{
             .ctx = ctx,
@@ -58,16 +53,13 @@ pub const Server = struct {
 
     /// 서버를 정리합니다.
     pub fn deinit(self: *Server) void {
-        logger.info("Cleaning up server...", .{});
         self.router.deinit();
         global_router = null;
-        logger.info("Server cleaned up", .{});
     }
 
     /// HTTP 서버를 시작합니다.
     pub fn start(self: *Server) !void {
         const port = self.ctx.getPort();
-        logger.info("Starting HTTP server on port {d}", .{port});
 
         var listener = zap.HttpListener.init(.{
             .port = port,
@@ -76,13 +68,9 @@ pub const Server = struct {
         });
 
         listener.listen() catch |err| {
-            logger.err("Failed to start listener on port {d}: {any}", .{ port, err });
             self.logPortTroubleshooting(port);
             return err;
         };
-
-        logger.info("Server started successfully on port {d}", .{port});
-        logger.info("Server is ready to accept connections", .{});
 
         // 서버 시작 (블로킹)
         zap.start(.{ .threads = 1, .workers = 1 });

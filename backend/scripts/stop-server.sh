@@ -11,7 +11,7 @@ if [ -f "server.conf" ]; then
 else
     echo "WARNING: server.conf not found, using defaults"
     DEFAULT_PORT=8080
-    PID_FILE="server.pid"
+    PID_FILE="logs/server.pid"
     SHUTDOWN_WAIT=2
     FORCE_KILL_WAIT=1
 fi

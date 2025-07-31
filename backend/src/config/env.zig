@@ -10,46 +10,36 @@ pub const Env = struct {
     vars: std.ArrayList(EnvVar),
 
     pub fn init(allocator: std.mem.Allocator) !Env {
-        std.log.info("Starting Env.init", .{});
-
         var self = Env{
             .allocator = allocator,
             .vars = std.ArrayList(EnvVar).init(allocator),
         };
-        std.log.info("Created Env struct", .{});
 
         // Initialize the ArrayList properly
         try self.vars.ensureTotalCapacity(20);
 
         // 1. 먼저 루트 .env 로드 (공통 설정)
         const root_env_path = "../.env";
-        std.log.info("Attempting to load root .env from: {s}", .{root_env_path});
         if (std.fs.cwd().readFileAlloc(allocator, root_env_path, 1 * 1024 * 1024)) |root_content| {
             defer allocator.free(root_content);
-            std.log.info("Root .env content loaded, parsing...", .{});
             try self.parseEnvContent(root_content);
-            std.log.info("Loaded root .env file", .{});
         } else |err| {
             std.log.warn("Root .env file not found: {s}, skipping", .{@errorName(err)});
         }
 
         // 2. 백엔드 전용 .env 로드 (덮어쓰기)
         const env_path = ".env";
-        std.log.info("Attempting to load backend .env from: {s}", .{env_path});
         const content = std.fs.cwd().readFileAlloc(allocator, env_path, 1 * 1024 * 1024) catch |err| {
             std.log.err("Failed to read backend .env: {s}", .{@errorName(err)});
             return error.EnvFileReadFailed;
         };
         defer allocator.free(content);
 
-        std.log.info("Backend .env content loaded, parsing...", .{});
         try self.parseEnvContent(content);
-        std.log.info("Loaded backend .env file", .{});
         return self;
     }
 
     fn parseEnvContent(self: *Env, content: []const u8) !void {
-        std.log.info("Parsing env content, length: {}", .{content.len});
         var lines = std.mem.splitSequence(u8, content, "\n");
         var line_count: u32 = 0;
         while (lines.next()) |line| {
@@ -65,8 +55,6 @@ pub const Env = struct {
                 const value = std.mem.trim(u8, value_slice, " \t");
 
                 if (key.len == 0) continue;
-
-                std.log.info("Setting env var: {s} = {s}", .{ key, value });
 
                 // Duplicate the key and value to ensure they're owned by our allocator
                 const owned_key = try self.allocator.dupe(u8, key);
@@ -97,7 +85,6 @@ pub const Env = struct {
                 }
             }
         }
-        std.log.info("Parsed {} lines from env content", .{line_count});
     }
 
     pub fn deinit(self: *Env) void {

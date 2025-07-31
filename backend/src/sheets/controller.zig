@@ -37,15 +37,11 @@ pub const SheetsController = struct {
         };
         defer self.service.allocator.free(range);
 
-        std.log.info("Reading spreadsheet: {s}, encoded_range: {s}, decoded_range: {s}", .{ spreadsheet_id, encoded_range, range });
-
         const values_json = self.service.getSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range) catch |err| {
             std.log.err("Failed to get spreadsheet values: {any}", .{err});
             return self.sendError(r, 500, "READ_FAILED", errors.ReadFailed);
         };
         defer self.service.allocator.free(values_json);
-
-        std.log.info("Received response: {s}", .{values_json});
 
         try self.sendJson(r, 200, values_json);
     }

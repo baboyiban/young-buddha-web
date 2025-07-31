@@ -14,9 +14,9 @@ else
     echo "WARNING: server.conf not found, using defaults"
     DEFAULT_PORT=8080
     SERVER_BINARY="./zig-out/bin/young-buddha-web"
-    LOG_FILE="server.log"
-    ERROR_LOG_FILE="error.log"
-    PID_FILE="server.pid"
+    LOG_FILE="logs/server.log"
+    ERROR_LOG_FILE="logs/error.log"
+    PID_FILE="logs/server.pid"
     STARTUP_WAIT=3
     BUILD_COMMAND="zig build"
 fi
