@@ -91,6 +91,74 @@ export class SheetsService {
       throw error;
     }
   }
+
+  /**
+   * 동적으로 스프레드시트 ID, 범위, 쿼리를 지정하여 데이터 조회
+   * @param options 스프레드시트 조회 옵션
+   * @returns 쿼리 결과
+   */
+  async querySpreadsheetWithOptions(options: {
+    spreadsheetId: string;
+    query: string;
+    gid?: string;
+    range?: string;
+  }): Promise<QueryResponse> {
+    try {
+      const requestBody: any = {
+        spreadsheet_id: options.spreadsheetId,
+        query: options.query,
+      };
+
+      if (options.gid !== undefined) {
+        requestBody.gid = options.gid;
+      }
+
+      if (options.range !== undefined) {
+        requestBody.range = options.range;
+      }
+
+      const response = await apiClient.post<QueryResponse>("/api/sheets/query", requestBody);
+      return response;
+    } catch (error) {
+      handleAuthError(error, authService);
+      throw error;
+    }
+  }
+
+  /**
+   * GET 방식으로 동적으로 스프레드시트 조회
+   * @param options 스프레드시트 조회 옵션
+   * @returns 쿼리 결과
+   */
+  async querySpreadsheetGet(options: {
+    spreadsheetId: string;
+    query: string;
+    gid?: string;
+    range?: string;
+  }): Promise<QueryResponse> {
+    try {
+      const params = new URLSearchParams({
+        spreadsheet_id: options.spreadsheetId,
+        tq: encodeURIComponent(options.query),
+      });
+
+      if (options.gid !== undefined) {
+        params.append("gid", options.gid);
+      }
+
+      if (options.range !== undefined) {
+        params.append("range", encodeURIComponent(options.range));
+      }
+
+      const response = await apiClient.get<QueryResponse>(
+        `/api/sheets/query?${params.toString()}`
+      );
+      return response;
+    } catch (error) {
+      handleAuthError(error, authService);
+      throw error;
+    }
+  }
 }
 
 export const sheetsService = new SheetsService();

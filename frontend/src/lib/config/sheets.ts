@@ -52,3 +52,79 @@ export const SheetsQueryHelper = {
   getPaymentsByStatus: (status: string, limit: number = 10) =>
     `select * where H = '${status}' order by C desc limit ${limit}`,
 };
+
+/**
+ * 동적으로 스프레드시트를 조회하기 위한 유틸리티 함수들
+ */
+export const SheetsDynamicHelper = {
+  /**
+   * 동적으로 스프레드시트 조회 옵션 생성
+   */
+  createQueryOptions: (
+    spreadsheetId: string,
+    query: string,
+    options?: {
+      gid?: string;
+      range?: string;
+    }
+  ) => ({
+    spreadsheetId,
+    query,
+    ...(options?.gid !== undefined && { gid: options.gid }),
+    ...(options?.range !== undefined && { range: options.range }),
+  }),
+
+  /**
+   * 기본적인 SELECT 쿼리 생성
+   */
+  createSelectQuery: (
+    columns: string | string[] = "*",
+    conditions?: string,
+    orderBy?: string,
+    limit?: number
+  ): string => {
+    const cols = Array.isArray(columns) ? columns.join(", ") : columns;
+    let query = `select ${cols}`;
+
+    if (conditions) {
+      query += ` where ${conditions}`;
+    }
+
+    if (orderBy) {
+      query += ` order by ${orderBy}`;
+    }
+
+    if (limit !== undefined) {
+      query += ` limit ${limit}`;
+    }
+
+    return query;
+  },
+
+  /**
+   * 그룹화 쿼리 생성
+   */
+  createGroupQuery: (
+    selectColumns: string,
+    groupByColumns: string,
+    conditions?: string,
+    orderBy?: string,
+    limit?: number
+  ): string => {
+    let query = `select ${selectColumns} group by ${groupByColumns}`;
+
+    if (conditions) {
+      query += ` where ${conditions}`;
+    }
+
+    if (orderBy) {
+      query += ` order by ${orderBy}`;
+    }
+
+    if (limit !== undefined) {
+      query += ` limit ${limit}`;
+    }
+
+    return query;
+  },
+};

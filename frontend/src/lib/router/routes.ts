@@ -42,6 +42,12 @@ const baseRoutes: Record<string, PageInfo> = {
     roles: [ROLES.ADMIN],
     bindFn: setupPaymentApprovalPage,
   },
+  [ROUTES.SHEETS_TEST]: {
+    title: "Sheets 테스트",
+    file: "/pages/sheets-test.html",
+    roles: [ROLES.USER, ROLES.ADMIN],
+    authRequired: true,
+  },
 };
 
 if (CONFIG.IS_DEV) {
