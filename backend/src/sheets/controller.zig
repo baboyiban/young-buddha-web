@@ -1,6 +1,7 @@
 const std = @import("std");
 const zap = @import("zap");
 const Service = @import("service.zig").SheetsService;
+const QueryRequest = @import("model.zig").QueryRequest;
 const auth = @import("../auth/middleware.zig");
 const jwt = @import("../util/jwt.zig");
 const globals = @import("../config/globals.zig");
@@ -66,6 +67,48 @@ pub const SheetsController = struct {
 
         const response_json = self.service.writeSpreadsheetValues(tokens.access_token, tokens.refresh_token, spreadsheet_id, range, body) catch {
             return self.sendError(r, 500, "WRITE_FAILED", "Failed to write spreadsheet data");
+        };
+        defer self.service.allocator.free(response_json);
+
+        try self.sendJson(r, 200, response_json);
+    }
+
+    /// Google Visualization API Query Language를 사용한 쿼리 실행
+    pub fn querySheet(self: *SheetsController, r: zap.Request) !void {
+        const tokens = self.getTokensFromJwt(r) catch |err| {
+            return self.handleAuthError(r, err);
+        };
+        defer self.service.allocator.free(tokens.access_token);
+        defer self.service.allocator.free(tokens.refresh_token);
+
+        const body = r.body orelse {
+            return self.sendError(r, 400, "MISSING_BODY", "Missing request body");
+        };
+
+        var parsed = std.json.parseFromSlice(std.json.Value, self.service.allocator, body, .{}) catch {
+            return self.sendError(r, 400, "INVALID_JSON", "Invalid JSON format");
+        };
+        defer parsed.deinit();
+
+        const obj = parsed.value.object;
+
+        const spreadsheet_id = if (obj.get("spreadsheet_id")) |v|
+            if (v == .string) v.string else return self.sendError(r, 400, "INVALID_SPREADSHEET_ID", "spreadsheet_id must be a string")
+        else
+            return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", "Missing spreadsheet_id field");
+
+        const query = if (obj.get("query")) |v|
+            if (v == .string) v.string else return self.sendError(r, 400, "INVALID_QUERY", "query must be a string")
+        else
+            return self.sendError(r, 400, "MISSING_QUERY", "Missing query field");
+
+        const response_json = self.service.callSheetsQueryApi(
+            tokens.access_token,
+            spreadsheet_id,
+            query,
+        ) catch |err| {
+            std.log.err("Failed to execute query: {any}", .{err});
+            return self.sendError(r, 500, "QUERY_FAILED", "Failed to execute query");
         };
         defer self.service.allocator.free(response_json);
 
