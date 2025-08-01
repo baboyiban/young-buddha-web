@@ -53,15 +53,15 @@ button {
 /* 결제 승인 페이지 스타일 */
 .approve-btn,
 .reject-btn {
-  @apply button text-sm mx-1;
+  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem] text-sm mx-1 backdrop-blur-[0.05rem];
 }
 
 .approve-btn {
-  @apply purple;
+  @apply bg-dark-purple/80 text-white;
 }
 
 .reject-btn {
-  @apply red;
+  @apply bg-dark-red/80 text-white;
 }
 
 .approve-btn:disabled,
