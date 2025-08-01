@@ -63,7 +63,12 @@ async function fetchPayments(): Promise<AbsenceRequest[]> {
     });
 
     const endpoint = `${API_ENDPOINTS.SHEETS.QUERY}?${queryParams.toString()}`;
+    console.log("Frontend: Requesting endpoint:", endpoint);
+
     const response = await apiClient.get(endpoint);
+    console.log("Frontend: Raw response from server:", response);
+    console.log("Frontend: Response type:", typeof response);
+    console.log("Frontend: Response length:", response?.length || "N/A");
 
     // Google Visualization API 응답을 파싱하여 AbsenceRequest 형태로 변환
     return parseGoogleSheetsResponse(response);
@@ -213,33 +218,53 @@ async function updatePaymentStatus(
  */
 function parseGoogleSheetsResponse(response: any): AbsenceRequest[] {
   try {
+    console.log("Frontend: Parsing response, type:", typeof response);
+    console.log("Frontend: Response content:", response);
+
     // Google Visualization API는 JavaScript 코드로 응답을 반환하므로 파싱 필요
     let jsonData: any;
 
     if (typeof response === "string") {
+      console.log("Frontend: Response is string, checking format...");
+
       // "google.visualization.Query.setResponse({...})" 형태의 응답 파싱
       const jsonMatch = response.match(
         /google\.visualization\.Query\.setResponse\((.+)\);?$/
       );
       if (jsonMatch) {
+        console.log("Frontend: Found setResponse format, extracting JSON...");
+        console.log("Frontend: Extracted JSON string:", jsonMatch[1]);
         jsonData = JSON.parse(jsonMatch[1]);
       } else {
+        console.log(
+          "Frontend: No setResponse format found, trying direct JSON parse..."
+        );
         // 순수 JSON 응답인 경우
         jsonData = JSON.parse(response);
       }
     } else {
+      console.log("Frontend: Response is not string, using directly...");
       jsonData = response;
     }
 
+    console.log("Frontend: Parsed JSON data:", jsonData);
+
     const table = jsonData.table;
+    console.log("Frontend: Table object:", table);
+
     if (!table || !table.rows) {
+      console.log("Frontend: No table or rows found in response");
       return [];
     }
 
+    console.log("Frontend: Found", table.rows.length, "rows");
+    console.log("Frontend: First row sample:", table.rows[0]);
+
     return table.rows.map((row: any, index: number): AbsenceRequest => {
       const cells = row.c || [];
+      console.log(`Frontend: Row ${index} cells:`, cells);
 
-      return {
+      const parsedRow = {
         id: cells[0]?.v ? parseInt(cells[0].v) : index + 1,
         name: cells[1]?.v || "",
         request_date: cells[2]?.v || "",
@@ -252,6 +277,9 @@ function parseGoogleSheetsResponse(response: any): AbsenceRequest[] {
         approved_at: cells[9]?.v || null,
         comment: cells[10]?.v || null,
       };
+
+      console.log(`Frontend: Parsed row ${index}:`, parsedRow);
+      return parsedRow;
     });
   } catch (error) {
     console.error("Google Sheets 응답 파싱 실패:", error);
