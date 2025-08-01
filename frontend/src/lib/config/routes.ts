@@ -6,4 +6,5 @@ export const ROUTES = {
   PRIVACY: "/privacy",
   TERM: "/term",
   JWT_COOKIE_NAME: "jwt",
+  SHEETS_TEST: "/sheets/test",
 } as const;
