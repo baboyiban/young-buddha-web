@@ -1,7 +1,7 @@
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
-  PAYMENT_APPLICATION: "/payment/application",
+  PAYMENT_REQUEST: "/payment/request",
   PAYMENT_APPROVAL: "/payment/approval",
   PRIVACY: "/privacy",
   TERM: "/term",

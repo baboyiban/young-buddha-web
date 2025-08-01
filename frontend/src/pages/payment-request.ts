@@ -16,7 +16,7 @@ const UI_MESSAGES = {
   submitError: "신청 실패",
 } as const;
 
-export function setupPaymentApplicationPage(): void {
+export function setupPaymentRequestPage(): void {
   setupPaymentForm();
 }
 
