@@ -34,31 +34,104 @@ pub const PaymentService = struct {
     }
 
     pub fn listRequests(self: *PaymentService, access_token: []const u8, last_n: usize) ![]PaymentRequest {
-        const total_rows = try self.getRowCount(access_token);
-        if (total_rows == 0) return &[_]PaymentRequest{};
-        const start_row = 2 + (if (total_rows > last_n) total_rows - last_n else 0);
-        const end_row = 1 + total_rows;
-        const range = try std.fmt.allocPrint(self.allocator, "데이터베이스_일정결재불참시트!A{d}:K{d}", .{ start_row, end_row });
-        defer self.allocator.free(range);
+        // Google Visualization API Query Language를 사용한 쿼리
+        const query = try std.fmt.allocPrint(self.allocator, "SELECT * ORDER BY D DESC LIMIT {d}", .{last_n});
+        defer self.allocator.free(query);
 
-        const response = try self.sheets_service.callSheetsApi(access_token, self.spreadsheet_id, range);
-        const values_json = try json_util.extractJsonArray(self.allocator, response, "values") orelse return &[_]PaymentRequest{};
-        var list = try self.allocator.alloc(PaymentRequest, values_json.len);
-        for (values_json, 0..) |row, i| {
-            if (row == .array) {
-                const items = row.array.items;
+        const response = try self.sheets_service.callSheetsQueryApi(access_token, self.spreadsheet_id, query);
+
+        // gviz 응답 파싱
+        var parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        defer parsed.deinit();
+
+        // table 객체 추출
+        const table_obj = if (parsed.value == .object)
+            if (parsed.value.object.get("table")) |table_val|
+                if (table_val == .object) table_val.object else return &[_]PaymentRequest{}
+            else
+                return &[_]PaymentRequest{}
+        else
+            return &[_]PaymentRequest{};
+
+        // rows 배열 추출
+        const rows_json = if (table_obj.get("rows")) |rows_val|
+            if (rows_val == .array) rows_val.array.items else return &[_]PaymentRequest{}
+        else
+            return &[_]PaymentRequest{};
+
+        var list = try self.allocator.alloc(PaymentRequest, rows_json.len);
+        for (rows_json, 0..) |row, i| {
+            if (row == .object) {
+                const row_obj = row.object;
+                const cells_json = if (row_obj.get("c")) |c_val|
+                    if (c_val == .array) c_val.array.items else {
+                        list[i] = PaymentRequest{
+                            .id = 0,
+                            .name = "",
+                            .type = "",
+                            .request_date = "",
+                            .absent_date = "",
+                            .time_slot = null,
+                            .reason = null,
+                            .status = "",
+                            .approver = null,
+                            .approved_at = null,
+                            .comment = null,
+                        };
+                        continue;
+                    }
+                else {
+                    list[i] = PaymentRequest{
+                        .id = 0,
+                        .name = "",
+                        .type = "",
+                        .request_date = "",
+                        .absent_date = "",
+                        .time_slot = null,
+                        .reason = null,
+                        .status = "",
+                        .approver = null,
+                        .approved_at = null,
+                        .comment = null,
+                    };
+                    continue;
+                };
+
+                // gviz 응답 형식에 맞게 파싱
+                const getCellString = struct {
+                    fn get(allocator: std.mem.Allocator, cells: []const std.json.Value, index: usize) ?[]const u8 {
+                        if (index >= cells.len) return null;
+                        const cell = cells[index];
+                        if (cell == .object) {
+                            const cell_obj = cell.object;
+                            if (cell_obj.get("v")) |value| {
+                                if (value == .string) return value.string;
+                                if (value == .integer) {
+                                    const str = std.fmt.allocPrint(allocator, "{d}", .{value.integer}) catch return null;
+                                    return str;
+                                }
+                                if (value == .float) {
+                                    const str = std.fmt.allocPrint(allocator, "{d}", .{value.float}) catch return null;
+                                    return str;
+                                }
+                            }
+                        }
+                        return null;
+                    }
+                };
+
                 list[i] = PaymentRequest{
-                    .id = if (items.len > 0 and items[0] == .string) std.fmt.parseInt(i64, items[0].string, 10) catch 0 else 0,
-                    .name = if (items.len > 1 and items[1] == .string) items[1].string else "",
-                    .type = if (items.len > 2 and items[2] == .string) items[2].string else "",
-                    .request_date = if (items.len > 3 and items[3] == .string) items[3].string else "",
-                    .absent_date = if (items.len > 4 and items[4] == .string) items[4].string else "",
-                    .time_slot = if (items.len > 5 and items[5] == .string and items[5].string.len > 0) items[5].string else null,
-                    .reason = if (items.len > 6 and items[6] == .string and items[6].string.len > 0) items[6].string else null,
-                    .status = if (items.len > 7 and items[7] == .string) items[7].string else "",
-                    .approver = if (items.len > 8 and items[8] == .string and items[8].string.len > 0) items[8].string else null,
-                    .approved_at = if (items.len > 9 and items[9] == .string and items[9].string.len > 0) items[9].string else null,
-                    .comment = if (items.len > 10 and items[10] == .string and items[10].string.len > 0) items[10].string else null,
+                    .id = if (getCellString.get(self.allocator, cells_json, 0)) |id_str| std.fmt.parseInt(i64, id_str, 10) catch 0 else 0,
+                    .name = if (getCellString.get(self.allocator, cells_json, 1)) |v| v else "",
+                    .type = if (getCellString.get(self.allocator, cells_json, 2)) |v| v else "",
+                    .request_date = if (getCellString.get(self.allocator, cells_json, 3)) |v| v else "",
+                    .absent_date = if (getCellString.get(self.allocator, cells_json, 4)) |v| v else "",
+                    .time_slot = if (getCellString.get(self.allocator, cells_json, 5)) |v| if (v.len > 0) v else null else null,
+                    .reason = if (getCellString.get(self.allocator, cells_json, 6)) |v| if (v.len > 0) v else null else null,
+                    .status = if (getCellString.get(self.allocator, cells_json, 7)) |v| v else "",
+                    .approver = if (getCellString.get(self.allocator, cells_json, 8)) |v| if (v.len > 0) v else null else null,
+                    .approved_at = if (getCellString.get(self.allocator, cells_json, 9)) |v| if (v.len > 0) v else null else null,
+                    .comment = if (getCellString.get(self.allocator, cells_json, 10)) |v| if (v.len > 0) v else null else null,
                 };
             } else {
                 list[i] = PaymentRequest{

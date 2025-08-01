@@ -329,4 +329,62 @@ pub const SheetsService = struct {
 
         return result.toOwnedSlice();
     }
+
+    /// Google Visualization API Query Language를 사용하여 데이터 조회
+    pub fn callSheetsQueryApi(
+        self: *SheetsService,
+        access_token: []const u8,
+        spreadsheet_id: []const u8,
+        query: []const u8,
+    ) ![]u8 {
+        var client: std.http.Client = .{ .allocator = self.allocator };
+        defer client.deinit();
+
+        // 쿼리 인코딩
+        const encoded_query = try self.urlEncode(query);
+        defer self.allocator.free(encoded_query);
+
+        const url = try std.fmt.allocPrint(
+            self.allocator,
+            "https://docs.google.com/spreadsheets/d/{s}/gviz/tq?tq={s}",
+            .{ spreadsheet_id, encoded_query },
+        );
+        defer self.allocator.free(url);
+
+        const uri = try std.Uri.parse(url);
+        var server_header_buffer: [16 * 1024]u8 = undefined;
+
+        const auth_header = std.http.Header{
+            .name = "Authorization",
+            .value = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token}),
+        };
+        defer self.allocator.free(auth_header.value);
+
+        var req = try client.open(.GET, uri, .{
+            .server_header_buffer = &server_header_buffer,
+            .extra_headers = &.{auth_header},
+        });
+        defer req.deinit();
+
+        try req.send();
+        try req.finish();
+        try req.wait();
+
+        if (req.response.status != .ok) {
+            const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
+            defer self.allocator.free(error_response);
+
+            const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
+            defer self.allocator.free(escaped_details);
+
+            return try std.fmt.allocPrint(
+                self.allocator,
+                "{{\"error\":true,\"message\":\"Google Sheets Query API error: {d}\",\"details\":\"{s}\"}}",
+                .{ @intFromEnum(req.response.status), escaped_details },
+            );
+        }
+
+        const response = try req.reader().readAllAlloc(self.allocator, 100 * 1024);
+        return response;
+    }
 };

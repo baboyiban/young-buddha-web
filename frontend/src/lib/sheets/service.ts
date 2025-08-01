@@ -8,6 +8,27 @@ interface CacheEntry {
   timestamp: number;
 }
 
+interface QueryRequest {
+  spreadsheet_id: string;
+  query: string;
+}
+
+export interface QueryResponse {
+  table?: {
+    cols?: Array<{
+      id?: string;
+      label?: string;
+      type?: string;
+    }>;
+    rows?: Array<{
+      c?: Array<{
+        v?: any;
+        f?: string;
+      } | null>;
+    }>;
+  };
+}
+
 export class SheetsService {
   private cache = new Map<string, CacheEntry>();
   private readonly CACHE_DURATION = 5 * 60 * 1000;
@@ -48,6 +69,28 @@ export class SheetsService {
         range: config.range,
         values,
       });
+    } catch (error) {
+      handleAuthError(error, authService);
+      throw error;
+    }
+  }
+
+  /**
+   * Google Visualization API Query Language를 사용하여 스프레드시트 데이터 조회
+   * @param spreadsheetId 스프레드시트 ID
+   * @param query Google Visualization API 쿼리 문자열
+   * @returns 쿼리 결과
+   */
+  async querySpreadsheet(
+    spreadsheetId: string,
+    query: string,
+  ): Promise<QueryResponse> {
+    try {
+      const response = await apiClient.post<QueryResponse>("/api/sheets/query", {
+        spreadsheet_id: spreadsheetId,
+        query: query,
+      });
+      return response;
     } catch (error) {
       handleAuthError(error, authService);
       throw error;
