@@ -86,8 +86,8 @@ export class PageStateManager {
 
   private createLoadingHTML(message: string): string {
     return `
-      <div class="flex items-center justify-center p-4">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+      <div class="flex items-center justify-center gap-[0.5rem]">
+        <div class="size-[2rem] animate-spin rounded-full border-[0.25rem] border-dark-purple border-t-transparent"></div>
         <span>${message}</span>
       </div>
     `;
