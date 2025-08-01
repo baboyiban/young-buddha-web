@@ -74,6 +74,19 @@ async function fetchPayments(): Promise<AbsenceRequest[]> {
     return parseGoogleSheetsResponse(response);
   } catch (error) {
     console.error("결제 요청 데이터 조회 실패:", error);
+
+    // 401 오류인 경우 로그인 페이지로 리다이렉트
+    if (
+      error &&
+      typeof error === "object" &&
+      "status" in error &&
+      error.status === 401
+    ) {
+      console.log("Authentication failed, redirecting to login...");
+      window.location.href = "/api/auth/google";
+      return [];
+    }
+
     throw error;
   }
 }

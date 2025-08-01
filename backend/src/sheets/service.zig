@@ -398,6 +398,8 @@ pub const SheetsService = struct {
         defer self.allocator.free(auth_header.value);
 
         std.log.info("Request Headers - Authorization: Bearer [REDACTED]", .{});
+        std.log.info("Access token length: {d}", .{access_token.len});
+        std.log.info("Access token starts with: {s}", .{access_token[0..@min(20, access_token.len)]});
 
         var req = try client.open(.GET, uri, .{
             .server_header_buffer = &server_header_buffer,
@@ -438,5 +440,43 @@ pub const SheetsService = struct {
         }
 
         return response;
+    }
+
+    /// Google Visualization API Query Language를 사용하여 데이터 조회 (토큰 갱신 지원)
+    pub fn callSheetsQueryApiWithParamsAndRefresh(
+        self: *SheetsService,
+        access_token: []const u8,
+        refresh_token: []const u8,
+        spreadsheet_id: []const u8,
+        query: []const u8,
+        gid: ?[]const u8,
+        range: ?[]const u8,
+    ) ![]u8 {
+        const context = .{
+            .self = self,
+            .spreadsheet_id = spreadsheet_id,
+            .query = query,
+            .gid = gid,
+            .range = range,
+        };
+
+        return try google_api.callGoogleApiWithRefresh(
+            self.allocator,
+            self.auth_service,
+            access_token,
+            refresh_token,
+            context,
+            (struct {
+                pub fn call(ctx: anytype, token: []const u8) anyerror![]u8 {
+                    return ctx.self.callSheetsQueryApiWithParams(
+                        token,
+                        ctx.spreadsheet_id,
+                        ctx.query,
+                        ctx.gid,
+                        ctx.range,
+                    );
+                }
+            }).call,
+        );
     }
 };

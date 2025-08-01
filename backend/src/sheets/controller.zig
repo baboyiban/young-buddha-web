@@ -120,8 +120,9 @@ pub const SheetsController = struct {
         else
             null;
 
-        const response_json = self.service.callSheetsQueryApiWithParams(
+        const response_json = self.service.callSheetsQueryApiWithParamsAndRefresh(
             tokens.access_token,
+            tokens.refresh_token,
             spreadsheet_id,
             query,
             gid,
@@ -174,8 +175,9 @@ pub const SheetsController = struct {
             };
         }
 
-        const response_json = self.service.callSheetsQueryApiWithParams(
+        const response_json = self.service.callSheetsQueryApiWithParamsAndRefresh(
             tokens.access_token,
+            tokens.refresh_token,
             spreadsheet_id,
             query,
             gid,
