@@ -4,13 +4,6 @@ import { setupGoogleLogin } from "../auth/hooks";
 import { loadMissionData } from "../../pages/mission";
 import { setupPaymentPage } from "../../pages/payment";
 
-/**
- * ROUTE_ENABLE_PAYMENT: 라우터 등록/접근 가능 여부 제어 (true면 라우트 포함)
- * - 네비 표시 여부는 navbar 아이템의 data-visible 속성으로만 제어한다.
- * - 전역 NAV_SHOW_PAYMENT 같은 값은 제거한다.
- */
-export const ROUTE_ENABLE_PAYMENT = true;
-
 const baseRoutes: Record<string, PageInfo> = {
   [ROUTES.HOME]: {
     title: CONFIG.APP_NAME,
@@ -36,21 +29,13 @@ const baseRoutes: Record<string, PageInfo> = {
     file: "/pages/term.html",
     roles: [],
   },
-};
-
-/**
- * Payment page is conditionally included based on SHOW_PAYMENT.
- * Toggle SHOW_PAYMENT to true to enable the page.
- */
-// payment 페이지를 조건부로 추가
-if (ROUTE_ENABLE_PAYMENT) {
-  baseRoutes[ROUTES.PAYMENT] = {
+  [ROUTES.PAYMENT]: {
     title: "일정불참 결재시트",
     file: "/pages/payment.html",
     roles: [ROLES.USER, ROLES.ADMIN],
     bindFn: setupPaymentPage,
-  };
-}
+  },
+};
 
 if (CONFIG.IS_DEV) {
   Object.values(baseRoutes).forEach((route) => {
