@@ -2,7 +2,6 @@ import { apiClient } from "../lib/api";
 import { API_ENDPOINTS } from "../lib/api/endpoints";
 import { AsyncHandler } from "../lib/utils/async-handler";
 import { DOMUtils } from "../lib/utils/dom";
-import type { AbsenceRequest } from "../types/payment";
 
 const PAYMENT_CONFIG = {
   apiEndpoint: API_ENDPOINTS.PAYMENT.BASE,
