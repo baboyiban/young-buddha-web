@@ -1,23 +1,21 @@
 import { ROUTES, ROLES, CONFIG } from "../config";
-import type { PageInfo } from "./types";
 import { setupGoogleLogin } from "../auth/hooks";
 import { loadMissionData } from "../../pages/mission";
 import { setupPaymentRequestPage } from "../../pages/payment-request";
 import { setupPaymentApprovalPage } from "../../pages/payment-approval";
+import type { PageInfo } from "../../types";
 
 const baseRoutes: Record<string, PageInfo> = {
   [ROUTES.HOME]: {
     title: CONFIG.APP_NAME,
     file: "/pages/mission.html",
     roles: [ROLES.USER, ROLES.ADMIN],
-    authRequired: true,
     bindFn: loadMissionData,
   },
   [ROUTES.LOGIN]: {
     title: "로그인",
     file: "/pages/login.html",
     roles: [],
-    authRequired: false,
     bindFn: setupGoogleLogin,
   },
   [ROUTES.PRIVACY]: {
@@ -46,7 +44,6 @@ const baseRoutes: Record<string, PageInfo> = {
     title: "Sheets 테스트",
     file: "/pages/sheets-test.html",
     roles: [ROLES.USER, ROLES.ADMIN],
-    authRequired: true,
   },
 };
 

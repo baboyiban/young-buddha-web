@@ -18,9 +18,7 @@ export async function router(): Promise<void> {
   if (titleEl) titleEl.textContent = route.title;
   if (route.roles && route.roles.length > 0) {
     try {
-      if (route.authRequired) {
-        await requireAuth();
-      }
+      await requireAuth();
       await requireRole(route.roles);
     } catch {
       return;
