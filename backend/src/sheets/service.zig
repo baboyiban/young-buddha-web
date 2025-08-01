@@ -397,6 +397,8 @@ pub const SheetsService = struct {
         };
         defer self.allocator.free(auth_header.value);
 
+        std.log.info("Request Headers - Authorization: Bearer [REDACTED]", .{});
+
         var req = try client.open(.GET, uri, .{
             .server_header_buffer = &server_header_buffer,
             .extra_headers = &.{auth_header},
@@ -407,9 +409,13 @@ pub const SheetsService = struct {
         try req.finish();
         try req.wait();
 
+        std.log.info("Response Status: {d}", .{@intFromEnum(req.response.status)});
+
         if (req.response.status != .ok) {
             const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
             defer self.allocator.free(error_response);
+
+            std.log.err("Google Sheets Query API Error Response: {s}", .{error_response});
 
             const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
             defer self.allocator.free(escaped_details);
@@ -423,8 +429,13 @@ pub const SheetsService = struct {
 
         const response = try req.reader().readAllAlloc(self.allocator, 100 * 1024);
 
-        // 디버그 로그 추가
-        std.log.info("Google Sheets Query API Response: {s}", .{response});
+        // 디버그 로그 추가 - 응답 길이와 처음 500자만 출력
+        std.log.info("Google Sheets Query API Response Length: {d}", .{response.len});
+        if (response.len > 500) {
+            std.log.info("Google Sheets Query API Response (first 500 chars): {s}...", .{response[0..500]});
+        } else {
+            std.log.info("Google Sheets Query API Response: {s}", .{response});
+        }
 
         return response;
     }
