@@ -1,4 +1,5 @@
 import { apiClient } from "../lib/api";
+import { API_ENDPOINTS } from "../lib/api/endpoints";
 import { PageStateManager } from "../lib/utils/page-state";
 import { AsyncHandler } from "../lib/utils/async-handler";
 import { DOMUtils } from "../lib/utils/dom";
@@ -6,7 +7,7 @@ import type { AbsenceRequest } from "../types/payment";
 
 // 상수 정의
 const PAYMENT_CONFIG = {
-  apiEndpoint: "/api/payment",
+  apiEndpoint: API_ENDPOINTS.PAYMENT.BASE,
   maxRecords: 10,
   elementIds: {
     paymentList: "payment-list",
