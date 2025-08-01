@@ -10,4 +10,7 @@ export const API_ENDPOINTS = {
     READ: "/api/sheets/read",
     WRITE: "/api/sheets/write",
   },
+  PAYMENT: {
+    BASE: "/api/payment",
+  },
 } as const;
