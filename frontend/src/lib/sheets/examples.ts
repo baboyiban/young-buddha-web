@@ -1,10 +1,8 @@
 import { sheetsService } from "./service";
 import {
-  executeQueryToArray,
-  executeQueryToObjectArray,
   createComplexQuery,
   queryResponseToArray,
-  queryResponseToObjectArray
+  queryResponseToObjectArray,
 } from "./query-utils";
 
 /**

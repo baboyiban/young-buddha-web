@@ -8,11 +8,6 @@ interface CacheEntry {
   timestamp: number;
 }
 
-interface QueryRequest {
-  spreadsheet_id: string;
-  query: string;
-}
-
 export interface QueryResponse {
   table?: {
     cols?: Array<{
