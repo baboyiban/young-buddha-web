@@ -2,7 +2,7 @@ import { ROUTES, ROLES, CONFIG } from "../config";
 import type { PageInfo } from "./types";
 import { setupGoogleLogin } from "../auth/hooks";
 import { loadMissionData } from "../../pages/mission";
-import { setupPaymentApplicationPage } from "../../pages/payment-application";
+import { setupPaymentRequestPage } from "../../pages/payment-request";
 import { setupPaymentApprovalPage } from "../../pages/payment-approval";
 
 const baseRoutes: Record<string, PageInfo> = {
@@ -30,11 +30,11 @@ const baseRoutes: Record<string, PageInfo> = {
     file: "/pages/term.html",
     roles: [],
   },
-  [ROUTES.PAYMENT_APPLICATION]: {
+  [ROUTES.PAYMENT_REQUEST]: {
     title: "결재 신청",
-    file: "/pages/payment-application.html",
+    file: "/pages/payment-request.html",
     roles: [ROLES.USER, ROLES.ADMIN],
-    bindFn: setupPaymentApplicationPage,
+    bindFn: setupPaymentRequestPage,
   },
   [ROUTES.PAYMENT_APPROVAL]: {
     title: "결재 승인",
