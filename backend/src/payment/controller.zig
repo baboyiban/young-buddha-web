@@ -13,7 +13,7 @@ pub const PaymentController = struct {
         return .{ .service = service };
     }
 
-    /// GET /api/payment?last_n=10
+    /// GET /api/payment?last_n=10&spreadsheet_id=SPREADSHEET_ID&range=RANGE
     pub fn list(self: *PaymentController, r: zap.Request) !void {
         const allocator = self.service.allocator;
 
@@ -34,18 +34,34 @@ pub const PaymentController = struct {
         };
         defer allocator.free(access_token);
 
+        // 쿼리 파라미터 파싱
         var last_n: usize = 10;
+        var spreadsheet_id: ?[]const u8 = null;
+        var range: ?[]const u8 = null;
+
         if (r.query) |query| {
-            if (std.mem.indexOf(u8, query, "last_n=")) |idx| {
-                const start = idx + "last_n=".len;
-                var end = start;
-                while (end < query.len and query[end] >= '0' and query[end] <= '9') : (end += 1) {}
-                const num_str = query[start..end];
-                last_n = std.fmt.parseInt(usize, num_str, 10) catch 10;
+            var params = std.mem.splitScalar(u8, query, '&');
+            while (params.next()) |param| {
+                if (std.mem.indexOfScalar(u8, param, '=')) |eq_idx| {
+                    const key = param[0..eq_idx];
+                    const value = param[eq_idx + 1 ..];
+
+                    if (std.mem.eql(u8, key, "last_n")) {
+                        last_n = std.fmt.parseInt(usize, value, 10) catch 10;
+                    } else if (std.mem.eql(u8, key, "spreadsheet_id")) {
+                        spreadsheet_id = value;
+                    } else if (std.mem.eql(u8, key, "range")) {
+                        range = value;
+                    }
+                }
             }
         }
 
-        const requests = try self.service.listRequests(access_token, last_n);
+        // 스프레드시트 ID와 range가 제공되지 않으면 기존 방식 사용
+        const requests = if (spreadsheet_id != null and range != null)
+            try self.service.listRequestsCustom(access_token, last_n, spreadsheet_id.?, range.?)
+        else
+            try self.service.listRequests(access_token, last_n);
 
         var buf = std.ArrayList(u8).init(allocator);
         defer buf.deinit();

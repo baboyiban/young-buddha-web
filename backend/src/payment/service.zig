@@ -40,8 +40,43 @@ pub const PaymentService = struct {
 
         const response = try self.sheets_service.callSheetsQueryApi(access_token, self.spreadsheet_id, query);
 
+        // 디버그 로그 추가
+        std.log.info("Payment Service Query Response: {s}", .{response});
+
+        // gviz 응답 파싱 - /*O_o*/google.visualization.Query.setResponse() 형식에서 JSON 부분만 추출
+        // "setResponse(" 이후의 JSON 부분을 추출
+        const set_response_start = std.mem.indexOf(u8, response, "setResponse(") orelse {
+            std.log.err("Invalid gviz response format - no setResponse found", .{});
+            return &[_]PaymentRequest{};
+        };
+
+        const json_start = set_response_start + "setResponse(".len;
+        var json_end = response.len;
+        var brace_count: i32 = 1;
+
+        // JSON 객체의 끝을 찾기 (괄호 짝 맞추기)
+        for (response[json_start..], json_start..) |char, i| {
+            if (char == '{') {
+                brace_count += 1;
+            } else if (char == '}') {
+                brace_count -= 1;
+                if (brace_count == 0) {
+                    json_end = i + 1;
+                    break;
+                }
+            }
+        }
+
+        if (brace_count != 0) {
+            std.log.err("Invalid gviz response format - unmatched braces", .{});
+            return &[_]PaymentRequest{};
+        }
+
+        const json_response = response[json_start..json_end];
+        std.log.info("Extracted JSON: {s}", .{json_response});
+
         // gviz 응답 파싱
-        var parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        var parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, json_response, .{});
         defer parsed.deinit();
 
         // table 객체 추출

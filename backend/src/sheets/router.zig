@@ -11,9 +11,13 @@ fn handleWrite(r: zap.Request) anyerror!void {
 fn handleQuery(r: zap.Request) anyerror!void {
     try globals.sheets_controller.?.querySheet(r);
 }
+fn handleQueryGet(r: zap.Request) anyerror!void {
+    try globals.sheets_controller.?.querySheetGet(r);
+}
 
 pub fn setupRoutes(router: *Router, _: *const anyopaque) !void {
     try router.get("/api/sheets/read", handleRead);
     try router.post("/api/sheets/write", handleWrite);
     try router.post("/api/sheets/query", handleQuery);
+    try router.get("/api/sheets/query", handleQueryGet);
 }

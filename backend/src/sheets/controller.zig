@@ -73,7 +73,14 @@ pub const SheetsController = struct {
         try self.sendJson(r, 200, response_json);
     }
 
-    /// Google Visualization API Query Language를 사용한 쿼리 실행
+    /// Google Visualization API Query Language를 사용한 쿼리 실행 (POST)
+    /// JSON 예시:
+    /// {
+    ///   "spreadsheet_id": "1r8_mfnZAvTFmT02JHi1XgOwn_-sLCR9XgmR8wEQ4uW4",
+    ///   "query": "select A, sum(B) group by A",
+    ///   "gid": "0",           // 선택적: 시트 ID
+    ///   "range": "A1:C100"    // 선택적: 범위
+    /// }
     pub fn querySheet(self: *SheetsController, r: zap.Request) !void {
         const tokens = self.getTokensFromJwt(r) catch |err| {
             return self.handleAuthError(r, err);
@@ -102,10 +109,77 @@ pub const SheetsController = struct {
         else
             return self.sendError(r, 400, "MISSING_QUERY", "Missing query field");
 
-        const response_json = self.service.callSheetsQueryApi(
+        // 선택적 파라미터들
+        const gid = if (obj.get("gid")) |v|
+            if (v == .string) v.string else null
+        else
+            null;
+
+        const range = if (obj.get("range")) |v|
+            if (v == .string) v.string else null
+        else
+            null;
+
+        const response_json = self.service.callSheetsQueryApiWithParams(
             tokens.access_token,
             spreadsheet_id,
             query,
+            gid,
+            range,
+        ) catch |err| {
+            std.log.err("Failed to execute query: {any}", .{err});
+            return self.sendError(r, 500, "QUERY_FAILED", "Failed to execute query");
+        };
+        defer self.service.allocator.free(response_json);
+
+        try self.sendJson(r, 200, response_json);
+    }
+
+    /// Google Visualization API Query Language를 사용한 쿼리 실행 (GET)
+    /// URL 예시:
+    /// - 기본: /api/sheets/query?spreadsheet_id=1r8_mfnZAvTFmT02JHi1XgOwn_-sLCR9XgmR8wEQ4uW4&tq=select%20A%2C%20sum(B)%20group%20by%20A
+    /// - 시트 지정: /api/sheets/query?spreadsheet_id=1r8_mfnZAvTFmT02JHi1XgOwn_-sLCR9XgmR8wEQ4uW4&gid=0&tq=select%20A%2C%20sum(B)%20group%20by%20A
+    /// - 범위 지정: /api/sheets/query?spreadsheet_id=1r8_mfnZAvTFmT02JHi1XgOwn_-sLCR9XgmR8wEQ4uW4&range=A1:C100&tq=select%20A%2C%20sum(B)%20group%20by%20A
+    pub fn querySheetGet(self: *SheetsController, r: zap.Request) !void {
+        const tokens = self.getTokensFromJwt(r) catch |err| {
+            return self.handleAuthError(r, err);
+        };
+        defer self.service.allocator.free(tokens.access_token);
+        defer self.service.allocator.free(tokens.refresh_token);
+
+        const spreadsheet_id = self.getQueryParam(r, "spreadsheet_id") catch {
+            return self.sendError(r, 400, "MISSING_SPREADSHEET_ID", "Missing spreadsheet_id parameter");
+        };
+
+        const encoded_query = self.getQueryParam(r, "tq") catch {
+            return self.sendError(r, 400, "MISSING_QUERY", "Missing tq (query) parameter");
+        };
+
+        // 선택적 파라미터들
+        const gid = self.getQueryParam(r, "gid") catch null;
+        const encoded_range = self.getQueryParam(r, "range") catch null;
+
+        // URL 디코딩
+        const query = self.service.urlDecode(encoded_query) catch {
+            return self.sendError(r, 400, "INVALID_QUERY", "Invalid query format");
+        };
+        defer self.service.allocator.free(query);
+
+        var range: ?[]u8 = null;
+        defer if (range) |r_val| self.service.allocator.free(r_val);
+
+        if (encoded_range) |enc_range| {
+            range = self.service.urlDecode(enc_range) catch {
+                return self.sendError(r, 400, "INVALID_RANGE", "Invalid range format");
+            };
+        }
+
+        const response_json = self.service.callSheetsQueryApiWithParams(
+            tokens.access_token,
+            spreadsheet_id,
+            query,
+            gid,
+            range,
         ) catch |err| {
             std.log.err("Failed to execute query: {any}", .{err});
             return self.sendError(r, 500, "QUERY_FAILED", "Failed to execute query");

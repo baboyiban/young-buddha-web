@@ -101,6 +101,9 @@ pub const SheetsService = struct {
 
         const response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
 
+        // 디버그 로그 추가
+        std.log.info("Google Sheets API Response: {s}", .{response});
+
         if (response.len == 0 or response[0] != '{') {
             const escaped_response = try json_util.escapeJsonString(self.allocator, response);
             defer self.allocator.free(escaped_response);
@@ -330,12 +333,26 @@ pub const SheetsService = struct {
         return result.toOwnedSlice();
     }
 
-    /// Google Visualization API Query Language를 사용하여 데이터 조회
+    /// Google Visualization API Query Language를 사용하여 데이터 조회 (기본)
     pub fn callSheetsQueryApi(
         self: *SheetsService,
         access_token: []const u8,
         spreadsheet_id: []const u8,
         query: []const u8,
+    ) ![]u8 {
+        return self.callSheetsQueryApiWithParams(access_token, spreadsheet_id, query, null, null);
+    }
+
+    /// Google Visualization API Query Language를 사용하여 데이터 조회 (파라미터 포함)
+    /// gid: 시트 ID (예: 0, 1, 2...)
+    /// range: 범위 (예: "A1:C100", "Sheet1!A1:C100")
+    pub fn callSheetsQueryApiWithParams(
+        self: *SheetsService,
+        access_token: []const u8,
+        spreadsheet_id: []const u8,
+        query: []const u8,
+        gid: ?[]const u8,
+        range: ?[]const u8,
     ) ![]u8 {
         var client: std.http.Client = .{ .allocator = self.allocator };
         defer client.deinit();
@@ -344,12 +361,32 @@ pub const SheetsService = struct {
         const encoded_query = try self.urlEncode(query);
         defer self.allocator.free(encoded_query);
 
+        // URL 파라미터 구성
+        var url_params = std.ArrayList(u8).init(self.allocator);
+        defer url_params.deinit();
+
+        try url_params.writer().print("tq={s}", .{encoded_query});
+
+        // gid 파라미터 추가 (시트 ID)
+        if (gid) |sheet_id| {
+            try url_params.writer().print("&gid={s}", .{sheet_id});
+        }
+
+        // range 파라미터 추가
+        if (range) |r| {
+            const encoded_range = try self.urlEncode(r);
+            defer self.allocator.free(encoded_range);
+            try url_params.writer().print("&range={s}", .{encoded_range});
+        }
+
         const url = try std.fmt.allocPrint(
             self.allocator,
-            "https://docs.google.com/spreadsheets/d/{s}/gviz/tq?tq={s}",
-            .{ spreadsheet_id, encoded_query },
+            "https://docs.google.com/spreadsheets/d/{s}/gviz/tq?{s}",
+            .{ spreadsheet_id, url_params.items },
         );
         defer self.allocator.free(url);
+
+        std.log.info("Query URL: {s}", .{url});
 
         const uri = try std.Uri.parse(url);
         var server_header_buffer: [16 * 1024]u8 = undefined;
@@ -385,6 +422,10 @@ pub const SheetsService = struct {
         }
 
         const response = try req.reader().readAllAlloc(self.allocator, 100 * 1024);
+
+        // 디버그 로그 추가
+        std.log.info("Google Sheets Query API Response: {s}", .{response});
+
         return response;
     }
 };
