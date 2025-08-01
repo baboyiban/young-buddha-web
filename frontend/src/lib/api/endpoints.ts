@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
     BASE: "/api/sheets",
     READ: "/api/sheets/read",
     WRITE: "/api/sheets/write",
+    QUERY: "/api/sheets/query",
   },
   PAYMENT: {
     BASE: "/api/payment",
