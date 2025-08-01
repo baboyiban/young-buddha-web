@@ -3,5 +3,4 @@ export interface PageInfo {
   file: string;
   roles?: string[];
   bindFn?: () => void | Promise<void>;
-  authRequired?: boolean;
 }
