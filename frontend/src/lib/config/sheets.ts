@@ -5,7 +5,7 @@
 export const SHEETS_CONFIG = {
   // 결제 요청 관련 스프레드시트 설정
   PAYMENT: {
-    SPREADSHEET_ID: "1r8_mfnZAvTFmT02JHi1XgOwn_-sLCR9XgmR8wEQ4uW4", // 실제 ID로 변경 필요
+    SPREADSHEET_ID: "1r8_mfnZAvTFmT02JHi1XgOwn_-sLCR9XgmR8wEQ4uW4", // 현재 사용자가 접근 가능한 스프레드시트 ID로 변경 필요
     SHEET_NAME: "결재요청",
     RANGE: "결재요청!A:K",
     COLUMNS: {

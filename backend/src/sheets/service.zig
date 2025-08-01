@@ -414,10 +414,17 @@ pub const SheetsService = struct {
         std.log.info("Response Status: {d}", .{@intFromEnum(req.response.status)});
 
         if (req.response.status != .ok) {
-            const error_response = try req.reader().readAllAlloc(self.allocator, 10 * 1024);
+            const error_response = try req.reader().readAllAlloc(self.allocator, 100 * 1024); // 오류 응답도 크기 증가
             defer self.allocator.free(error_response);
 
             std.log.err("Google Sheets Query API Error Response: {s}", .{error_response});
+
+            // 403 오류인 경우 추가 정보 로그
+            if (req.response.status == .forbidden) {
+                std.log.err("403 Forbidden - Check spreadsheet permissions for user", .{});
+                std.log.err("Spreadsheet ID: {s}", .{spreadsheet_id});
+                std.log.err("Make sure the spreadsheet is shared with the authenticated user or set to public", .{});
+            }
 
             const escaped_details = try json_util.escapeJsonString(self.allocator, error_response);
             defer self.allocator.free(escaped_details);
@@ -429,7 +436,7 @@ pub const SheetsService = struct {
             );
         }
 
-        const response = try req.reader().readAllAlloc(self.allocator, 100 * 1024);
+        const response = try req.reader().readAllAlloc(self.allocator, 1024 * 1024); // 1MB로 증가
 
         // 디버그 로그 추가 - 응답 길이와 처음 500자만 출력
         std.log.info("Google Sheets Query API Response Length: {d}", .{response.len});
