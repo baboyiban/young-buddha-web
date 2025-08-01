@@ -195,49 +195,8 @@ async function updatePaymentStatus(
   comment?: string
 ): Promise<void> {
   try {
-    // 현재 사용자 정보 가져오기 (실제로는 인증된 사용자 정보를 사용해야 함)
-    const approver = "Admin"; // 실제 구현에서는 현재 로그인한 사용자 이름
-    const approvedAt = new Date().toISOString().split("T")[0];
-
-    // Google Sheets에서 해당 행을 찾아서 업데이트하는 쿼리
-    // 실제로는 더 정교한 방법이 필요할 수 있음 (행 번호 찾기 등)
-    const updateQuery = `
-      select * where A = '${id}' and B = '${name}'
-    `;
-
-    // 먼저 해당 행을 찾기
-    const queryParams = new URLSearchParams({
-      spreadsheet_id: SHEETS_CONFIG.PAYMENT.SPREADSHEET_ID,
-      tq: updateQuery,
-    });
-
-    const findEndpoint = `${
-      API_ENDPOINTS.SHEETS.QUERY
-    }?${queryParams.toString()}`;
-    const findResponse = await apiClient.get(findEndpoint);
-
-    // 행을 찾았다면 업데이트 (실제로는 더 복잡한 로직 필요)
-    // 여기서는 간단히 새로운 행을 추가하는 방식으로 구현
-    const updateData = {
-      values: [
-        [
-          id,
-          name,
-          "", // request_date - 기존 값 유지 필요
-          "", // type - 기존 값 유지 필요
-          "", // absent_date - 기존 값 유지 필요
-          "", // time_slot - 기존 값 유지 필요
-          "", // reason - 기존 값 유지 필요
-          status,
-          approver,
-          approvedAt,
-          comment || "",
-        ],
-      ],
-    };
-
     // 실제로는 특정 행을 업데이트하는 더 정교한 방법이 필요
-    // 여기서는 예시로 append 방식 사용
+    // 현재는 로그만 출력하고 실제 업데이트는 구현하지 않음
     console.log("Status update:", { id, name, status, comment });
 
     // TODO: 실제 Google Sheets 행 업데이트 구현
