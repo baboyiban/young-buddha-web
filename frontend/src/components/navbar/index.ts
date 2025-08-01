@@ -46,4 +46,21 @@ export function updateNavbarActiveState(): void {
 export function setupNavbar(): void {
   setupLogoutButton();
   updateNavbarActiveState();
+
+  // 네비게이션 링크에 이벤트 리스너 추가
+  const navbar = document.getElementById("navbar");
+  if (navbar) {
+    const links = navbar.querySelectorAll("a[data-path]");
+    links.forEach((link) => {
+      link.addEventListener("click", () => {
+        // 작은 지연 후에 active state 업데이트 (페이지 전환 후)
+        setTimeout(() => updateNavbarActiveState(), 0);
+      });
+    });
+  }
+
+  // 브라우저 백/포워드 버튼 지원을 위한 hashchange 이벤트 리스너
+  window.addEventListener("hashchange", () => {
+    updateNavbarActiveState();
+  });
 }
