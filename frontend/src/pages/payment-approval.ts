@@ -5,13 +5,11 @@ import { AsyncHandler } from "../lib/utils/async-handler";
 import { DOMUtils } from "../lib/utils/dom";
 import type { AbsenceRequest } from "../types/payment";
 
-// 상수 정의
 const PAYMENT_CONFIG = {
   apiEndpoint: API_ENDPOINTS.PAYMENT.BASE,
   maxRecords: 10,
   elementIds: {
     paymentList: "payment-list",
-    paymentForm: "payment-form",
   },
 } as const;
 
@@ -19,8 +17,6 @@ const UI_MESSAGES = {
   loading: "불러오는 중...",
   noPayments: "결재 요청이 없습니다.",
   loadError: "불러오기 실패",
-  submitSuccess: "신청 완료!",
-  submitError: "신청 실패",
 } as const;
 
 const TABLE_HEADERS = [
@@ -35,8 +31,7 @@ const TABLE_HEADERS = [
 
 const pageState = new PageStateManager(PAYMENT_CONFIG.elementIds.paymentList);
 
-export function setupPaymentPage(): void {
-  setupPaymentForm();
+export function setupPaymentApprovalPage(): void {
   loadPayments();
 }
 
@@ -61,9 +56,7 @@ async function fetchPayments(): Promise<AbsenceRequest[]> {
 }
 
 function createPaymentTable(payments: AbsenceRequest[]): string {
-  const headerRow = TABLE_HEADERS.map((header) => `<th>${header}</th>`).join(
-    ""
-  );
+  const headerRow = TABLE_HEADERS.map((header) => `<th>${header}</th>`).join("");
   const bodyRows = payments.map(createPaymentRow).join("");
 
   return `
@@ -90,38 +83,4 @@ function createPaymentRow(payment: AbsenceRequest): string {
       <td>${payment.status}</td>
     </tr>
   `;
-}
-
-function setupPaymentForm(): void {
-  const form = DOMUtils.getElementById<HTMLFormElement>(
-    PAYMENT_CONFIG.elementIds.paymentForm
-  );
-  if (!form) return;
-
-  // 이벤트 리스너 중복 방지를 위한 폼 복제
-  const cleanForm = cloneFormWithoutListeners(form);
-  cleanForm.addEventListener("submit", handleFormSubmit);
-}
-
-function cloneFormWithoutListeners(form: HTMLFormElement): HTMLFormElement {
-  const newForm = form.cloneNode(true) as HTMLFormElement;
-  form.parentNode?.replaceChild(newForm, form);
-  return newForm;
-}
-
-async function handleFormSubmit(event: Event): Promise<void> {
-  event.preventDefault();
-  const form = event.target as HTMLFormElement;
-
-  await AsyncHandler.handleFormSubmit(
-    form,
-    (data) => apiClient.post(PAYMENT_CONFIG.apiEndpoint, data),
-    {
-      successMessage: UI_MESSAGES.submitSuccess,
-      onSuccess: () => loadPayments(),
-      onError: (error) => {
-        console.error("결재 요청 등록 실패:", error);
-      },
-    }
-  );
 }

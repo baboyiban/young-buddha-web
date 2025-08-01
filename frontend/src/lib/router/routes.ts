@@ -2,7 +2,8 @@ import { ROUTES, ROLES, CONFIG } from "../config";
 import type { PageInfo } from "./types";
 import { setupGoogleLogin } from "../auth/hooks";
 import { loadMissionData } from "../../pages/mission";
-import { setupPaymentPage } from "../../pages/payment";
+import { setupPaymentApplicationPage } from "../../pages/payment-application";
+import { setupPaymentApprovalPage } from "../../pages/payment-approval";
 
 const baseRoutes: Record<string, PageInfo> = {
   [ROUTES.HOME]: {
@@ -29,11 +30,17 @@ const baseRoutes: Record<string, PageInfo> = {
     file: "/pages/term.html",
     roles: [],
   },
-  [ROUTES.PAYMENT]: {
-    title: "일정불참 결재시트",
-    file: "/pages/payment.html",
+  [ROUTES.PAYMENT_APPLICATION]: {
+    title: "결재 신청",
+    file: "/pages/payment-application.html",
     roles: [ROLES.USER, ROLES.ADMIN],
-    bindFn: setupPaymentPage,
+    bindFn: setupPaymentApplicationPage,
+  },
+  [ROUTES.PAYMENT_APPROVAL]: {
+    title: "결재 승인",
+    file: "/pages/payment-approval.html",
+    roles: [ROLES.ADMIN],
+    bindFn: setupPaymentApprovalPage,
   },
 };
 
