@@ -187,6 +187,173 @@ pub const PaymentService = struct {
         return list;
     }
 
+    /// 커스텀 스프레드시트 ID와 범위를 사용하여 요청 목록 조회
+    pub fn listRequestsCustom(
+        self: *PaymentService,
+        access_token: []const u8,
+        last_n: usize,
+        spreadsheet_id: []const u8,
+        range: []const u8,
+    ) ![]PaymentRequest {
+        // Google Visualization API Query Language를 사용한 쿼리
+        const query = try std.fmt.allocPrint(self.allocator, "SELECT * WHERE H = '대기' ORDER BY C DESC LIMIT {d}", .{last_n});
+        defer self.allocator.free(query);
+
+        const response = try self.sheets_service.callSheetsQueryApiWithParams(
+            access_token,
+            spreadsheet_id,
+            query,
+            null, // gid
+            range,
+        );
+
+        // 디버그 로그 추가
+        std.log.info("Payment Service Custom Query Response: {s}", .{response});
+
+        // gviz 응답 파싱 - /*O_o*/google.visualization.Query.setResponse() 형식에서 JSON 부분만 추출
+        const set_response_start = std.mem.indexOf(u8, response, "setResponse(") orelse {
+            std.log.err("Invalid gviz response format - no setResponse found", .{});
+            return &[_]PaymentRequest{};
+        };
+
+        const json_start = set_response_start + "setResponse(".len;
+        var json_end = response.len;
+        var brace_count: i32 = 1;
+
+        // JSON 객체의 끝을 찾기 (괄호 짝 맞추기)
+        for (response[json_start..], json_start..) |char, i| {
+            if (char == '{') {
+                brace_count += 1;
+            } else if (char == '}') {
+                brace_count -= 1;
+                if (brace_count == 0) {
+                    json_end = i + 1;
+                    break;
+                }
+            }
+        }
+
+        if (brace_count != 0) {
+            std.log.err("Invalid gviz response format - unmatched braces", .{});
+            return &[_]PaymentRequest{};
+        }
+
+        const json_response = response[json_start..json_end];
+        std.log.info("Extracted JSON: {s}", .{json_response});
+
+        // gviz 응답 파싱
+        var parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, json_response, .{});
+        defer parsed.deinit();
+
+        // table 객체 추출
+        const table_obj = if (parsed.value == .object)
+            if (parsed.value.object.get("table")) |table_val|
+                if (table_val == .object) table_val.object else return &[_]PaymentRequest{}
+            else
+                return &[_]PaymentRequest{}
+        else
+            return &[_]PaymentRequest{};
+
+        // rows 배열 추출
+        const rows_json = if (table_obj.get("rows")) |rows_val|
+            if (rows_val == .array) rows_val.array.items else return &[_]PaymentRequest{}
+        else
+            return &[_]PaymentRequest{};
+
+        var list = try self.allocator.alloc(PaymentRequest, rows_json.len);
+        for (rows_json, 0..) |row, i| {
+            if (row == .object) {
+                const row_obj = row.object;
+                const cells_json = if (row_obj.get("c")) |c_val|
+                    if (c_val == .array) c_val.array.items else {
+                        list[i] = PaymentRequest{
+                            .id = 0,
+                            .name = "",
+                            .type = "",
+                            .request_date = "",
+                            .absent_date = "",
+                            .time_slot = null,
+                            .reason = null,
+                            .status = "",
+                            .approver = null,
+                            .approved_at = null,
+                            .comment = null,
+                        };
+                        continue;
+                    }
+                else {
+                    list[i] = PaymentRequest{
+                        .id = 0,
+                        .name = "",
+                        .type = "",
+                        .request_date = "",
+                        .absent_date = "",
+                        .time_slot = null,
+                        .reason = null,
+                        .status = "",
+                        .approver = null,
+                        .approved_at = null,
+                        .comment = null,
+                    };
+                    continue;
+                };
+
+                // gviz 응답 형식에 맞게 파싱
+                const getCellString = struct {
+                    fn get(allocator: std.mem.Allocator, cells: []const std.json.Value, index: usize) ?[]const u8 {
+                        if (index >= cells.len) return null;
+                        const cell = cells[index];
+                        if (cell == .object) {
+                            const cell_obj = cell.object;
+                            if (cell_obj.get("v")) |value| {
+                                if (value == .string) return value.string;
+                                if (value == .integer) {
+                                    const str = std.fmt.allocPrint(allocator, "{d}", .{value.integer}) catch return null;
+                                    return str;
+                                }
+                                if (value == .float) {
+                                    const str = std.fmt.allocPrint(allocator, "{d}", .{value.float}) catch return null;
+                                    return str;
+                                }
+                            }
+                        }
+                        return null;
+                    }
+                };
+
+                // 컬럼 순서: A=ID, B=이름, C=신청일, D=유형, E=불참일, F=시간대, G=사유, H=상태, I=승인자, J=승인일, K=코멘트
+                list[i] = PaymentRequest{
+                    .id = if (getCellString.get(self.allocator, cells_json, 0)) |id_str| std.fmt.parseInt(i64, id_str, 10) catch 0 else 0,
+                    .name = if (getCellString.get(self.allocator, cells_json, 1)) |v| v else "",
+                    .request_date = if (getCellString.get(self.allocator, cells_json, 2)) |v| v else "",
+                    .type = if (getCellString.get(self.allocator, cells_json, 3)) |v| v else "",
+                    .absent_date = if (getCellString.get(self.allocator, cells_json, 4)) |v| v else "",
+                    .time_slot = if (getCellString.get(self.allocator, cells_json, 5)) |v| if (v.len > 0) v else null else null,
+                    .reason = if (getCellString.get(self.allocator, cells_json, 6)) |v| if (v.len > 0) v else null else null,
+                    .status = if (getCellString.get(self.allocator, cells_json, 7)) |v| v else "",
+                    .approver = if (getCellString.get(self.allocator, cells_json, 8)) |v| if (v.len > 0) v else null else null,
+                    .approved_at = if (getCellString.get(self.allocator, cells_json, 9)) |v| if (v.len > 0) v else null else null,
+                    .comment = if (getCellString.get(self.allocator, cells_json, 10)) |v| if (v.len > 0) v else null else null,
+                };
+            } else {
+                list[i] = PaymentRequest{
+                    .id = 0,
+                    .name = "",
+                    .type = "",
+                    .request_date = "",
+                    .absent_date = "",
+                    .time_slot = null,
+                    .reason = null,
+                    .status = "",
+                    .approver = null,
+                    .approved_at = null,
+                    .comment = null,
+                };
+            }
+        }
+        return list;
+    }
+
     pub fn addRequest(
         self: *PaymentService,
         access_token: []const u8,
