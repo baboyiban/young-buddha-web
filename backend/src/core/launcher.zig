@@ -1,5 +1,5 @@
 const std = @import("std");
-const AppContext = @import("context.zig").AppContext;
+const Context = @import("context.zig").Context;
 const Server = @import("server.zig").Server;
 const Logger = @import("../util/logger.zig").Logger;
 const globals = @import("../config/globals.zig");
@@ -10,7 +10,7 @@ const logger = Logger.init("Launcher");
 /// 전체 애플리케이션의 생명주기를 관리합니다.
 pub const Launcher = struct {
     allocator: std.mem.Allocator,
-    ctx: ?AppContext = null,
+    ctx: ?Context = null,
     server: ?Server = null,
 
     /// 런처를 초기화합니다.
@@ -23,10 +23,11 @@ pub const Launcher = struct {
         logger.info("Starting Young Buddha Web Server...", .{});
 
         // 애플리케이션 컨텍스트 초기화
-        self.ctx = AppContext.init(self.allocator) catch |err| {
+        self.ctx = Context.init(self.allocator) catch |err| {
             logger.err("Failed to initialize application context: {any}", .{err});
             return err;
         };
+        errdefer if (self.ctx) |*ctx| ctx.deinit();
 
         // 전역 변수 초기화 (안정적인 포인터 사용)
         globals.init(self.allocator, &self.ctx.?.env) catch |err| {
@@ -59,10 +60,12 @@ pub const Launcher = struct {
 
         if (self.server) |*server| {
             server.deinit();
+            self.server = null;
         }
 
         if (self.ctx) |*ctx| {
             ctx.deinit();
+            self.ctx = null;
         }
 
         logger.info("Application shutdown complete", .{});

@@ -14,6 +14,7 @@ pub const Env = struct {
             .allocator = allocator,
             .vars = std.ArrayList(EnvVar).init(allocator),
         };
+        errdefer self.deinit(); // 초기화 실패 시 메모리 정리
 
         // Initialize the ArrayList properly
         try self.vars.ensureTotalCapacity(20);
@@ -29,13 +30,14 @@ pub const Env = struct {
 
         // 2. 백엔드 전용 .env 로드 (덮어쓰기)
         const env_path = ".env";
-        const content = std.fs.cwd().readFileAlloc(allocator, env_path, 1 * 1024 * 1024) catch |err| {
+        if (std.fs.cwd().readFileAlloc(allocator, env_path, 1 * 1024 * 1024)) |content| {
+            defer allocator.free(content);
+            try self.parseEnvContent(content);
+        } else |err| {
             std.log.err("Failed to read backend .env: {s}", .{@errorName(err)});
             return error.EnvFileReadFailed;
-        };
-        defer allocator.free(content);
+        }
 
-        try self.parseEnvContent(content);
         return self;
     }
 
@@ -79,9 +81,6 @@ pub const Env = struct {
                         .key = owned_key,
                         .value = owned_value,
                     });
-                } else {
-                    // If found, the owned_value was already assigned, so we don't need to free it.
-                    // The owned_key was freed inside the loop.
                 }
             }
         }

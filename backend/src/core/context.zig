@@ -10,21 +10,21 @@ const StaticHandler = @import("../static/static_handler.zig").StaticHandler;
 const Logger = @import("../util/logger.zig").Logger;
 const constants = @import("../config/constants.zig");
 
-const logger = Logger.init("AppContext");
+const logger = Logger.init("Context");
 
 /// 애플리케이션의 모든 컴포넌트를 관리하는 컨텍스트
-pub const AppContext = struct {
+pub const Context = struct {
     allocator: std.mem.Allocator,
     env: Env,
-    db: sqlite.Db,
-    auth_app: *auth.AuthApp,
-    sheets_app: *sheets.SheetsApp,
-    payment_app: *payment.PaymentApp,
-    database_app: *database.DatabaseApp,
-    static_handler: *StaticHandler,
+    db: ?sqlite.Db,
+    auth_app: ?*auth.AuthApp,
+    sheets_app: ?*sheets.SheetsApp,
+    payment_app: ?*payment.PaymentApp,
+    database_app: ?*database.DatabaseApp,
+    static_handler: ?*StaticHandler,
 
     /// 애플리케이션 컨텍스트를 초기화합니다.
-    pub fn init(allocator: std.mem.Allocator) !AppContext {
+    pub fn init(allocator: std.mem.Allocator) !Context {
         logger.info("Initializing application context...", .{});
 
         // 환경 변수 초기화
@@ -40,15 +40,15 @@ pub const AppContext = struct {
             logger.err("Failed to initialize globals: {any}", .{err});
             return err;
         };
-        var app_context = AppContext{
+        var app_context = Context{
             .allocator = allocator,
             .env = env, // env is moved here
-            .db = undefined,
-            .auth_app = undefined,
-            .sheets_app = undefined,
-            .payment_app = undefined,
-            .database_app = undefined,
-            .static_handler = undefined,
+            .db = null,
+            .auth_app = null,
+            .sheets_app = null,
+            .payment_app = null,
+            .database_app = null,
+            .static_handler = null,
         };
 
         // 데이터베이스 초기화
@@ -116,7 +116,7 @@ pub const AppContext = struct {
         const static_handler_ptr = try allocator.create(StaticHandler);
         static_handler_ptr.* = try StaticHandler.init(allocator);
 
-        // 초기화된 컴포넌트들로 AppContext 업데이트
+        // 초기화된 컴포넌트들로 Context 업데이트
         app_context.db = db;
         app_context.auth_app = auth_app_ptr;
         app_context.sheets_app = sheets_app_ptr;
@@ -130,38 +130,57 @@ pub const AppContext = struct {
     }
 
     /// 애플리케이션 컨텍스트를 정리합니다.
-    pub fn deinit(self: *AppContext) void {
+    pub fn deinit(self: *Context) void {
         logger.info("Cleaning up application context...", .{});
 
         // Deinitialize components in reverse order of initialization
-        self.static_handler.deinit(self.allocator);
-        self.allocator.destroy(self.static_handler);
+        if (self.static_handler) |static_handler| {
+            static_handler.deinit(self.allocator);
+            self.allocator.destroy(static_handler);
+            self.static_handler = null;
+        }
 
-        self.database_app.deinit();
-        self.allocator.destroy(self.database_app);
+        if (self.database_app) |database_app| {
+            database_app.deinit();
+            self.allocator.destroy(database_app);
+            self.database_app = null;
+        }
 
-        self.payment_app.deinit();
-        self.allocator.destroy(self.payment_app);
+        if (self.payment_app) |payment_app| {
+            payment_app.deinit();
+            self.allocator.destroy(payment_app);
+            self.payment_app = null;
+        }
 
-        self.sheets_app.deinit();
-        self.allocator.destroy(self.sheets_app);
+        if (self.sheets_app) |sheets_app| {
+            sheets_app.deinit();
+            self.allocator.destroy(sheets_app);
+            self.sheets_app = null;
+        }
 
-        self.auth_app.deinit();
-        self.allocator.destroy(self.auth_app);
+        if (self.auth_app) |auth_app| {
+            auth_app.deinit();
+            self.allocator.destroy(auth_app);
+            self.auth_app = null;
+        }
 
-        self.db.deinit();
+        if (self.db) |*db| {
+            db.deinit();
+            self.db = null;
+        }
+
         self.env.deinit();
 
         logger.info("Application context cleaned up", .{});
     }
 
     /// 서버 포트를 반환합니다.
-    pub fn getPort(self: *AppContext) u16 {
+    pub fn getPort(self: *Context) u16 {
         return self.env.getInt("PORT", u16, constants.DEFAULT_PORT);
     }
 
     /// 개발 모드인지 확인합니다.
-    pub fn isDevelopment(self: *AppContext) bool {
+    pub fn isDevelopment(self: *Context) bool {
         return !self.env.isProduction();
     }
 };
