@@ -1,6 +1,6 @@
 const std = @import("std");
 const zap = @import("zap");
-const AppContext = @import("context.zig").AppContext;
+const Context = @import("context.zig").Context;
 const Router = @import("../web/router.zig").Router;
 const setupRoutes = @import("../web/router.zig").setupRoutes;
 const globals = @import("../config/globals.zig");
@@ -22,18 +22,18 @@ fn requestCallback(r: zap.Request) anyerror!void {
 
 /// 서버 관리를 위한 구조체
 pub const Server = struct {
-    ctx: *AppContext,
+    ctx: *Context,
     router: Router,
 
     /// 서버를 초기화합니다.
-    pub fn init(ctx: *AppContext) !Server {
+    pub fn init(ctx: *Context) !Server {
         // 전역 컨트롤러 등록
         globals.setControllers(
-            &ctx.auth_app.controller,
-            &ctx.sheets_app.controller,
-            ctx.static_handler,
-            &ctx.database_app.controller,
-            &ctx.payment_app.controller,
+            &ctx.auth_app.?.controller,
+            &ctx.sheets_app.?.controller,
+            ctx.static_handler.?,
+            &ctx.database_app.?.controller,
+            &ctx.payment_app.?.controller,
         );
 
         // 라우터 초기화
