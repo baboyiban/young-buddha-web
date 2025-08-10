@@ -9,7 +9,8 @@ use axum::http::{HeaderMap, HeaderValue, header::SET_COOKIE};
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
-    .route("/auth/google", post(google_auth))
+        .route("/auth/google", post(google_auth))
+        .route("/auth/google", get(google_auth_get))
         .route("/auth/google/callback", get(not_implemented))
         .route("/auth/me", get(me))
         .route("/auth/logout", delete(logout))
@@ -22,31 +23,29 @@ async fn not_implemented() -> Response {
     ).into_response()
 }
 
-async fn google_auth(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
     let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
         Ok(v) => v,
         Err(_) => {
-            let headers = HeaderMap::new();
             return (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                headers,
-                Json(json!({"error":true,"code":"MISSING_GOOGLE_CLIENT_ID","message":"Google Client ID is not configured"})),
-            );
+                Json(json!({"error":true,"code":"MISSING_GOOGLE_CLIENT_ID","message":"Google Client ID is not configured"}))
+            ).into_response();
         },
     };
     let redirect_uri = match std::env::var("GOOGLE_REDIRECT_URI") {
         Ok(v) => v,
         Err(_) => {
-            let headers = HeaderMap::new();
             return (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                headers,
-                Json(json!({"error":true,"code":"MISSING_REDIRECT_URI","message":"Redirect URI is not configured"})),
-            );
+                Json(json!({"error":true,"code":"MISSING_REDIRECT_URI","message":"Redirect URI is not configured"}))
+            ).into_response();
         },
     };
     let scope = std::env::var("GOOGLE_SCOPE").unwrap_or_else(|_| "openid email profile https://www.googleapis.com/auth/spreadsheets".into());
     let auth_base = "https://accounts.google.com/o/oauth2/v2/auth";
+
+    tracing::info!(client_id = %client_id, redirect_uri = %redirect_uri, scope = %scope, "Google OAuth config");
 
     // generate state
     let state_val: String = rand::thread_rng()
@@ -82,7 +81,65 @@ async fn google_auth(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         axum::http::StatusCode::OK,
         headers,
         Json(json!({"auth_url": auth_url})),
-    )
+    ).into_response()
+}
+
+async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
+    let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error":true,"code":"MISSING_GOOGLE_CLIENT_ID","message":"Google Client ID is not configured"}))
+            ).into_response();
+        },
+    };
+    let redirect_uri = match std::env::var("GOOGLE_REDIRECT_URI") {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error":true,"code":"MISSING_REDIRECT_URI","message":"Redirect URI is not configured"}))
+            ).into_response();
+        },
+    };
+    let scope = std::env::var("GOOGLE_SCOPE").unwrap_or_else(|_| "openid email profile https://www.googleapis.com/auth/spreadsheets".into());
+    let auth_base = "https://accounts.google.com/o/oauth2/v2/auth";
+
+    tracing::info!(client_id = %client_id, redirect_uri = %redirect_uri, scope = %scope, "Google OAuth config");
+
+    let state_val: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect();
+
+    let cookie = format!(
+        "oauth_state={}; Max-Age={}; Path=/; HttpOnly{}",
+        state_val,
+        300,
+        if state.is_production { "; Secure" } else { "" }
+    );
+
+    let auth_url = format!(
+        "{}?client_id={}&redirect_uri={}&response_type=code&scope={}&state={}&access_type=offline&prompt=consent",
+        auth_base,
+        urlencoding::encode(&client_id),
+        urlencoding::encode(&redirect_uri),
+        urlencoding::encode(&scope),
+        urlencoding::encode(&state_val)
+    );
+
+    let mut headers = HeaderMap::new();
+    if let Ok(val) = HeaderValue::from_str(&cookie) {
+        headers.insert(SET_COOKIE, val);
+    }
+    headers.insert(axum::http::header::LOCATION, HeaderValue::from_str(&auth_url).unwrap());
+
+    (
+        axum::http::StatusCode::FOUND,
+        headers,
+    ).into_response()
 }
 
 #[derive(Debug, Deserialize)]
