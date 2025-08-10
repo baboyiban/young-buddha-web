@@ -3,7 +3,6 @@ mod routes;
 mod state;
 
 use std::net::SocketAddr;
-use axum::Router;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
