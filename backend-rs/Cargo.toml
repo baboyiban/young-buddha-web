@@ -19,3 +19,4 @@ jsonwebtoken = "9"
 urlencoding = "2"
 time = { version = "0.3", features = ["macros"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
+rand = "0.8"
