@@ -12,7 +12,7 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     let api: Router<Arc<AppState>> = Router::new()
         .merge(auth::router::<Arc<AppState>>())
         .merge(sheets::router::<Arc<AppState>>())
-        .merge(database::router::<Arc<AppState>>())
+        .merge(database::router())
         .merge(payment::router::<Arc<AppState>>());
 
     Router::new()
