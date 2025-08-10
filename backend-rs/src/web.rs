@@ -19,32 +19,37 @@ async fn static_fallback(State(state): State<Arc<AppState>>, uri: axum::http::Ur
     let req_path = if path == "/" { "/index.html" } else { path };
     file_path.push(req_path.trim_start_matches('/'));
 
-    let bytes = match fs::read(&file_path) {
-        Ok(b) => b,
+    // 실제로 서빙하는 파일 경로와 바이트를 결정
+    let (served_path, bytes) = match fs::read(&file_path) {
+        Ok(b) => (file_path.clone(), b),
         Err(_) => {
             // SPA fallback to index.html
             let mut index_path = PathBuf::from(&state.static_files_path);
             index_path.push("index.html");
             match fs::read(&index_path) {
-                Ok(b) => b,
+                Ok(b) => (index_path, b),
                 Err(_) => return (StatusCode::NOT_FOUND, "Not Found").into_response(),
             }
         }
     };
 
-    // 간단한 콘텐츠 타입
-    let content_type = if path.ends_with(".html") {
-        "text/html; charset=utf-8"
-    } else if path.ends_with(".js") {
-        "application/javascript"
-    } else if path.ends_with(".css") {
-        "text/css"
-    } else if path.ends_with(".svg") {
-        "image/svg+xml"
-    } else if path.ends_with(".json") {
-        "application/json"
-    } else {
-        "application/octet-stream"
+    // 실제 서빙 파일의 확장자를 기준으로 Content-Type 결정
+    let content_type = match served_path.extension().and_then(|e| e.to_str()).unwrap_or("") {
+        "html" => "text/html; charset=utf-8",
+        "htm" => "text/html; charset=utf-8",
+        "js" => "application/javascript",
+        "mjs" => "application/javascript",
+        "css" => "text/css",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        "json" => "application/json",
+        "txt" => "text/plain; charset=utf-8",
+        "map" => "application/json",
+        _ => "application/octet-stream",
     };
 
     axum::response::Response::builder()

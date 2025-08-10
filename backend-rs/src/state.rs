@@ -15,7 +15,7 @@ impl AppState {
         let jwt_secret = std::env::var("JWT_SECRET").ok();
         let node_env = std::env::var("NODE_ENV").unwrap_or_else(|_| "development".into());
         let is_production = node_env == "production";
-        let db_path = std::env::var("DB_PATH").unwrap_or_else(|_| "backend/data.db".into());
+    let db_path = std::env::var("DB_PATH").unwrap_or_else(|_| "../backend/data.db".into());
 
     // open sqlite and ensure schema exists (drop connection after init)
     let db = Connection::open(&db_path).expect("failed to open sqlite db");

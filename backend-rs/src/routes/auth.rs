@@ -5,7 +5,7 @@ use crate::state::AppState;
 use std::sync::Arc;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 
-pub fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/auth/google", post(not_implemented))
         .route("/auth/google/callback", get(not_implemented))
