@@ -11,3 +11,6 @@ zig-out
 
 # Environment files (if any)
 .env
+
+# Rust
+target
