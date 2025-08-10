@@ -6,12 +6,15 @@ use std::sync::Arc;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use rand::{distributions::Alphanumeric, Rng};
 use axum::http::{HeaderMap, HeaderValue, header::SET_COOKIE};
+use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
+use axum::extract::Query;
+use time::OffsetDateTime;
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/auth/google", post(google_auth))
         .route("/auth/google", get(google_auth_get))
-        .route("/auth/google/callback", get(not_implemented))
+    .route("/auth/google/callback", get(google_callback))
         .route("/auth/me", get(me))
         .route("/auth/logout", delete(logout))
 }
@@ -21,6 +24,132 @@ async fn not_implemented() -> Response {
         axum::http::StatusCode::NOT_IMPLEMENTED,
         Json(json!({"error":true,"message":"Not implemented yet (Rust port)"})),
     ).into_response()
+}
+
+#[derive(Deserialize)]
+struct CallbackQuery {
+    code: Option<String>,
+    state: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TokenResponse {
+    access_token: String,
+    #[allow(dead_code)]
+    token_type: Option<String>,
+    #[allow(dead_code)]
+    expires_in: Option<i64>,
+    #[allow(dead_code)]
+    refresh_token: Option<String>,
+    #[allow(dead_code)]
+    id_token: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GoogleUserInfo {
+    email: Option<String>,
+    name: Option<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct JwtClaims {
+    name: String,
+    email: String,
+    role: String,
+    exp: i64,
+}
+
+async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<CallbackQuery>, headers: axum::http::HeaderMap) -> Response {
+    // validate query
+    let Some(code) = q.code.clone() else {
+        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Missing code"}))).into_response();
+    };
+    let Some(state_query) = q.state.clone() else {
+        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Missing state"}))).into_response();
+    };
+    // check oauth_state cookie
+    let Some(state_cookie) = get_cookie(&headers, "oauth_state") else {
+        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Missing oauth_state cookie"}))).into_response();
+    };
+    if state_cookie != state_query {
+        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"State mismatch"}))).into_response();
+    }
+
+    // env
+    let client_id = match std::env::var("GOOGLE_CLIENT_ID") { Ok(v) => v, Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_CLIENT_ID"}))).into_response() };
+    let client_secret = match std::env::var("GOOGLE_CLIENT_SECRET") { Ok(v) => v, Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_CLIENT_SECRET"}))).into_response() };
+    let redirect_uri = match std::env::var("GOOGLE_REDIRECT_URI") { Ok(v) => v, Err(_) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_REDIRECT_URI"}))).into_response() };
+
+    // exchange code for tokens
+    let form = [
+        ("code", code.as_str()),
+        ("client_id", client_id.as_str()),
+        ("client_secret", client_secret.as_str()),
+        ("redirect_uri", redirect_uri.as_str()),
+        ("grant_type", "authorization_code"),
+    ];
+    let token_resp = match reqwest::Client::new()
+        .post("https://oauth2.googleapis.com/token")
+        .form(&form)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":format!("Token request failed: {}", e)}))).into_response(),
+    };
+    if !token_resp.status().is_success() {
+        let status = token_resp.status();
+        let body = token_resp.text().await.unwrap_or_default();
+        return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":"Token exchange failed","status":status.as_u16(),"body":body}))).into_response();
+    }
+    let token_json: TokenResponse = match token_resp.json().await { Ok(j) => j, Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":format!("Token parse failed: {}", e)}))).into_response() };
+
+    // fetch user info
+    let user_resp = match reqwest::Client::new()
+        .get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
+        .bearer_auth(&token_json.access_token)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":format!("Userinfo request failed: {}", e)}))).into_response(),
+    };
+    if !user_resp.status().is_success() {
+        let status = user_resp.status();
+        let body = user_resp.text().await.unwrap_or_default();
+        return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":"Userinfo failed","status":status.as_u16(),"body":body}))).into_response();
+    }
+    let user: GoogleUserInfo = match user_resp.json().await { Ok(u) => u, Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":format!("Userinfo parse failed: {}", e)}))).into_response() };
+
+    // build JWT
+    let Some(secret) = state.jwt_secret.as_deref() else {
+        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"JWT secret not configured"}))).into_response();
+    };
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let exp = now + 60 * 60 * 24 * 7; // 7 days
+    let claims = JwtClaims {
+        name: user.name.unwrap_or_else(|| "".into()),
+        email: user.email.unwrap_or_else(|| "".into()),
+        role: "user".into(),
+        exp,
+    };
+    let jwt = match encode(&JwtHeader::default(), &claims, &EncodingKey::from_secret(secret.as_bytes())) {
+        Ok(t) => t,
+        Err(e) => return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":format!("JWT encode failed: {}", e)}))).into_response(),
+    };
+
+    // set jwt cookie
+    let cookie = format!(
+        "jwt={}; Max-Age={}; Path=/; HttpOnly{}",
+        jwt,
+        60 * 60 * 24 * 7,
+        if state.is_production { "; Secure" } else { "" }
+    );
+    let mut out_headers = HeaderMap::new();
+    out_headers.insert(SET_COOKIE, HeaderValue::from_str(&cookie).unwrap());
+    // redirect back to app
+    out_headers.insert(axum::http::header::LOCATION, HeaderValue::from_static("/"));
+    (axum::http::StatusCode::FOUND, out_headers).into_response()
 }
 
 async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
