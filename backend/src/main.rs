@@ -1,4 +1,3 @@
-mod web;
 mod routes;
 mod state;
 

@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gray: #f2f2f2;
+  --color-dark-gray: #cccccc;
+  --color-purple: #ccccff;
+  --color-dark-purple: #8080ff;
+  --color-red: #ffcccc;
+  --color-dark-red: #ff8080;
+}
+
+@media (max-width: 768px) {
+  /* 스크롤바 자체를 숨기기 */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
+a {
+  display: block;
+}
+
+a,
+button {
+  @apply cursor-pointer;
+}
+
+.button {
+  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem];
+}
+
+.button.default,
+.button.purple,
+.button.red {
+  @apply backdrop-blur-[0.05rem];
+}
+
+.button.default {
+  @apply bg-white/75;
+}
+.button.purple {
+  @apply bg-dark-purple/75 text-white;
+}
+.button.red {
+  @apply bg-dark-red/75 text-white;
+}
