@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import LoadingButton from '@/components/LoadingButton'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import AppLayout from '@/components/AppLayout'
 
 interface PaymentRequest {
   id: string
@@ -13,85 +12,64 @@ interface PaymentRequest {
   type: string
   absentDate: string
   timeSlot?: string
-  reason?: string
-  status: string
 }
 
 export default function PaymentPage() {
-  const { user } = useAuth()
-  const [loading, setLoading] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [paymentList, setPaymentList] = useState<PaymentRequest[]>([])
-  const [formData, setFormData] = useState({
+  const { user, loading: authLoading } = useAuth()
+  const [requests, setRequests] = useState<PaymentRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState({
     name: '',
-    type: '',
-    request_date: '',
-    absent_date: '',
-    time_slot: '',
-    reason: ''
+    type: '불참',
+    absentDate: '',
+    timeSlot: '',
   })
 
   useEffect(() => {
-    if (user) {
-      setFormData(prev => ({ ...prev, name: user.name || '' }))
-      loadPaymentList()
+    if (!authLoading && user) {
+      setForm((f) => ({ ...f, name: user.name || '' }))
     }
-  }, [user])
+  }, [authLoading, user])
 
-  const loadPaymentList = async () => {
-    try {
-      const response = await fetch('/api/payment')
-      const data = await response.json()
-      setPaymentList(data)
-    } catch (error) {
-      console.error('결재 목록 로드 실패:', error)
-    } finally {
-      setInitialLoading(false)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch('/api/payment')
+        const data = await res.json()
+        setRequests(data)
+      } finally {
+        setLoading(false)
+      }
     }
+    load()
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-
     try {
-      const response = await fetch('/api/payment', {
+      setSubmitting(true)
+      await fetch('/api/payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(form),
       })
-
-      if (!response.ok) throw new Error('신청 실패')
-
-      const result = await response.json()
-      alert(result.message || '신청 완료!')
-
-      // 폼 초기화 (이름 제외)
-      setFormData(prev => ({
-        name: prev.name,
-        type: '',
-        request_date: '',
-        absent_date: '',
-        time_slot: '',
-        reason: ''
-      }))
-
-      // 목록 새로고침
-      await loadPaymentList()
-    } catch (error) {
-      console.error('결재 신청 실패:', error)
-      alert('신청 실패')
+      const res = await fetch('/api/payment')
+      const data = await res.json()
+      setRequests(data)
+      setForm((f) => ({ ...f, type: '불참', absentDate: '', timeSlot: '' }))
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  if (initialLoading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner message="결재 페이지를 불러오는 중..." />
@@ -100,130 +78,72 @@ export default function PaymentPage() {
   }
 
   return (
-    <AuthGuard>
-      <AppLayout>
-        <div className="bg-gray min-h-screen flex flex-col pb-[48px]">
-          <div className="container mx-auto px-4 py-8 max-w-4xl">
-            {/* 신청 폼 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm mb-8">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <input
-                    name="name"
-                    placeholder="이름"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <input
-                    name="type"
-                    placeholder="유형(연차 등)"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    신청일
-                  </label>
-                  <input
-                    name="request_date"
-                    type="date"
-                    value={formData.request_date}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    불참일
-                  </label>
-                  <input
-                    name="absent_date"
-                    type="date"
-                    value={formData.absent_date}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <input
-                    name="time_slot"
-                    placeholder="시간대(오전/오후 등)"
-                    value={formData.time_slot}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <input
-                    name="reason"
-                    placeholder="사유"
-                    value={formData.reason}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-
-                <LoadingButton
-                  type="submit"
-                  loading={loading}
-                  className="button purple w-full"
-                >
-                  신청
-                </LoadingButton>
-              </form>
+    <div className="bg-gray min-h-screen flex flex-col pb-[48px]">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* 신청 폼 */}
+        <div className="bg-white rounded-lg p-6 shadow-sm mb-8">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <input
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="이름"
+                className="input w-full"
+                required
+              />
             </div>
 
-            {/* 구분선 */}
-            <hr className="border-gray-300 mb-8" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <select name="type" value={form.type} onChange={handleChange} className="input">
+                <option value="불참">불참</option>
+                <option value="지각">지각</option>
+              </select>
 
-            {/* 최근 결재 요청 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <h3 className="text-lg font-semibold mb-4">최근 결재 요청</h3>
+              <input
+                type="date"
+                name="absentDate"
+                value={form.absentDate}
+                onChange={handleChange}
+                className="input"
+                required
+              />
 
-              {paymentList.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">결재 요청이 없습니다.</p>
-              ) : (
-                <div className="space-y-3">
-                  {paymentList.map((payment) => (
-                    <div key={payment.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-medium">{payment.name}</div>
-                        <span className={`px-2 py-1 rounded text-sm ${payment.status === '대기' ? 'bg-yellow-100 text-yellow-800' :
-                          payment.status === '승인' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                          {payment.status}
-                        </span>
-                      </div>
-
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <div>유형: {payment.type}</div>
-                        <div>신청일: {payment.requestDate}</div>
-                        <div>불참일: {payment.absentDate}</div>
-                        {payment.timeSlot && <div>시간대: {payment.timeSlot}</div>}
-                        {payment.reason && <div>사유: {payment.reason}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <select name="timeSlot" value={form.timeSlot} onChange={handleChange} className="input">
+                <option value="">시간 선택 (선택)</option>
+                <option value="오전">오전</option>
+                <option value="오후">오후</option>
+                <option value="저녁">저녁</option>
+              </select>
             </div>
-          </div>
+
+            <LoadingButton type="submit" loading={submitting} className="button default w-full">
+              결재 신청
+            </LoadingButton>
+          </form>
         </div>
-      </AppLayout>
-      )
+
+        {/* 신청 목록 */}
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <h2 className="text-xl font-semibold mb-4">신청 내역</h2>
+          {requests.length === 0 ? (
+            <div className="text-gray-500">신청 내역이 없습니다.</div>
+          ) : (
+            <div className="space-y-3">
+              {requests.map((r) => (
+                <div key={r.id} className="border rounded p-4">
+                  <div className="font-medium">{r.name}</div>
+                  <div className="text-sm text-gray-600">{r.requestDate}</div>
+                  <div>
+                    {r.type} - {r.absentDate} {r.timeSlot && `(${r.timeSlot})`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
