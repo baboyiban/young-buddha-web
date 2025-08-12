@@ -37,9 +37,7 @@ struct TokenResponse {
     access_token: String,
     #[allow(dead_code)]
     token_type: Option<String>,
-    #[allow(dead_code)]
     expires_in: Option<i64>,
-    #[allow(dead_code)]
     refresh_token: Option<String>,
     #[allow(dead_code)]
     id_token: Option<String>,
@@ -120,6 +118,21 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
         return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":"Userinfo failed","status":status.as_u16(),"body":body}))).into_response();
     }
     let user: GoogleUserInfo = match user_resp.json().await { Ok(u) => u, Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":format!("Userinfo parse failed: {}", e)}))).into_response() };
+
+    // persist tokens by email for Sheets API on-behalf-of access
+    let email_for_token = user.email.clone().unwrap_or_default();
+    if !email_for_token.is_empty() {
+        let expires_in = token_json.expires_in.unwrap_or(3600);
+        let expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
+        let db = rusqlite::Connection::open(&state.db_path).map_err(|e| e.to_string());
+        if let Ok(db) = db {
+            let _ = db.execute(
+                "INSERT INTO user_tokens(email, access_token, refresh_token, expires_at) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(email) DO UPDATE SET access_token=excluded.access_token, refresh_token=COALESCE(excluded.refresh_token, user_tokens.refresh_token), expires_at=excluded.expires_at",
+                rusqlite::params![email_for_token, token_json.access_token, token_json.refresh_token, expires_at],
+            );
+        }
+    }
 
     // build JWT
     let Some(secret) = state.jwt_secret.as_deref() else {
@@ -273,13 +286,13 @@ async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
 
 #[derive(Debug, Deserialize)]
 struct Claims {
-    sub: Option<String>,
+    #[allow(dead_code)] sub: Option<String>,
     name: Option<String>,
     email: Option<String>,
     role: Option<String>,
-    exp: Option<i64>,
-    access_token: Option<String>,
-    refresh_token: Option<String>,
+    #[allow(dead_code)] exp: Option<i64>,
+    #[allow(dead_code)] access_token: Option<String>,
+    #[allow(dead_code)] refresh_token: Option<String>,
 }
 
 async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {

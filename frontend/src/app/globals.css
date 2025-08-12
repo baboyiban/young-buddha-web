@@ -2,22 +2,32 @@
 
 @theme {
   --color-gray: #f2f2f2;
-  --color-dark-gray: #cccccc;
-  --color-purple: #ccccff;
-  --color-dark-purple: #8080ff;
-  --color-red: #ffcccc;
-  --color-dark-red: #ff8080;
+  --color-deep-gray: #BFBFBF;
+  --color-dark-gray: #808080;
+  --color-purple: #E5E5FF;
+  --color-deep-purple: #8080FF;
+  --color-dark-purple: #0000FF;
+  --color-red: #FFE5E5;
+  --color-deep-red: #FF8080;
+  --color-dark-red: #FF0000;
+}
+
+body {
+  @apply bg-gray;
 }
 
 @media (max-width: 768px) {
+
   /* 스크롤바 자체를 숨기기 */
   ::-webkit-scrollbar {
     display: none;
   }
 
   body {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 }
 
@@ -43,9 +53,11 @@ button {
 .button.default {
   @apply bg-white/75;
 }
+
 .button.purple {
-  @apply bg-dark-purple/75 text-white;
+  @apply bg-deep-purple/75 text-white;
 }
+
 .button.red {
-  @apply bg-dark-red/75 text-white;
+  @apply bg-deep-red/75 text-white;
 }

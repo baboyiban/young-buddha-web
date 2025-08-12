@@ -38,7 +38,7 @@ export default function Mission() {
   if (error) {
     return (
       <div className="bg-gray flex items-center justify-center min-h-screen">
-        <div className="text-red-500">{error}</div>
+        <div className="text-dark-red">{error}</div>
       </div>
     )
   }
@@ -46,15 +46,15 @@ export default function Mission() {
   if (!missionData) {
     return (
       <div className="bg-gray flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">미션 데이터가 없습니다.</div>
+        <div className="text-dark-gray">미션 데이터가 없습니다.</div>
       </div>
     )
   }
 
   return (
-    <div className="bg-gray min-h-screen flex flex-col pb-[48px]">
+    <div className="m-[0.5rem] bg-white p-[1rem] rounded-xl min-h-[calc(100svh-44px-1rem-48px)] flex flex-col">
       {/* 미션 컨텐츠 */}
-      <div className="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem] flex-1 px-4 py-8">
+      <div className="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem] flex-1 p-[1rem]">
         <MissionHeader date={missionData.date} dayOfWeek={missionData.dayOfWeek} />
 
         {missionData.morningMeal.length > 0 && (
@@ -87,7 +87,7 @@ export default function Mission() {
       </div>
     </div>
   )
-  }
+}
 
 function MissionHeader({ date, dayOfWeek }: { date: string; dayOfWeek: string }) {
   return (

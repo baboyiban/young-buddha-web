@@ -14,8 +14,6 @@ async fn main() {
 
     // env
     let _ = dotenvy::dotenv();
-    // Fallback: also try to load env from Zig backend folder if present
-    let _ = dotenvy::from_filename("../backend/.env");
 
     // app state
     let app_state = state::AppState::from_env();

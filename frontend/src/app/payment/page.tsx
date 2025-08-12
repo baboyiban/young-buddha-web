@@ -78,7 +78,7 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="bg-gray min-h-screen flex flex-col pb-[48px]">
+    <div className="bg-gray p-[1rem] min-h-[calc(100svh-44px)] flex flex-col pb-[48px]">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* 신청 폼 */}
         <div className="bg-white rounded-lg p-6 shadow-sm mb-8">
