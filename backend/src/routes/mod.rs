@@ -12,8 +12,12 @@ use axum::http::{HeaderValue, Method};
 
 pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     // CORS 설정
+    let origin = state
+        .frontend_url
+        .parse::<HeaderValue>()
+        .unwrap_or_else(|_| HeaderValue::from_static("http://localhost:3000"));
     let cors = CorsLayer::new()
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+        .allow_origin(origin)
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
         .allow_headers([
             axum::http::header::CONTENT_TYPE,

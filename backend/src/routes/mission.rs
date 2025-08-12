@@ -1,33 +1,49 @@
-use axum::{Router, response::Json, http::StatusCode};
+use axum::{extract::Query, http::StatusCode, response::Json, Router};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
-pub fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
-    Router::new()
-        .route("/mission", axum::routing::get(get_mission_data))
+#[derive(Debug, Deserialize)]
+struct MissionParams {
+    spreadsheet_id: Option<String>,
+    range: Option<String>,
+    gid: Option<String>,
 }
 
-async fn get_mission_data() -> Result<Json<Value>, StatusCode> {
-    // 임시 목업 데이터 - 실제로는 Google Sheets API나 데이터베이스에서 가져와야 함
-    let mission_data = vec![
-        "2025-01-15", // date
-        "수",         // dayOfWeek
-        "김철수",     // morningMeal[0]
-        "이영희",     // morningMeal[1]
-        "박민수",     // morningHelper[0]
-        "정수진",     // morningHelper[1]
-        "최영수",     // morningDishes[0]
-        "한지민",     // morningDishes[1]
-        "송민호",     // morningDishes[2]
-        "김영진",     // laundry.wash
-        "이수정",     // laundry.hang
-        "박준호",     // laundry.fold
-        "정민아",     // afternoonCushion[0]
-        "최수빈",     // afternoonCushion[1]
-        "한민수",     // eveningMeal[0]
-        "송지은",     // eveningMeal[1]
-        "김태현",     // eveningMeal[2]
-        "이현주",     // eveningCushion
-    ];
+pub fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
+    Router::new().route("/mission", axum::routing::get(get_mission_data))
+}
 
-    Ok(Json(json!(mission_data)))
+// Reads one row from Google Sheets via GViz and returns string[]
+async fn get_mission_data(Query(params): Query<MissionParams>) -> Result<Json<Value>, StatusCode> {
+    let spreadsheet_id = params
+        .spreadsheet_id
+        .or_else(|| std::env::var("MISSION_SPREADSHEET_ID").ok())
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    let range = params
+        .range
+        .or_else(|| std::env::var("MISSION_RANGE").ok())
+        .ok_or(StatusCode::BAD_REQUEST)?;
+
+    let url = super::sheets::build_gviz_url(
+        &spreadsheet_id,
+        "select *",
+        params.gid.as_deref(),
+        Some(range.as_str()),
+    );
+
+    let resp = reqwest::Client::new()
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    if !resp.status().is_success() {
+        return Err(StatusCode::BAD_GATEWAY);
+    }
+    let text = resp.text().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let values = super::sheets::extract_values_from_gviz(&text)
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    // Return the first row if present; otherwise empty array
+    let row = values.into_iter().next().unwrap_or_default();
+    Ok(Json(json!(row)))
 }
