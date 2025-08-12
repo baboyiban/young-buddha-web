@@ -2,7 +2,14 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
+      "name": "young-buddha-web",
+      "devDependencies": {
+        "concurrently": "^8.2.2",
+      },
+    },
+    "frontend": {
       "name": "young-buddha-frontend-nextjs",
+      "version": "0.1.0",
       "dependencies": {
         "@tailwindcss/postcss": "^4.1.11",
         "next": "14.2.5",
@@ -835,6 +842,8 @@
     "yargs-parser": ["yargs-parser@21.1.1", "", {}, "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw=="],
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
+
+    "young-buddha-frontend-nextjs": ["young-buddha-frontend-nextjs@workspace:frontend"],
 
     "@isaacs/cliui/string-width": ["string-width@5.1.2", "", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 

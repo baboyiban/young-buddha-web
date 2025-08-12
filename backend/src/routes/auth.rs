@@ -147,8 +147,8 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
     );
     let mut out_headers = HeaderMap::new();
     out_headers.insert(SET_COOKIE, HeaderValue::from_str(&cookie).unwrap());
-    // redirect back to app
-    out_headers.insert(axum::http::header::LOCATION, HeaderValue::from_static("/"));
+    // redirect back to frontend app
+    out_headers.insert(axum::http::header::LOCATION, HeaderValue::from_str(&state.frontend_url).unwrap());
     (axum::http::StatusCode::FOUND, out_headers).into_response()
 }
 

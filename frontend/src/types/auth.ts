@@ -1,6 +1,11 @@
 export interface AuthResponse {
-  auth_url?: string;
+  auth_url: string;
   success?: boolean;
-  error?: boolean;
   message?: string;
+}
+
+export interface LoginStatus {
+  isAuthenticated: boolean;
+  user?: any;
+  loading: boolean;
 }

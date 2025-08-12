@@ -1,0 +1,144 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { MissionData } from '@/types/mission'
+import { fetchMissionData } from '@/lib/api/mission'
+import AuthGuard from '@/components/AuthGuard'
+import AppLayout from '@/components/AppLayout'
+import LoadingSpinner from '@/components/LoadingSpinner'
+
+export default function Mission() {
+  const [missionData, setMissionData] = useState<MissionData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadMissionData()
+  }, [])
+
+  const loadMissionData = async () => {
+    try {
+      setLoading(true)
+      const data = await fetchMissionData()
+      setMissionData(data)
+    } catch (err) {
+      setError('미션 데이터를 불러오는데 실패했습니다.')
+      console.error('Error loading mission data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="bg-gray min-h-screen flex items-center justify-center">
+          <LoadingSpinner message="미션 데이터를 불러오는 중..." />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="bg-gray flex items-center justify-center min-h-screen">
+          <div className="text-red-500">{error}</div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (!missionData) {
+    return (
+      <AppLayout>
+        <div className="bg-gray flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">미션 데이터가 없습니다.</div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  return (
+    <AuthGuard>
+      <AppLayout>
+        <div className="bg-gray min-h-screen flex flex-col pb-[48px]">
+          {/* 미션 컨텐츠 */}
+          <div className="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem] flex-1 px-4 py-8">
+            <MissionHeader date={missionData.date} dayOfWeek={missionData.dayOfWeek} />
+
+            {missionData.morningMeal.length > 0 && (
+              <MissionItem title="🍚 발우공양 당번" members={missionData.morningMeal} />
+            )}
+
+            {missionData.morningHelper.length > 0 && (
+              <MissionItem title="🤲 발우공양 바라지" members={missionData.morningHelper} />
+            )}
+
+            {missionData.morningDishes.length > 0 && (
+              <MissionItem title="🧼 아침 설거지" members={missionData.morningDishes} />
+            )}
+
+            {(missionData.laundry.wash || missionData.laundry.hang || missionData.laundry.fold) && (
+              <LaundryMission laundry={missionData.laundry} />
+            )}
+
+            {(missionData.afternoonCushion.length > 0) && (
+              <AfternoonCushionMission members={missionData.afternoonCushion} />
+            )}
+
+            {missionData.eveningMeal.length > 0 && (
+              <MissionItem title="🍛 저녁공양 당번" members={missionData.eveningMeal} />
+            )}
+
+            {missionData.eveningCushion && (
+              <MissionItem title="🌚 저녁예불 방석 한줄깔기" members={[missionData.eveningCushion]} />
+            )}
+          </div>
+        </div>
+      </AppLayout>
+    </AuthGuard>
+  )
+}
+
+function MissionHeader({ date, dayOfWeek }: { date: string; dayOfWeek: string }) {
+  return (
+    <div>
+      🌴{date} {dayOfWeek}요일 청년붓다 소임🌴
+    </div>
+  )
+}
+
+function MissionItem({ title, members }: { title: string; members: string[] }) {
+  return (
+    <div>
+      <div>{title}</div>
+      <div>{members.join(', ')}</div>
+    </div>
+  )
+}
+
+function LaundryMission({ laundry }: { laundry: { wash?: string; hang?: string; fold?: string } }) {
+  const tasks = []
+  if (laundry.wash) tasks.push(`(애벌/세탁) ${laundry.wash}`)
+  if (laundry.hang) tasks.push(`(널기) ${laundry.hang}`)
+  if (laundry.fold) tasks.push(`(걷고/개기) ${laundry.fold}`)
+
+  return (
+    <div>
+      <div>🧺 걸레빨기</div>
+      <div>{tasks.join(', ')}</div>
+    </div>
+  )
+}
+
+function AfternoonCushionMission({ members }: { members: string[] }) {
+  const displayMembers = members.length > 0 && members[0] ? members : ['상근자 전원']
+
+  return (
+    <div>
+      <div>🌞 사시예불전 방석깔기</div>
+      <div>{displayMembers.join(', ')}</div>
+    </div>
+  )
+}
