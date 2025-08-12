@@ -10,7 +10,7 @@ export default function Navbar() {
   const navItems = [
     { href: '/', label: '홈', path: '/' },
     { href: '/mission', label: '생활소임 일정표', path: '/mission' },
-    { href: '/payment', label: '일정불참 결재시트', path: '/payment' },
+    // { href: '/payment', label: '일정불참 결재시트', path: '/payment' },
   ]
 
   return (

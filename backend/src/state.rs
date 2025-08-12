@@ -36,6 +36,14 @@ impl AppState {
                 partial_schedule TEXT,
                 reason TEXT
             );
+
+            -- Google OAuth tokens per user (for Sheets API on behalf of the user)
+            CREATE TABLE IF NOT EXISTS user_tokens (
+                email TEXT PRIMARY KEY,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at INTEGER NOT NULL
+            );
             "#,
         ).expect("failed to create tables");
 

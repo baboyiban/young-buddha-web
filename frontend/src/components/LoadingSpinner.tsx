@@ -21,7 +21,7 @@ export default function LoadingSpinner({
   }
 
   const colorClasses = {
-    purple: 'border-dark-purple border-t-transparent',
+    purple: 'border-deep-purple border-t-transparent',
     white: 'border-white border-t-transparent',
     current: 'border-current border-t-transparent'
   }

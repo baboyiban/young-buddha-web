@@ -2,7 +2,6 @@ pub mod auth;
 pub mod sheets;
 pub mod database;
 pub mod payment;
-pub mod mission;
 
 use axum::Router;
 use crate::state::AppState;
@@ -29,10 +28,9 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     // Build API router with the same state type
     let api: Router<Arc<AppState>> = Router::new()
         .merge(auth::router())
-        .merge(sheets::router::<Arc<AppState>>())
+        .merge(sheets::router())
         .merge(database::router())
         .merge(payment::router::<Arc<AppState>>())
-        .merge(mission::router::<Arc<AppState>>())
         .layer(cors);
 
     Router::new()
