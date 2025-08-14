@@ -14,10 +14,10 @@ impl AppState {
         let jwt_secret = std::env::var("JWT_SECRET").ok();
         let node_env = std::env::var("NODE_ENV").unwrap_or_else(|_| "development".into());
         let is_production = node_env == "production";
-        let db_path = std::env::var("DB_PATH").unwrap_or_else(|_| "../backend/data.db".into());
+        let db_path = std::env::var("DB_PATH").unwrap_or_else(|_| "./data.db".into());
         let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| {
             if is_production {
-                "https://your-domain.com".into() // 프로덕션 도메인으로 변경 필요
+                "https://young-buddha.online".into() // 프로덕션 도메인으로 변경 필요
             } else {
                 "http://localhost:3000".into() // 개발 환경
             }

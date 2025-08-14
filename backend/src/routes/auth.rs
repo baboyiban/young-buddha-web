@@ -19,13 +19,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/auth/logout", delete(logout))
 }
 
-async fn not_implemented() -> Response {
-    (
-        axum::http::StatusCode::NOT_IMPLEMENTED,
-        Json(json!({"error":true,"message":"Not implemented yet (Rust port)"})),
-    ).into_response()
-}
-
 #[derive(Deserialize)]
 struct CallbackQuery {
     code: Option<String>,
