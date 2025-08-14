@@ -1,0 +1,14 @@
+# Root context ignore
+**/.git
+**/.gitignore
+**/.DS_Store
+**/node_modules
+**/dist
+**/build
+**/.next
+**/target
+**/*.log
+**/.env
+**/.env.*
+backend/target
+frontend/node_modules
