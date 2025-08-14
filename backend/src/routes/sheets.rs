@@ -13,7 +13,7 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use std::sync::Arc;
 use crate::state::AppState;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
-use rusqlite::Connection;
+use rusqlite::OptionalExtension;
 
 fn sheets_api_only() -> bool {
     match std::env::var("SHEETS_API_ONLY") {
@@ -60,6 +60,16 @@ struct QueryPostBody {
     range: Option<String>,
 }
 
+// Google refresh token 응답
+#[derive(Deserialize)]
+struct GoogleRefreshResponse {
+    access_token: String,
+    #[allow(dead_code)]
+    token_type: Option<String>,
+    expires_in: Option<i64>,
+    refresh_token: Option<String>,
+}
+
 // Partial structures for parsing gviz JSON
 #[derive(Deserialize)]
 struct GvizCell {
@@ -93,25 +103,26 @@ async fn read_values(State(state): State<Arc<AppState>>, headers: HeaderMap, Que
 
     // If user is logged in and we have a Google access token stored, try Sheets API on behalf of user first
     if let Some(email) = get_email_from_jwt_cookie(&headers, state.jwt_secret.as_deref()) {
-        if let Some(user_token) = lookup_user_token(&state.db_path, &email).await {
+        // 변경된 부분: 만료 시 자동 갱신
+        if let Some(user_token) = get_valid_user_token(&client, &state.db_path, &email).await {
             match sheets_api_read_with_token(&client, &params.spreadsheet_id, &params.range, &user_token).await {
-            Ok(values) => {
-                return (StatusCode::OK, Json(json!({ "values": values }))).into_response();
-            }
-            Err(e) => {
-                if sheets_api_only() {
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        Json(json!({
-                            "error": true,
-                            "code": "USER_SHEETS_API_FAILED",
-                            "message": format!("사용자 토큰으로 Sheets API 실패: {}", e),
-                            "hint": "로그인 토큰 만료 시 재로그인 필요. 또는 서비스 계정 설정으로 서버-투-서버 접근을 사용하세요.",
-                        })),
-                    ).into_response();
+                Ok(values) => {
+                    return (StatusCode::OK, Json(json!({ "values": values }))).into_response();
+                }
+                Err(e) => {
+                    if sheets_api_only() {
+                        return (
+                            StatusCode::BAD_GATEWAY,
+                            Json(json!({
+                                "error": true,
+                                "code": "USER_SHEETS_API_FAILED",
+                                "message": format!("사용자 토큰으로 Sheets API 실패: {}", e),
+                                "hint": "로그인 토큰이 만료되었거나 권한이 부족합니다. 시트 공유 상태 또는 로그인 상태를 확인하세요.",
+                            })),
+                        ).into_response();
+                    }
                 }
             }
-        }
         }
     }
 
@@ -510,6 +521,134 @@ fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len { s.to_string() } else { format!("{}…", &s[..max_len]) }
 }
 
+// 만료 시 자동 refresh하여 유효 access_token 반환
+async fn get_valid_user_token(
+    client: &reqwest::Client,
+    db_path: &str,
+    email: &str,
+) -> Option<String> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    // 1) DB에서 access_token, expires_at 읽기 (blocking)
+    let row: Option<(String, i64)> = tokio::task::spawn_blocking({
+        let db_path = db_path.to_string();
+        let email = email.to_string();
+        move || -> Option<(String, i64)> {
+            let db = rusqlite::Connection::open(&db_path).ok()?;
+            let mut stmt = db
+                .prepare("SELECT access_token, expires_at FROM user_tokens WHERE email = ?1")
+                .ok()?;
+            let mut rows = stmt.query(rusqlite::params![email]).ok()?;
+            if let Some(row) = rows.next().ok().flatten() {
+                let access_token: String = row.get(0).ok()?;
+                let expires_at: i64 = row.get(1).ok()?;
+                Some((access_token, expires_at))
+            } else {
+                None
+            }
+        }
+    })
+    .await
+    .ok()
+    .flatten();
+
+    if let Some((access_token, expires_at)) = row {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()?
+            .as_secs() as i64;
+        if expires_at > now + 30 {
+            return Some(access_token);
+        }
+    }
+
+    // 2) 만료: refresh 시도
+    refresh_user_access_token(client, db_path, email).await
+}
+
+// refresh_token으로 access_token 재발급
+async fn refresh_user_access_token(
+    client: &reqwest::Client,
+    db_path: &str,
+    email: &str,
+) -> Option<String> {
+    use time::OffsetDateTime;
+
+    // 2-1) DB에서 refresh_token 읽기 (blocking)
+    let refresh_token: Option<String> = tokio::task::spawn_blocking({
+        let db_path = db_path.to_string();
+        let email = email.to_string();
+        move || -> Option<String> {
+            let db = rusqlite::Connection::open(&db_path).ok()?;
+            let mut stmt = db
+                .prepare("SELECT refresh_token FROM user_tokens WHERE email = ?1")
+                .ok()?;
+            // optional()은 Row 없음도 None으로 바꿔줍니다.
+            stmt.query_row(rusqlite::params![email], |row| row.get::<_, Option<String>>(0))
+                .optional()  // Result<Option<String>> -> Result<Option<Option<String>>>
+                .ok()?       // Result -> Option
+                .flatten()   // Option<Option<String>> -> Option<String>
+        }
+    })
+    .await
+    .ok()
+    .flatten();
+
+    let refresh_token = refresh_token?;
+
+    // 2-2) 구글 토큰 엔드포인트로 refresh 요청 (async)
+    let client_id = std::env::var("GOOGLE_CLIENT_ID").ok()?;
+    let client_secret = std::env::var("GOOGLE_CLIENT_SECRET").ok()?;
+    let form = [
+        ("grant_type", "refresh_token"),
+        ("client_id", client_id.as_str()),
+        ("client_secret", client_secret.as_str()),
+        ("refresh_token", refresh_token.as_str()),
+    ];
+
+    let resp = client
+        .post("https://oauth2.googleapis.com/token")
+        .form(&form)
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        tracing::warn!(target="auth", %status, body = %body, email = %email, "Google refresh_token request failed");
+        return None;
+    }
+    let gr: GoogleRefreshResponse = resp.json().await.ok()?;
+
+    let new_access = gr.access_token.clone();
+    let expires_in = gr.expires_in.unwrap_or(3600);
+    let new_expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
+
+    // 2-3) DB에 새 access_token(+Optional 새 refresh_token) 저장 (blocking)
+    let _ = tokio::task::spawn_blocking({
+        let db_path = db_path.to_string();
+        let email = email.to_string();
+        let new_access2 = new_access.clone();
+        let new_expires_at2 = new_expires_at;
+        let new_rt = gr.refresh_token.clone();
+        move || {
+            if let Ok(db) = rusqlite::Connection::open(&db_path) {
+                let _ = db.execute(
+                    "UPDATE user_tokens
+                     SET access_token = ?1,
+                         expires_at   = ?2,
+                         refresh_token = COALESCE(?3, refresh_token)
+                     WHERE email = ?4",
+                    rusqlite::params![new_access2, new_expires_at2, new_rt, email],
+                );
+            }
+        }
+    })
+    .await;
+
+    Some(new_access)
+}
+
 // ======== Google Sheets API (service account) ========
 
 // Environment variable containing the service account JSON key content or path
@@ -764,21 +903,6 @@ fn get_email_from_jwt_cookie(headers: &HeaderMap, secret: Option<&str>) -> Optio
     }).next()?;
     let data = decode::<ClaimsForEmail>(&jwt, &DecodingKey::from_secret(secret.as_bytes()), &Validation::new(Algorithm::HS256)).ok()?;
     data.claims.email
-}
-
-async fn lookup_user_token(db_path: &str, email: &str) -> Option<String> {
-    let db = Connection::open(db_path).ok()?;
-    let mut stmt = db.prepare("SELECT access_token, expires_at FROM user_tokens WHERE email = ?1").ok()?;
-    let mut rows = stmt.query(rusqlite::params![email]).ok()?;
-    if let Some(row) = rows.next().ok().flatten() {
-        let access_token: String = row.get(0).ok()?;
-        let expires_at: i64 = row.get(1).ok()?;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs() as i64;
-        if expires_at > now + 30 { // 30s leeway
-            return Some(access_token);
-        }
-    }
-    None
 }
 
 async fn sheets_api_read_with_token(client: &reqwest::Client, spreadsheet_id: &str, range: &str, access_token: &str) -> anyhow::Result<Vec<Vec<String>>> {
