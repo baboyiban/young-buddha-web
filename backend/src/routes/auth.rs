@@ -10,6 +10,12 @@ use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
 use axum::extract::Query;
 use time::OffsetDateTime;
 
+// JWT 토큰 유효 시간 설정 (초 단위)
+// const JWT_EXPIRY_SECONDS: i64 = 60 * 60 * 24 * 1; // 1일
+const JWT_EXPIRY_SECONDS: i64 = 30;
+// const OAUTH_STATE_EXPIRY_SECONDS: i64 = 300; // 5분
+const OAUTH_STATE_EXPIRY_SECONDS: i64 = 30;
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/auth/google", post(google_auth))
@@ -132,7 +138,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
         return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"JWT secret not configured"}))).into_response();
     };
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    let exp = now + 60 * 60 * 24 * 7; // 7 days
+    let exp = now + JWT_EXPIRY_SECONDS;
     let claims = JwtClaims {
         name: user.name.unwrap_or_else(|| "".into()),
         email: user.email.unwrap_or_else(|| "".into()),
@@ -148,7 +154,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
     let cookie = format!(
         "jwt={}; Max-Age={}; Path=/; HttpOnly{}",
         jwt,
-        60 * 60 * 24 * 7,
+        JWT_EXPIRY_SECONDS,
         if state.is_production { "; Secure" } else { "" }
     );
     let mut out_headers = HeaderMap::new();
@@ -193,7 +199,7 @@ async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
     let cookie = format!(
         "oauth_state={}; Max-Age={}; Path=/; HttpOnly{}",
         state_val,
-        300,
+        OAUTH_STATE_EXPIRY_SECONDS,
         if state.is_production { "; Secure" } else { "" }
     );
 
@@ -252,7 +258,7 @@ async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
     let cookie = format!(
         "oauth_state={}; Max-Age={}; Path=/; HttpOnly{}",
         state_val,
-        300,
+        OAUTH_STATE_EXPIRY_SECONDS,
         if state.is_production { "; Secure" } else { "" }
     );
 
