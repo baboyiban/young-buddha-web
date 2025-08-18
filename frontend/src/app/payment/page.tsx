@@ -75,9 +75,10 @@ export default function PaymentPage() {
       setSubmitting(true)
       // 시트에 데이터 추가
       const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
-      const range = '일정불참결재시트!A2:F2'
-      // range A..F 는 6개 열이므로 values도 6개만 전달해야 합니다.
+      const range = '일정불참결재시트!A2:G2'
+      // range A..G 는 7개 열이므로 values도 7개 전달
       const row = [
+        generateUniqueId(), // 고유 번호
         user?.name || '',
         form.type,
         shortDate(new Date()), // 신청 날짜
@@ -107,6 +108,40 @@ export default function PaymentPage() {
       setForm((f) => ({ ...f, type: '정기', absentDate: shortDate(new Date()), reason: '' }))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (request: PaymentRequest) => {
+    if (!window.confirm('정말로 이 신청을 삭제하시겠습니까?')) return
+
+    try {
+      // 시트에서 데이터 삭제 (쿼리 기반 삭제 API 사용)
+      const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
+      const query = `SELECT * WHERE A = '${request.id}'`
+      const res = await fetch('/api/sheets/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spreadsheet_id: sheetId,
+          sheet_name: '일정불참결재시트',
+          query
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        console.error('sheets delete failed', result)
+        throw new Error(result?.message || 'Sheets delete failed')
+      }
+      // 삭제 후 목록 갱신
+      try {
+        const { fetchFilteredPayments } = await import('@/lib/api/payment')
+        if (user?.name) {
+          const data = await fetchFilteredPayments(user.name)
+          setRequests(data)
+        }
+      } catch { }
+    } catch (err) {
+      alert('삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -203,6 +238,7 @@ export default function PaymentPage() {
                     <th className="">불참 일정</th>
                     <th className="">사유</th>
                     <th className="">결재 상태</th>
+                    <th className="">관리</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -214,6 +250,14 @@ export default function PaymentPage() {
                       <td className="">{r.schedule || '-'}</td>
                       <td className="">{r.reason || '-'}</td>
                       <td className="">{r.approved || '대기'}</td>
+                      <td className="">
+                        <button
+                          onClick={() => handleDelete(r)}
+                          className="text-sm red"
+                        >
+                          삭제
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -234,6 +278,11 @@ function formatDate(d: string) {
   } catch (e) {
     return d
   }
+}
+
+function generateUniqueId(): string {
+  // 간단한 고유 ID 생성기 (타임스탬프 + 랜덤 숫자)
+  return `REQ-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
 function shortDate(dt: Date) {
