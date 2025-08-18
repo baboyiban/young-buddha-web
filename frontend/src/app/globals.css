@@ -75,8 +75,7 @@ button.blur-red {
 select,
 input,
 textarea {
-  @apply bg-gray border border-deep-gray;
-  @apply w-[100%];
+  @apply bg-gray border border-deep-gray w-[100%];
 }
 
 select {
@@ -92,12 +91,10 @@ textarea {
 }
 
 table {
-  @apply table-auto border-collapse;
-  @apply border-gray;
-  @apply overflow-x-auto;
+  @apply table-auto border-collapse overflow-x-auto border-gray text-left w-full;
 }
 
-table tr:first-child th:first-child {
+/* table tr:first-child th:first-child {
   @apply rounded-tl-[1rem];
 }
 
@@ -105,11 +102,23 @@ table tr:first-child th:last-child {
   @apply rounded-tr-[1rem];
 }
 
+table tr:last-child td:first-child {
+  @apply rounded-bl-[1rem];
+}
+
+table tr:last-child td:last-child {
+  @apply rounded-br-[1rem];
+} */
+
 table th,
 table td {
   @apply whitespace-nowrap px-[0.75rem] py-[0.5rem];
 }
 
 table th {
+  @apply bg-deep-gray;
+}
+
+table tr:nth-child(odd) {
   @apply bg-gray;
 }

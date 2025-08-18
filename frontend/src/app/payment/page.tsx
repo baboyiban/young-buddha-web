@@ -25,8 +25,9 @@ export default function PaymentPage() {
     id: '',
     name: '',
     requestDate: new Date().toISOString(),
-    type: '불참',
+    type: '정기',
     absentDate: shortDate(new Date()),
+    schedule: '',
     reason: '',
     approved: '',
   } as PaymentRequest)
@@ -81,6 +82,7 @@ export default function PaymentPage() {
         form.type,
         shortDate(new Date()), // 신청 날짜
         form.absentDate,
+        form.schedule,
         form.reason,
         '대기',
       ]
@@ -102,7 +104,7 @@ export default function PaymentPage() {
           setRequests(data)
         }
       } catch { }
-      setForm((f) => ({ ...f, type: '불참', absentDate: shortDate(new Date()), reason: '' }))
+      setForm((f) => ({ ...f, type: '정기', absentDate: shortDate(new Date()), reason: '' }))
     } finally {
       setSubmitting(false)
     }
@@ -111,7 +113,7 @@ export default function PaymentPage() {
   if (loading || authLoading) {
     return (
       <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
-        <LoadingSpinner message="결재 페이지를 불러오는 중..." />
+        <LoadingSpinner message="페이지를 불러오는 중..." />
       </div>
     )
   }
@@ -124,18 +126,25 @@ export default function PaymentPage() {
           <form onSubmit={handleSubmit} className="flex justify-center">
             <div className="w-[50rem] flex flex-col gap-[0.5rem]">
 
-              <div className="flex gap-[0.25rem]">
-                {/* 결재유형 */}
-                <select name="type" value={form.type} onChange={handleChange} className="">
-                  <option value="불참">불참</option>
-                  <option value="부분불참">부분불참</option>
-                  <option value="외출">외출</option>
+              {/* 결재 유형 */}
+              <div className="flex flex-col gap-[0.25rem]">
+                <label className="text-sm" htmlFor="type">결재 유형</label>
+                <select id="type" name="type" value={form.type} onChange={handleChange} className="grow-1">
+                  <option value="정기">정기</option>
+                  <option value="비정기">비정기</option>
+                  <option value="추가요청">추가요청</option>
+                  <option value="사후알림">사후알림</option>
+                  <option value="야근신청">야근신청</option>
                   <option value="기타">기타</option>
                 </select>
+              </div>
 
-                {/* 신청일 */}
+              {/* 불참일 */}
+              <div className="flex flex-col gap-[0.25rem]">
+                <label className="text-sm" htmlFor="absentDate">불참일</label>
                 <input
                   type="date"
+                  id="absentDate"
                   name="absentDate"
                   value={form.absentDate}
                   onChange={handleChange}
@@ -144,17 +153,34 @@ export default function PaymentPage() {
                 />
               </div>
 
-              {/* 사유 */}
-              <textarea
-                name="reason"
-                value={form.reason}
-                onChange={handleChange}
-                placeholder="사유를 직접 작성해주세요"
-                className="md:col-span-2"
-                rows={4}
-              />
+              {/* 불참 일정 */}
+              <div className="flex flex-col gap-[0.25rem]">
+                <label className="text-sm" htmlFor="schedule">불참 일정</label>
+                <input
+                  type="text"
+                  id="schedule"
+                  name="schedule"
+                  value={form.schedule}
+                  onChange={handleChange}
+                  placeholder="불참할 일정을 입력해주세요 (예: 10:00-12:00, 오전 세미나)"
+                  className="border border-gray-300 rounded px-3 py-2"
+                />
+              </div>
 
-              <LoadingButton type="submit" className="purple md:col-span-2" loading={submitting}>
+              {/* 사유 */}
+              <div className="flex flex-col gap-[0.25rem]">
+                <label className="text-sm" htmlFor="reason">사유</label>
+                <textarea
+                  id="reason"
+                  name="reason"
+                  value={form.reason}
+                  onChange={handleChange}
+                  placeholder="사유를 직접 작성해주세요"
+                  rows={4}
+                />
+              </div>
+
+              <LoadingButton type="submit" className="purple" loading={submitting}>
                 결재 신청
               </LoadingButton>
             </div>
@@ -168,12 +194,13 @@ export default function PaymentPage() {
             <div className="text-dark-gray">신청 현황이 없습니다.</div>
           ) : (
             <div className="table-wrapper w-[50rem]">
-              <table className="">
+              <table className="max-w-full">
                 <thead>
                   <tr className="">
                     <th className="">구분</th>
                     <th className="">신청 날짜</th>
                     <th className="">불참일</th>
+                    <th className="">불참 일정</th>
                     <th className="">사유</th>
                     <th className="">결재 상태</th>
                   </tr>
@@ -184,6 +211,7 @@ export default function PaymentPage() {
                       <td className="">{r.type}</td>
                       <td className="">{r.requestDate || '-'}</td>
                       <td className="">{r.absentDate}</td>
+                      <td className="">{r.schedule || '-'}</td>
                       <td className="">{r.reason || '-'}</td>
                       <td className="">{r.approved || '대기'}</td>
                     </tr>

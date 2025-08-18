@@ -19,9 +19,9 @@ export async function fetchFilteredPayments(userName: string) {
       type: cells[1]?.v || '',
       requestDate: cells[2]?.v || '',
       absentDate: cells[3]?.v || '',
-      reason: cells[4]?.v || '',
-      approved: cells[5]?.v || '',
-      schedule: '',
+      schedule: cells[4]?.v || '',
+      reason: cells[5]?.v || '',
+      approved: cells[6]?.v || '',
     } as PaymentRequest
   })
 }
