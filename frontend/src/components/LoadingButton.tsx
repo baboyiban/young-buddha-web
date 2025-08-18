@@ -25,11 +25,7 @@ export default function LoadingButton({
       className={`${className} ${loading || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       {loading ? (
-        <LoadingSpinner
-          color="current"
-          message="처리 중..."
-          className="text-current"
-        />
+        <>처리중...</>
       ) : (
         children
       )}

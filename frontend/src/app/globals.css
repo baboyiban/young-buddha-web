@@ -36,18 +36,52 @@ a {
 }
 
 a,
-button {
+button,
+input {
   @apply cursor-pointer;
 }
 
-.button {
-  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem] backdrop-blur-[0.1rem] bg-white/50;
+button,
+select,
+input,
+textarea {
+  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem];
 }
 
-.current {
-  @apply bg-dark-purple/50 text-white;
+button.white {
+  @apply bg-white;
 }
 
-.red {
-  @apply bg-dark-red/50 text-white;
+button.purple {
+  @apply bg-deep-purple text-white;
+}
+
+button.red {
+  @apply bg-deep-red text-white;
+}
+
+button.blur-white {
+  @apply backdrop-blur-[0.1rem] bg-white/50;
+}
+
+button.blur-blue {
+  @apply backdrop-blur-[0.1rem] bg-dark-purple/50 text-white;
+}
+
+button.blur-red {
+  @apply backdrop-blur-[0.1rem] bg-dark-red/50 text-white;
+}
+
+select,
+input,
+textarea {
+  @apply border border-deep-gray bg-gray;
+}
+
+select {
+  @apply appearance-none;
+}
+
+textarea {
+  @apply resize-none text-black placeholder-dark-gray;
 }

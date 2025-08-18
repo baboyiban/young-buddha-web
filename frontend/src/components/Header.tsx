@@ -15,7 +15,7 @@ export default function Header() {
   }
 
   return (
-    <header className="flex justify-between items-center p-[0.5rem] pb-[0.25rem]">
+    <header className="flex justify-between items-center p-[0.5rem]">
       <Link href="/" className="text-xl font-bold mx-[0.5rem]">
         🪷 청년붓다
       </Link>
@@ -27,7 +27,7 @@ export default function Header() {
         )}
         <button
           onClick={handleLogout}
-          className="button red text-sm"
+          className="red text-sm"
         >
           로그아웃
         </button>

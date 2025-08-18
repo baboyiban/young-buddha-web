@@ -45,7 +45,7 @@ function LoginContent() {
       <button
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="button purple"
+        className="purple"
       >
         {loading ? (
           <LoadingSpinner color="white" showMessage={false} />
