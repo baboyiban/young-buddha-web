@@ -59,7 +59,9 @@ export default function PaymentPage() {
     load()
   }, [user])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target
     setForm((f) => ({ ...f, ...({ [name]: value } as Partial<PaymentRequest>) } as PaymentRequest))
   }
@@ -73,12 +75,12 @@ export default function PaymentPage() {
       // 시트에 데이터 추가
       const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
       const range = '일정불참결재시트!A2:F2'
+      // range A..F 는 6개 열이므로 values도 6개만 전달해야 합니다.
       const row = [
         user?.name || '',
         form.type,
         shortDate(new Date()), // 신청 날짜
         form.absentDate,
-        form.schedule,
         form.reason,
         '대기',
       ]
@@ -88,18 +90,18 @@ export default function PaymentPage() {
         body: JSON.stringify({ spreadsheet_id: sheetId, range, values: [row], append: true }),
       })
       const result = await res.json()
-      // result.values에서 데이터 변환
-      if (result.values) {
-        const mapped = result.values.map((r: string[], idx: number) => ({
-          id: `row-${idx}`,
-          type: r[0] || '',
-          requestDate: r[1] || '',
-          absentDate: r[2] || '',
-          reason: r[3] || '',
-          approved: r[4] || '',
-        }))
-        setRequests(mapped)
+      if (!res.ok) {
+        console.error('sheets write failed', result)
+        throw new Error(result?.message || 'Sheets write failed')
       }
+      // 성공 시 최신 목록 재조회
+      try {
+        const { fetchFilteredPayments } = await import('@/lib/api/payment')
+        if (user?.name) {
+          const data = await fetchFilteredPayments(user.name)
+          setRequests(data)
+        }
+      } catch { }
       setForm((f) => ({ ...f, type: '불참', absentDate: shortDate(new Date()), reason: '' }))
     } finally {
       setSubmitting(false)
@@ -115,81 +117,81 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="bg-gray p-[1rem] min-h-[calc(100svh-44px)] flex flex-col">
-      <div className="flex flex-col">
-        {/* 신청 폼 */}
-        <div className="flex col">
-          <form onSubmit={handleSubmit} className="">
+    <div className="min-h-[calc(100svh-52px-0.5rem)]">
+      <div className="flex flex-col gap-[0.5rem]">
+        <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
+          {/* 신청 폼 */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-[0.5rem]">
             {/* 사용자 이름/이메일 등은 내부적으로 폼에 포함되어 전송되지만 UI에는 노출하지 않습니다. */}
 
-            <div className="flex flex-col gap-[0.5rem]">
+            {/* 결재유형 */}
+            <select name="type" value={form.type} onChange={handleChange} className="input">
+              <option value="불참">불참</option>
+              <option value="부분불참">부분불참</option>
+              <option value="외출">외출</option>
+              <option value="기타">기타</option>
+            </select>
 
-              {/* 결재유형 */}
-              <select name="type" value={form.type} onChange={handleChange} className="input">
-                <option value="불참">불참</option>
-                <option value="부분불참">부분불참</option>
-                <option value="외출">외출</option>
-              </select>
+            {/* 신청일 */}
+            <input
+              type="date"
+              name="absentDate"
+              value={form.absentDate}
+              onChange={handleChange}
+              className="input"
+              required
+            />
 
-              {/* 신청일 */}
-              <input
-                type="date"
-                name="absentDate"
-                value={form.absentDate}
-                onChange={handleChange}
-                className="input"
-                required
-              />
+            {/* 사유 */}
+            <textarea
+              name="reason"
+              value={form.reason}
+              onChange={handleChange}
+              placeholder="사유를 직접 작성해주세요"
+              className="input"
+              rows={4}
+            />
 
-              {/* 사유 */}
-              <input
-                type="text"
-                name="reason"
-                value={(form as any).reason}
-                onChange={handleChange}
-                placeholder="사유를 직접 작성해주세요"
-                className="input"
-              />
-            </div>
-
-            <LoadingButton type="submit" loading={submitting} className="button default w-full">
+            <LoadingButton type="submit" className="purple" loading={submitting}>
               결재 신청
             </LoadingButton>
           </form>
         </div>
 
         {/* 신청 목록 */}
-        <div className="bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">신청 현황</h2>
+        <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
+          <div className="bg-white rounded-xl">
+            <h2 className="text-xl font-semibold mb-4">신청 현황</h2>
 
-          {requests.length === 0 ? (
-            <div className="text-gray-500">신청 현황이 없습니다.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto border-collapse">
-                <thead>
-                  <tr className="text-left bg-gray-50">
-                    <th className="p-3 border">구분</th>
-                    <th className="p-3 border">신청 날짜</th>
-                    <th className="p-3 border">불참일</th>
-                    <th className="p-3 border">사유</th>
-                    <th className="p-3 border">결재 상태</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="p-3 border">{r.type}</td>
-                      <td className="p-3 border">{r.requestDate || '-'}</td>
-                      <td className="p-3 border">{r.absentDate}</td>
-                      <td className="p-3 border">{r.reason || '-'}</td>
-                      <td className="p-3 border">{r.approved || '대기'}</td>
+            {requests.length === 0 ? (
+              <div className="text-gray-500">신청 현황이 없습니다.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full table-auto border-collapse">
+                  <thead>
+                    <tr className="text-left bg-gray-50">
+                      <th className="p-3 border">구분</th>
+                      <th className="p-3 border">신청 날짜</th>
+                      <th className="p-3 border">불참일</th>
+                      <th className="p-3 border">사유</th>
+                      <th className="p-3 border">결재 상태</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {requests.map((r) => (
+                      <tr key={r.id} className="border-t">
+                        <td className="p-3 border">{r.type}</td>
+                        <td className="p-3 border">{r.requestDate || '-'}</td>
+                        <td className="p-3 border">{r.absentDate}</td>
+                        <td className="p-3 border">{r.reason || '-'}</td>
+                        <td className="p-3 border">{r.approved || '대기'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

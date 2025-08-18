@@ -14,16 +14,13 @@ export default function Navbar() {
   ]
 
   return (
-    <nav className="bg-transparent *:*:backdrop-blur-2xl w-full overflow-x-auto snap-x *:snap-start *:scroll-mx-[0.5rem] flex gap-[0.25rem] items-center justify-center-safe p-[0.5rem] *:whitespace-nowrap *:*:shadow-[0px_0px_8px_rgba(0,0,0,0.1)] fixed bottom-0 left-0 right-0 z-10">
+    <nav className="bg-transparent w-full overflow-x-auto snap-x *:snap-start *:scroll-mx-[0.5rem] flex gap-[0.25rem] items-center justify-center-safe p-[0.5rem] *:whitespace-nowrap *:shadow-[0px_0px_8px_rgba(0,0,0,0.1)] fixed bottom-0 left-0 right-0 z-10">
       {navItems.map((item) => (
-        <div key={item.path}>
-          <Link
-            href={item.href}
-            className={`button ${pathname === item.path ? 'current' : 'default'}`}
-          >
+        <button key={item.path} className={`${pathname === item.path ? 'blur-blue' : 'blur-white'}`}>
+          <Link href={item.href} >
             {item.label}
           </Link>
-        </div>
+        </button>
       ))}
     </nav>
   )

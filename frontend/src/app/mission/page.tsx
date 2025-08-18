@@ -52,7 +52,7 @@ export default function Mission() {
   }
 
   return (
-    <div className="m-[0.25rem] bg-white p-[1rem] rounded-xl min-h-[calc(100svh-44px-0.5rem)] flex flex-col">
+    <div className="mx-[0.5rem] bg-white p-[1rem] rounded-xl min-h-[calc(100svh-52px-0.5rem)] flex flex-col">
       {/* 미션 컨텐츠 */}
       <div className="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem] flex-1 p-[1rem]">
         <MissionHeader date={missionData.date} dayOfWeek={missionData.dayOfWeek} />
