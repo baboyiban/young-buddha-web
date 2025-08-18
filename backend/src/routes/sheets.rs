@@ -17,6 +17,75 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/sheets/read", get(read_values))
         .route("/sheets/write", post(write_values))
+    .route("/sheets/query", get(query_sheet))
+}
+// Visualization API Query Language 기반 쿼리 핸들러
+#[derive(Debug, Deserialize)]
+struct QueryParams {
+    spreadsheet_id: String,
+    sheet_name: String,
+    query: String,
+}
+
+// GET /api/sheets/query?spreadsheet_id=...&sheet_name=...&query=...
+async fn query_sheet(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(params): Query<QueryParams>,
+) -> impl IntoResponse {
+    let client = reqwest::Client::new();
+    let Some(email) = get_email_from_jwt_cookie(&headers, state.jwt_secret.as_deref()) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": true, "code": "NOT_AUTHENTICATED", "message": "로그인이 필요합니다." }))
+        ).into_response();
+    };
+    let Some(user_token) = get_valid_user_token(&client, &state.db_path, &email).await else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": true, "code": "TOKEN_UNAVAILABLE", "message": "유효한 Google 액세스 토큰이 없습니다." }))
+        ).into_response();
+    };
+
+    let url = format!(
+        "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
+        params.spreadsheet_id,
+        urlencoding::encode(&params.query),
+        urlencoding::encode(&params.sheet_name)
+    );
+    let resp = client.get(&url)
+        .bearer_auth(&user_token)
+        .send().await;
+
+    match resp {
+        Ok(r) => {
+            if !r.status().is_success() {
+                let status = r.status();
+                let body = r.text().await.unwrap_or_default();
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({ "error": true, "code": "SHEETS_API_FAILED", "message": format!("시트 쿼리 실패: {}", status), "body": body }))
+                ).into_response();
+            }
+            let text = r.text().await.unwrap_or_default();
+            // Visualization API는 JSONP 형식으로 반환하므로 파싱 필요
+            let json_start = text.find('{').unwrap_or(0);
+            let json_end = text.rfind('}').unwrap_or(text.len()-1);
+            let json_str = &text[json_start..=json_end];
+            let parsed: Result<Value, _> = serde_json::from_str(json_str);
+            match parsed {
+                Ok(v) => (StatusCode::OK, Json(v)).into_response(),
+                Err(e) => (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({ "error": true, "code": "PARSE_FAILED", "message": format!("JSON 파싱 실패: {}", e), "raw": text }))
+                ).into_response(),
+            }
+        }
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "error": true, "code": "NETWORK_FAILED", "message": format!("네트워크 요청 실패: {}", e) }))
+        ).into_response(),
+    }
 }
 
 // ======== Types ========
