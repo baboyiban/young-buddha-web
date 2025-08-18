@@ -1,69 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { authService } from "@/lib/auth/service";
-import { User } from "@/types/user";
+import { useAuthContext } from "@/context/AuthContext";
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const ctx = useAuthContext();
   const router = useRouter();
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      setLoading(true);
-      const isAuth = await authService.checkAuthStatus();
-
-      if (isAuth) {
-        const userData = await authService.getCurrentUser();
-        setUser(userData);
-        setIsAuthenticated(true);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async () => {
-    try {
-      const authUrl = await authService.startGoogleAuth();
-      window.location.href = authUrl;
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
-    }
-  };
-
+  // 기존 logout 동작에 라우팅이 포함되어 있었으므로, wrapper로 동일 동작 유지
   const logout = async () => {
-    try {
-      await authService.logout();
-      setUser(null);
-      setIsAuthenticated(false);
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    await ctx.logout();
+    router.push("/login");
   };
 
   return {
-    user,
-    loading,
-    isAuthenticated,
-    login,
+    user: ctx.user,
+    loading: ctx.loading,
+    isAuthenticated: ctx.isAuthenticated,
+    login: ctx.login,
     logout,
-    checkAuth,
+    checkAuth: ctx.checkAuth,
   };
 }
