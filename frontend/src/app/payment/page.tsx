@@ -110,7 +110,7 @@ export default function PaymentPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
         <LoadingSpinner message="결재 페이지를 불러오는 중..." />
       </div>
     )
@@ -121,77 +121,77 @@ export default function PaymentPage() {
       <div className="flex flex-col gap-[0.5rem]">
         <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
           {/* 신청 폼 */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-[0.5rem]">
-            {/* 사용자 이름/이메일 등은 내부적으로 폼에 포함되어 전송되지만 UI에는 노출하지 않습니다. */}
+          <form onSubmit={handleSubmit} className="flex justify-center">
+            <div className="w-[50rem] flex flex-col gap-[0.5rem]">
 
-            {/* 결재유형 */}
-            <select name="type" value={form.type} onChange={handleChange} className="input">
-              <option value="불참">불참</option>
-              <option value="부분불참">부분불참</option>
-              <option value="외출">외출</option>
-              <option value="기타">기타</option>
-            </select>
+              <div className="flex gap-[0.25rem]">
+                {/* 결재유형 */}
+                <select name="type" value={form.type} onChange={handleChange} className="">
+                  <option value="불참">불참</option>
+                  <option value="부분불참">부분불참</option>
+                  <option value="외출">외출</option>
+                  <option value="기타">기타</option>
+                </select>
 
-            {/* 신청일 */}
-            <input
-              type="date"
-              name="absentDate"
-              value={form.absentDate}
-              onChange={handleChange}
-              className="input"
-              required
-            />
+                {/* 신청일 */}
+                <input
+                  type="date"
+                  name="absentDate"
+                  value={form.absentDate}
+                  onChange={handleChange}
+                  className=""
+                  required
+                />
+              </div>
 
-            {/* 사유 */}
-            <textarea
-              name="reason"
-              value={form.reason}
-              onChange={handleChange}
-              placeholder="사유를 직접 작성해주세요"
-              className="input"
-              rows={4}
-            />
+              {/* 사유 */}
+              <textarea
+                name="reason"
+                value={form.reason}
+                onChange={handleChange}
+                placeholder="사유를 직접 작성해주세요"
+                className="md:col-span-2"
+                rows={4}
+              />
 
-            <LoadingButton type="submit" className="purple" loading={submitting}>
-              결재 신청
-            </LoadingButton>
+              <LoadingButton type="submit" className="purple md:col-span-2" loading={submitting}>
+                결재 신청
+              </LoadingButton>
+            </div>
           </form>
         </div>
 
         {/* 신청 목록 */}
-        <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
-          <div className="bg-white rounded-xl">
-            <h2 className="text-xl font-semibold mb-4">신청 현황</h2>
+        <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl flex justify-center">
 
-            {requests.length === 0 ? (
-              <div className="text-gray-500">신청 현황이 없습니다.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full table-auto border-collapse">
-                  <thead>
-                    <tr className="text-left bg-gray-50">
-                      <th className="p-3 border">구분</th>
-                      <th className="p-3 border">신청 날짜</th>
-                      <th className="p-3 border">불참일</th>
-                      <th className="p-3 border">사유</th>
-                      <th className="p-3 border">결재 상태</th>
+          {requests.length === 0 ? (
+            <div className="text-dark-gray">신청 현황이 없습니다.</div>
+          ) : (
+            <div className="table-wrapper w-[50rem]">
+              <table className="">
+                <thead>
+                  <tr className="">
+                    <th className="">구분</th>
+                    <th className="">신청 날짜</th>
+                    <th className="">불참일</th>
+                    <th className="">사유</th>
+                    <th className="">결재 상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((r) => (
+                    <tr key={r.id} className="">
+                      <td className="">{r.type}</td>
+                      <td className="">{r.requestDate || '-'}</td>
+                      <td className="">{r.absentDate}</td>
+                      <td className="">{r.reason || '-'}</td>
+                      <td className="">{r.approved || '대기'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {requests.map((r) => (
-                      <tr key={r.id} className="border-t">
-                        <td className="p-3 border">{r.type}</td>
-                        <td className="p-3 border">{r.requestDate || '-'}</td>
-                        <td className="p-3 border">{r.absentDate}</td>
-                        <td className="p-3 border">{r.reason || '-'}</td>
-                        <td className="p-3 border">{r.approved || '대기'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

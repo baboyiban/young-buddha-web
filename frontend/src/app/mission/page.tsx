@@ -29,7 +29,7 @@ export default function Mission() {
 
   if (loading) {
     return (
-      <div className="bg-gray min-h-screen flex items-center justify-center">
+      <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
         <LoadingSpinner message="미션 데이터를 불러오는 중..." />
       </div>
     )
@@ -37,7 +37,7 @@ export default function Mission() {
 
   if (error) {
     return (
-      <div className="bg-gray flex items-center justify-center min-h-screen">
+      <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
         <div className="text-dark-red">{error}</div>
       </div>
     )
@@ -45,7 +45,7 @@ export default function Mission() {
 
   if (!missionData) {
     return (
-      <div className="bg-gray flex items-center justify-center min-h-screen">
+      <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
         <div className="text-dark-gray">미션 데이터가 없습니다.</div>
       </div>
     )
