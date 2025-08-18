@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # --- Builder ---
-FROM node:20-bullseye AS deps
+FROM node:24-bullseye AS deps
 WORKDIR /app
 COPY package.json package-lock.json* bun.lock* pnpm-lock.yaml* yarn.lock* ./
 RUN npm ci || npm i
@@ -17,7 +17,7 @@ RUN mkdir -p public
 RUN npm run build
 
 # --- Runner ---
-FROM node:20-bullseye-slim AS runner
+FROM node:24-bullseye-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \

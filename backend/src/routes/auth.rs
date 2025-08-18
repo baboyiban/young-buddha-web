@@ -14,10 +14,8 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
 // JWT 토큰 유효 시간 설정 (초 단위)
-// const JWT_EXPIRY_SECONDS: i64 = 60 * 60 * 24 * 7; // 7일
-const JWT_EXPIRY_SECONDS: i64 = 30;
-// const OAUTH_STATE_EXPIRY_SECONDS: i64 = 600; // 10분
-const OAUTH_STATE_EXPIRY_SECONDS: i64 = 30;
+const JWT_EXPIRY_SECONDS: i64 = 60 * 60 * 24 * 7; // 7일
+const OAUTH_STATE_EXPIRY_SECONDS: i64 = 600; // 10분
 
 // OAuth state 임시 저장소 (메모리)
 static OAUTH_STATES: Lazy<Mutex<HashMap<String, i64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
