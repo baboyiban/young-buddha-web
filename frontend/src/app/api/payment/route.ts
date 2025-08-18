@@ -21,14 +21,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // 새 결재 요청 생성
+    // 클라이언트가 camelCase 또는 snake_case 둘 중 어떤 형식으로 보낼지 모를 수 있으므로 둘 다 처리
     const newPayment = {
       id: Date.now().toString(),
-      name: body.name,
-      requestDate: new Date().toISOString().split("T")[0],
-      type: body.type,
-      absentDate: body.absent_date,
-      timeSlot: body.time_slot,
-      reason: body.reason,
+      name: body.name ?? body.user_name ?? '',
+      // 클라이언트가 requestDate를 보냈다면 우선 사용, 아니면 서버 시간
+      requestDate: (body.requestDate ?? body.request_date) || new Date().toISOString().split("T")[0],
+      type: body.type ?? '',
+      absentDate: body.absentDate ?? body.absent_date ?? '',
+      // schedule/timeSlot 둘 다 처리
+      schedule: body.schedule ?? body.timeSlot ?? body.time_slot ?? '',
+      reason: body.reason ?? '',
       status: "대기",
       createdAt: new Date().toISOString(),
     };
