@@ -17,7 +17,8 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/sheets/read", get(read_values))
         .route("/sheets/write", post(write_values))
-    .route("/sheets/query", get(query_sheet))
+        .route("/sheets/query", get(query_sheet))
+        .route("/sheets/delete", post(delete_by_query))
 }
 // Visualization API Query Language 기반 쿼리 핸들러
 #[derive(Debug, Deserialize)]
@@ -107,11 +108,119 @@ struct WriteParams {
 // Google refresh token 응답
 #[derive(Deserialize)]
 struct GoogleRefreshResponse {
-    access_token: String,
-    #[allow(dead_code)]
-    token_type: Option<String>,
-    expires_in: Option<i64>,
-    refresh_token: Option<String>,
+  access_token: String,
+  #[allow(dead_code)]
+  token_type: Option<String>,
+  expires_in: Option<i64>,
+  refresh_token: Option<String>,
+}
+
+// DELETE /api/sheets/delete
+#[derive(Debug, Deserialize)]
+struct DeleteQueryParams {
+    spreadsheet_id: String,
+    sheet_name: String,
+    query: String,
+}
+
+async fn delete_by_query(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(params): Json<DeleteQueryParams>,
+) -> impl IntoResponse {
+    let client = reqwest::Client::new();
+    let Some(email) = get_email_from_jwt_cookie(&headers, state.jwt_secret.as_deref()) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": true, "code": "NOT_AUTHENTICATED", "message": "로그인이 필요합니다." }))
+        ).into_response();
+    };
+    let Some(user_token) = get_valid_user_token(&client, &state.db_path, &email).await else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": true, "code": "TOKEN_UNAVAILABLE", "message": "유효한 Google 액세스 토큰이 없습니다." }))
+        ).into_response();
+    };
+
+    // 1. 먼저 쿼리로 행 찾기
+    let query_url = format!(
+        "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
+        params.spreadsheet_id,
+        urlencoding::encode(&params.query),
+        urlencoding::encode(&params.sheet_name)
+    );
+    let resp = client.get(&query_url)
+        .bearer_auth(&user_token)
+        .send().await;
+
+    let rows = match resp {
+        Ok(r) => {
+            if !r.status().is_success() {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({ "error": true, "code": "SHEETS_API_FAILED", "message": format!("시트 쿼리 실패: {}", r.status()) }))
+                ).into_response();
+            }
+            let text = r.text().await.unwrap_or_default();
+            let json_start = text.find('{').unwrap_or(0);
+            let json_end = text.rfind('}').unwrap_or(text.len()-1);
+            let json_str = &text[json_start..=json_end];
+            let parsed: Result<Value, _> = serde_json::from_str(json_str);
+            match parsed {
+                Ok(v) => {
+                    v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default()
+                }
+                Err(_) => {
+                    return (
+                        StatusCode::BAD_GATEWAY,
+                        Json(json!({ "error": true, "code": "PARSE_FAILED", "message": "JSON 파싱 실패" }))
+                    ).into_response();
+                }
+            }
+        }
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "error": true, "code": "NETWORK_FAILED", "message": format!("네트워크 요청 실패: {}", e) }))
+            ).into_response();
+        }
+    };
+
+    // 2. 각 행을 빈 값으로 업데이트 (삭제 효과)
+    for (i, row) in rows.iter().enumerate() {
+        let cells = match row.get("c").and_then(|c| c.as_array()) {
+            Some(c) => c,
+            None => continue, // "c" 필드가 없거나 배열이 아닌 경우 건너뜀
+        };
+        if cells.is_empty() {
+            continue; // 빈 행은 건너뜀
+        }
+        let cells_len = cells.len();
+        let mut values = vec![];
+        for _ in 0..cells_len {
+            values.push("".to_string());
+        }
+
+        let row_index = i + 2; // A2부터 시작하므로 +2
+        let range = format!("{}!A{}:{}", params.sheet_name, row_index, row_index);
+
+        let write_result = sheets_api_write_with_token(
+            &client,
+            &params.spreadsheet_id,
+            &range,
+            &[values],
+            &user_token
+        ).await;
+
+        if let Err(e) = write_result {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "error": true, "code": "SHEETS_WRITE_FAILED", "message": format!("삭제 실패: {}", e) }))
+            ).into_response();
+        }
+    }
+
+    (StatusCode::OK, Json(json!({ "success": true, "deleted": rows.len() }))).into_response()
 }
 
 // ======== Handlers ========
