@@ -4,6 +4,8 @@ use serde_json::json;
 use crate::state::AppState;
 use std::sync::Arc;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use redis::AsyncCommands;
+use sha2::{Digest, Sha256};
 use rand::{distributions::Alphanumeric, Rng};
 use axum::http::{HeaderMap, HeaderValue, header::SET_COOKIE};
 use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
@@ -335,12 +337,58 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
         );
     };
 
+    // Try Redis cache first
+    if let Ok(redis_url) = std::env::var("REDIS_URL") {
+        if let Ok(client) = redis::Client::open(redis_url) {
+            if let Ok(mut conn) = client.get_async_connection().await {
+                // key is sha256(token)
+                let mut hasher = Sha256::new();
+                hasher.update(token.as_bytes());
+                let key = format!("auth:jwt:{}", hex::encode(hasher.finalize()));
+                if let Ok(cached) = conn.get::<_, String>(&key).await {
+                    // cached expected to be JSON like {"valid":true, "name":"...", "email":"...", "role":"..."}
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&cached) {
+                        if v.get("valid").and_then(|b| b.as_bool()).unwrap_or(false) {
+                            let name = v.get("name").and_then(|s| s.as_str()).unwrap_or_default().to_string();
+                            let email = v.get("email").and_then(|s| s.as_str()).unwrap_or_default().to_string();
+                            let role = v.get("role").and_then(|s| s.as_str()).unwrap_or_default().to_string();
+                            return (
+                                axum::http::StatusCode::OK,
+                                Json(json!({"name":name,"email":email,"role":role})),
+                            );
+                        } else {
+                            return (
+                                axum::http::StatusCode::UNAUTHORIZED,
+                                Json(json!({"error":true,"message":"Invalid token (cached)","code":"INVALID_TOKEN"})),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     match decode::<Claims>(
         &token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
     ) {
         Ok(data) => {
+            // store positive result in Redis (if configured)
+            if let Ok(redis_url) = std::env::var("REDIS_URL") {
+                if let Ok(client) = redis::Client::open(redis_url) {
+                        if let Ok(mut conn) = client.get_async_connection().await {
+                            let mut hasher = Sha256::new();
+                            hasher.update(token.as_bytes());
+                            let key = format!("auth:jwt:{}", hex::encode(hasher.finalize()));
+                            let name = data.claims.name.clone().unwrap_or_default();
+                            let email = data.claims.email.clone().unwrap_or_default();
+                            let role = data.claims.role.clone().unwrap_or_default();
+                            let cached = json!({"valid":true,"name":name,"email":email,"role":role}).to_string();
+                            let _: Result<(), _> = conn.set_ex(key, cached, 1800).await;
+                        }
+                    }
+            }
             let now = OffsetDateTime::now_utc().unix_timestamp();
             tracing::info!("JWT validation successful for user: {:?}, current_time={}, token_exp={:?}", 
                 data.claims.email, now, data.claims.exp);
