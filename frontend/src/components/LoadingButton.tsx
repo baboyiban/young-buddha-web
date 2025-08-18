@@ -26,7 +26,6 @@ export default function LoadingButton({
     >
       {loading ? (
         <LoadingSpinner
-          size="sm"
           color="current"
           message="처리 중..."
           className="text-current"

@@ -8,7 +8,7 @@ interface LoadingSpinnerProps {
 
 export default function LoadingSpinner({
   message = "데이터를 불러오는 중...",
-  size = 'md',
+  size = 'sm',
   color = 'purple',
   showMessage = true,
   className = ''
