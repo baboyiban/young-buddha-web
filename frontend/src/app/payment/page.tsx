@@ -11,11 +11,9 @@ interface PaymentRequest {
   requestDate: string
   type: string
   absentDate: string
-  schedule?: string
-  email?: string
-  reason?: string
-  approved?: string
-  note?: string
+  schedule: string
+  reason: string
+  approved: string
 }
 
 export default function PaymentPage() {
@@ -28,11 +26,10 @@ export default function PaymentPage() {
     name: '',
     requestDate: new Date().toISOString(),
     type: '불참',
-    absentDate: '',
-    schedule: '',
+    absentDate: shortDate(new Date()),
+    schedule: shortDate(new Date()),
     reason: '',
     approved: '',
-    note: '',
   } as PaymentRequest)
 
   useEffect(() => {
@@ -70,6 +67,7 @@ export default function PaymentPage() {
     try {
       setSubmitting(true)
       const payload = { ...form, requestDate: new Date().toISOString() }
+      console.log('payment payload ->', payload)
       await fetch('/api/payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,7 +76,7 @@ export default function PaymentPage() {
       const res = await fetch('/api/payment')
       const data = await res.json()
       setRequests(data)
-      setForm((f) => ({ ...f, type: '불참', absentDate: '', schedule: '' }))
+      setForm((f) => ({ ...f, type: '불참', absentDate: shortDate(new Date()), schedule: shortDate(new Date()) }))
 
       // Append to Google Sheets (A2:G2) using server-side OAuth token
       try {
@@ -87,11 +85,10 @@ export default function PaymentPage() {
         const row = [
           (form as any).name || '',
           form.type || '',
-          shortDate(new Date()),
           form.absentDate || '',
           (form as any).schedule || '',
+          (form as any).reason || '',
           '대기',
-          (form as any).note || '',
         ]
         await fetch('/api/sheets/write', {
           method: 'POST',
