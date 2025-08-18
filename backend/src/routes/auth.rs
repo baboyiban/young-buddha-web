@@ -9,20 +9,52 @@ use axum::http::{HeaderMap, HeaderValue, header::SET_COOKIE};
 use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
 use axum::extract::Query;
 use time::OffsetDateTime;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
 
 // JWT 토큰 유효 시간 설정 (초 단위)
-// const JWT_EXPIRY_SECONDS: i64 = 60 * 60 * 24 * 1; // 1일
+// const JWT_EXPIRY_SECONDS: i64 = 60 * 60 * 24 * 7; // 7일
 const JWT_EXPIRY_SECONDS: i64 = 30;
-// const OAUTH_STATE_EXPIRY_SECONDS: i64 = 300; // 5분
+// const OAUTH_STATE_EXPIRY_SECONDS: i64 = 600; // 10분
 const OAUTH_STATE_EXPIRY_SECONDS: i64 = 30;
+
+// OAuth state 임시 저장소 (메모리)
+static OAUTH_STATES: Lazy<Mutex<HashMap<String, i64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/auth/google", post(google_auth))
         .route("/auth/google", get(google_auth_get))
-    .route("/auth/google/callback", get(google_callback))
+        .route("/auth/google/callback", get(google_callback))
         .route("/auth/me", get(me))
         .route("/auth/logout", delete(logout))
+}
+
+// OAuth state 관리 함수들
+fn store_oauth_state(state: &str) {
+    let expiry = OffsetDateTime::now_utc().unix_timestamp() + OAUTH_STATE_EXPIRY_SECONDS;
+    if let Ok(mut states) = OAUTH_STATES.lock() {
+        states.insert(state.to_string(), expiry);
+        // 만료된 state들 정리
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        states.retain(|_, &mut exp| exp > now);
+    }
+}
+
+fn verify_oauth_state(state: &str) -> bool {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    if let Ok(mut states) = OAUTH_STATES.lock() {
+        if let Some(&expiry) = states.get(state) {
+            if expiry > now {
+                states.remove(state); // 사용된 state는 제거
+                return true;
+            }
+        }
+        // 만료된 state들 정리
+        states.retain(|_, &mut exp| exp > now);
+    }
+    false
 }
 
 #[derive(Deserialize)]
@@ -57,19 +89,30 @@ struct JwtClaims {
 }
 
 async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<CallbackQuery>, headers: axum::http::HeaderMap) -> Response {
+    tracing::info!("OAuth callback received: code={:?}, state={:?}", q.code.is_some(), q.state);
+    
+    // 모든 쿠키 로그
+    if let Some(cookie_header) = headers.get("cookie") {
+        if let Ok(cookie_str) = cookie_header.to_str() {
+            tracing::info!("Received cookies: {}", cookie_str);
+        }
+    } else {
+        tracing::warn!("No cookies received in callback");
+    }
+    
     // validate query
     let Some(code) = q.code.clone() else {
+        tracing::error!("Missing authorization code in callback");
         return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Missing code"}))).into_response();
     };
     let Some(state_query) = q.state.clone() else {
+        tracing::error!("Missing state parameter in callback");
         return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Missing state"}))).into_response();
     };
-    // check oauth_state cookie
-    let Some(state_cookie) = get_cookie(&headers, "oauth_state") else {
-        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Missing oauth_state cookie"}))).into_response();
-    };
-    if state_cookie != state_query {
-        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"State mismatch"}))).into_response();
+    // verify oauth_state from memory store
+    if !verify_oauth_state(&state_query) {
+        tracing::error!("Invalid or expired oauth state: {}", state_query);
+        return (axum::http::StatusCode::BAD_REQUEST, Json(json!({"error":true,"message":"Invalid or expired oauth state"}))).into_response();
     }
 
     // env
@@ -139,6 +182,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
     };
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let exp = now + JWT_EXPIRY_SECONDS;
+    tracing::info!("Creating JWT: now={}, exp={}, expires_in={}s", now, exp, JWT_EXPIRY_SECONDS);
     let claims = JwtClaims {
         name: user.name.unwrap_or_else(|| "".into()),
         email: user.email.unwrap_or_else(|| "".into()),
@@ -152,7 +196,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
 
     // set jwt cookie
     let cookie = format!(
-        "jwt={}; Max-Age={}; Path=/; HttpOnly{}",
+        "jwt={}; Max-Age={}; Path=/; HttpOnly; SameSite=Strict{}",
         jwt,
         JWT_EXPIRY_SECONDS,
         if state.is_production { "; Secure" } else { "" }
@@ -164,7 +208,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
     (axum::http::StatusCode::FOUND, out_headers).into_response()
 }
 
-async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
+async fn google_auth(State(_state): State<Arc<AppState>>) -> Response {
     let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
         Ok(v) => v,
         Err(_) => {
@@ -195,13 +239,9 @@ async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
         .map(char::from)
         .collect();
 
-    // set oauth_state cookie (HttpOnly, short max-age)
-    let cookie = format!(
-        "oauth_state={}; Max-Age={}; Path=/; HttpOnly{}",
-        state_val,
-        OAUTH_STATE_EXPIRY_SECONDS,
-        if state.is_production { "; Secure" } else { "" }
-    );
+    // store oauth_state in memory instead of cookie
+    store_oauth_state(&state_val);
+    tracing::info!("Generated OAuth state: {}", state_val);
 
     // build auth url
     let auth_url = format!(
@@ -213,19 +253,13 @@ async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
         urlencoding::encode(&state_val)
     );
 
-    let mut headers = HeaderMap::new();
-    if let Ok(val) = HeaderValue::from_str(&cookie) {
-        headers.insert(SET_COOKIE, val);
-    }
-
     (
         axum::http::StatusCode::OK,
-        headers,
         Json(json!({"auth_url": auth_url})),
     ).into_response()
 }
 
-async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
+async fn google_auth_get(State(_state): State<Arc<AppState>>) -> Response {
     let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
         Ok(v) => v,
         Err(_) => {
@@ -255,12 +289,9 @@ async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
         .map(char::from)
         .collect();
 
-    let cookie = format!(
-        "oauth_state={}; Max-Age={}; Path=/; HttpOnly{}",
-        state_val,
-        OAUTH_STATE_EXPIRY_SECONDS,
-        if state.is_production { "; Secure" } else { "" }
-    );
+    // store oauth_state in memory instead of cookie
+    store_oauth_state(&state_val);
+    tracing::info!("Generated OAuth state: {}", state_val);
 
     let auth_url = format!(
         "{}?client_id={}&redirect_uri={}&response_type=code&scope={}&state={}&access_type=offline&prompt=consent",
@@ -272,9 +303,6 @@ async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
     );
 
     let mut headers = HeaderMap::new();
-    if let Ok(val) = HeaderValue::from_str(&cookie) {
-        headers.insert(SET_COOKIE, val);
-    }
     headers.insert(axum::http::header::LOCATION, HeaderValue::from_str(&auth_url).unwrap());
 
     (
@@ -315,6 +343,9 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
         &Validation::new(Algorithm::HS256),
     ) {
         Ok(data) => {
+            let now = OffsetDateTime::now_utc().unix_timestamp();
+            tracing::info!("JWT validation successful for user: {:?}, current_time={}, token_exp={:?}", 
+                data.claims.email, now, data.claims.exp);
             let name = data.claims.name.unwrap_or_default();
             let email = data.claims.email.unwrap_or_default();
             let role = data.claims.role.unwrap_or_default();
@@ -324,17 +355,24 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
             )
         }
         Err(err) => {
+            let now = OffsetDateTime::now_utc().unix_timestamp();
             let (status, code, message) = match err.kind() {
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => (
-                    axum::http::StatusCode::UNAUTHORIZED,
-                    "TOKEN_EXPIRED",
-                    "Token expired",
-                ),
-                _ => (
-                    axum::http::StatusCode::UNAUTHORIZED,
-                    "INVALID_TOKEN",
-                    "Invalid token",
-                ),
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("JWT token expired at current_time={}", now);
+                    (
+                        axum::http::StatusCode::UNAUTHORIZED,
+                        "TOKEN_EXPIRED",
+                        "Token expired",
+                    )
+                },
+                _ => {
+                    tracing::warn!("JWT validation failed: {:?} at current_time={}", err.kind(), now);
+                    (
+                        axum::http::StatusCode::UNAUTHORIZED,
+                        "INVALID_TOKEN",
+                        "Invalid token",
+                    )
+                },
             };
             (status, Json(json!({"error":true,"message":message,"code":code})))
         }
@@ -365,9 +403,8 @@ fn get_cookie(headers: &axum::http::HeaderMap, name: &str) -> Option<String> {
 }
 
 fn build_clear_cookie(secure: bool) -> String {
-    // Zig: name=jwt; Max-Age=0; Path=/; HttpOnly; Secure(if production)
     format!(
-        "jwt=; Max-Age=0; Path=/; HttpOnly{}",
+        "jwt=; Max-Age=0; Path=/; HttpOnly; SameSite=Strict{}",
         if secure { "; Secure" } else { "" }
     )
 }
