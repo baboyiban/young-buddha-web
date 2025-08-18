@@ -32,6 +32,7 @@ struct WriteParams {
     spreadsheet_id: String,
     range: String,
     values: Vec<Vec<String>>,
+    append: Option<bool>,
 }
 
 // Google refresh token 응답
@@ -121,12 +122,20 @@ async fn write_values(State(state): State<Arc<AppState>>, headers: HeaderMap, Js
         ).into_response();
     };
 
-    // OAuth 토큰으로 Sheets API 쓰기 호출
-    match sheets_api_write_with_token(&client, &params.spreadsheet_id, &params.range, &params.values, &user_token).await {
+    // OAuth 토큰으로 Sheets API 쓰기 또는 append 호출
+    let do_append = params.append.unwrap_or(false);
+    let write_result = if do_append {
+        sheets_api_append_with_token(&client, &params.spreadsheet_id, &params.range, &params.values, &user_token).await
+    } else {
+        sheets_api_write_with_token(&client, &params.spreadsheet_id, &params.range, &params.values, &user_token).await
+    };
+
+    match write_result {
         Ok(()) => {
             (StatusCode::OK, Json(json!({ "success": true, "message": "데이터가 성공적으로 저장되었습니다." }))).into_response()
         }
         Err(e) => {
+            tracing::error!("Sheets write failed: {}", e);
             (
                 StatusCode::BAD_GATEWAY,
                 Json(json!({
@@ -215,6 +224,43 @@ async fn sheets_api_write_with_token(
 
     let resp = client
         .put(&url)
+        .bearer_auth(access_token)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("네트워크 요청 실패: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("Sheets API 오류 {}: {}", status, body));
+    }
+
+    Ok(())
+}
+
+// OAuth 토큰으로 스프레드시트에 행을 append
+async fn sheets_api_append_with_token(
+    client: &reqwest::Client,
+    spreadsheet_id: &str,
+    range: &str,
+    values: &[Vec<String>],
+    access_token: &str,
+) -> Result<(), String> {
+    // use the append endpoint
+    let url = format!(
+        "https://sheets.googleapis.com/v4/spreadsheets/{}/values/{}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+        urlencoding::encode(spreadsheet_id),
+        urlencoding::encode(range)
+    );
+
+    let body = json!({
+        "values": values,
+        "majorDimension": "ROWS"
+    });
+
+    let resp = client
+        .post(&url)
         .bearer_auth(access_token)
         .json(&body)
         .send()
