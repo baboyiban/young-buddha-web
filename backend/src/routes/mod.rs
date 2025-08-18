@@ -1,7 +1,6 @@
 pub mod auth;
 pub mod sheets;
 pub mod database;
-pub mod payment;
 
 use axum::Router;
 use crate::state::AppState;
@@ -30,7 +29,6 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .merge(auth::router())
         .merge(sheets::router())
         .merge(database::router())
-        .merge(payment::router::<Arc<AppState>>())
         .layer(cors);
 
     Router::new()
