@@ -31,7 +31,23 @@ export class AuthService {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get current user");
+        const errorData = await response.json().catch(() => ({}));
+        console.log("getCurrentUser failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+
+        if (response.status === 401 && errorData.code === "TOKEN_EXPIRED") {
+          console.log("🔴 JWT TOKEN EXPIRED in getCurrentUser");
+        }
+
+        const error = new Error(
+          `Failed to get current user: ${response.status}`
+        );
+        (error as any).status = response.status;
+        (error as any).data = errorData;
+        throw error;
       }
 
       return await response.json();
@@ -85,21 +101,34 @@ export class AuthService {
   }
 
   clearAuthData(): void {
-    // 로컬 스토리지 정리
-    const storageKeys = ["user", "token", "auth"];
+    // 로컬 스토리지 정리 (보안상 모든 인증 관련 데이터 제거)
+    const storageKeys = [
+      "user",
+      "token",
+      "auth",
+      "jwt",
+      "access_token",
+      "refresh_token",
+    ];
     storageKeys.forEach((key) => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
 
-    // 쿠키 정리
-    document.cookie.split(";").forEach((cookie) => {
-      const eqPos = cookie.indexOf("=");
-      const name =
-        eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
-      if (name.includes("token") || name.includes("auth") || name === "jwt") {
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-      }
+    // 쿠키 정리 (HttpOnly 쿠키는 JavaScript로 직접 삭제 불가하므로 서버에서 처리)
+    // 하지만 혹시 모를 클라이언트 쿠키들은 정리
+    const cookiesToClear = [
+      "jwt",
+      "auth",
+      "token",
+      "access_token",
+      "refresh_token",
+    ];
+    cookiesToClear.forEach((name) => {
+      // 다양한 경로와 도메인에서 쿠키 삭제 시도
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${window.location.hostname}`;
     });
   }
 
@@ -122,11 +151,39 @@ export class AuthService {
       // HttpOnly 쿠키는 JavaScript에서 읽을 수 없으므로
       // 직접 /api/auth/me를 호출해서 인증 상태 확인
       console.log("Making request to:", `${this.baseUrl}/api/auth/me`);
-      const user = await this.getCurrentUser();
-      console.log("User data retrieved:", user);
+      const response = await fetch(`${this.baseUrl}/api/auth/me`, {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.log("Auth check failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        });
+
+        // JWT 만료나 인증 실패시 명확히 로그
+        if (response.status === 401) {
+          if (errorData.code === "TOKEN_EXPIRED") {
+            console.log("🔴 JWT TOKEN EXPIRED - User needs to re-login");
+          } else {
+            console.log("🔴 AUTHENTICATION FAILED - No valid token");
+          }
+        }
+
+        this.clearAuthData();
+        return false;
+      }
+
+      const user = await response.json();
+      console.log("✅ User data retrieved:", user);
       return true;
     } catch (error) {
-      console.log("Failed to get current user:", error);
+      console.log("❌ Network error during auth check:", error);
       this.clearAuthData();
       return false;
     }
@@ -166,6 +223,34 @@ export class AuthService {
     // 목업 JWT가 있으면 인증된 것으로 처리
     return AuthService.getJwtFromCookie() === "mock-jwt-token";
   }
+
+  // JWT 만료 테스트용 디버깅 함수
+  async testJwtExpiry(): Promise<void> {
+    console.log("🧪 Starting JWT expiry test...");
+
+    try {
+      // 즉시 호출
+      console.log("📞 Immediate call:");
+      const user1 = await this.getCurrentUser();
+      console.log("✅ Success:", user1);
+
+      // 2초 후 호출 (JWT가 1초로 설정되어 있으므로 실패해야 함)
+      console.log("⏰ Waiting 2 seconds...");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      console.log("📞 Call after 2 seconds:");
+      const user2 = await this.getCurrentUser();
+      console.log("✅ Success (unexpected):", user2);
+    } catch (error) {
+      console.log("❌ Expected failure after 2 seconds:", error);
+    }
+  }
 }
 
 export const authService = new AuthService();
+
+// 개발 환경에서 디버깅용으로 전역 접근 가능하게 설정
+if (typeof window !== "undefined") {
+  (window as any).authService = authService;
+  (window as any).testJwtExpiry = () => authService.testJwtExpiry();
+}

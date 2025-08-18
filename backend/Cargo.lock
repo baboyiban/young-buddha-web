@@ -2134,6 +2134,7 @@ dependencies = [
  "cookie",
  "dotenvy",
  "jsonwebtoken",
+ "once_cell",
  "rand",
  "reqwest",
  "rusqlite",

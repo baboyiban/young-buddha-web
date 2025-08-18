@@ -260,13 +260,27 @@ fn get_email_from_jwt_cookie(headers: &HeaderMap, jwt_secret: Option<&str>) -> O
         email: Option<String>,
     }
 
-    let token_data = decode::<Claims>(
+    match decode::<Claims>(
         &jwt_token,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
-    ).ok()?;
-
-    token_data.claims.email
+    ) {
+        Ok(token_data) => {
+            tracing::debug!("JWT validation successful in sheets");
+            token_data.claims.email
+        }
+        Err(err) => {
+            match err.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("JWT token expired in sheets API");
+                }
+                _ => {
+                    tracing::warn!("JWT validation failed in sheets API: {:?}", err.kind());
+                }
+            }
+            None
+        }
+    }
 }
 
 // 만료 시 자동 refresh하여 유효 access_token 반환
