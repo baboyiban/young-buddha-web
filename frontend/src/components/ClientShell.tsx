@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import AuthGuard from '@/components/AuthGuard'
 import AppLayout from '@/components/AppLayout'
+import { AuthProvider } from '@/context/AuthContext'
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -11,11 +12,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   if (isLoginPage) return <>{children}</>
 
-  if (isPublicPage) return <AppLayout>{children}</AppLayout>
+  if (isPublicPage)
+    return (
+      <AuthProvider>
+        <AppLayout>{children}</AppLayout>
+      </AuthProvider>
+    )
 
   return (
-    <AuthGuard>
-      <AppLayout>{children}</AppLayout>
-    </AuthGuard>
+    <AuthProvider>
+      <AuthGuard>
+        <AppLayout>{children}</AppLayout>
+      </AuthGuard>
+    </AuthProvider>
   )
 }
