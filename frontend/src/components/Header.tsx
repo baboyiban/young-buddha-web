@@ -17,7 +17,7 @@ export default function Header() {
   return (
     <header className="flex justify-between items-center pt-[0.5rem] px-[0.5rem]">
       <Link href="/" className="text-xl font-bold mx-[0.5rem]">
-        청년붓다
+        🪷 청년붓다
       </Link>
       <div className="flex items-center space-x-2">
         {user && (

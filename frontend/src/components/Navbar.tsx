@@ -19,7 +19,7 @@ export default function Navbar() {
         <div key={item.path}>
           <Link
             href={item.href}
-            className={`button ${pathname === item.path ? 'purple' : 'default'}`}
+            className={`button ${pathname === item.path ? 'current' : 'default'}`}
           >
             {item.label}
           </Link>

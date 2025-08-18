@@ -41,23 +41,13 @@ button {
 }
 
 .button {
-  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem];
+  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem] backdrop-blur-[0.1rem] bg-white/50;
 }
 
-.button.default,
-.button.purple,
-.button.red {
-  @apply backdrop-blur-[0.05rem];
+.current {
+  @apply bg-dark-purple/50 text-white;
 }
 
-.button.default {
-  @apply bg-white/75;
-}
-
-.button.purple {
-  @apply bg-deep-purple/75 text-white;
-}
-
-.button.red {
-  @apply bg-deep-red/75 text-white;
+.red {
+  @apply bg-dark-red/50 text-white;
 }
