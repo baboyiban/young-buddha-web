@@ -75,7 +75,8 @@ button.blur-red {
 select,
 input,
 textarea {
-  @apply border border-deep-gray bg-gray;
+  @apply bg-gray border border-deep-gray;
+  @apply w-[100%];
 }
 
 select {
@@ -84,4 +85,31 @@ select {
 
 textarea {
   @apply resize-none text-black placeholder-dark-gray;
+}
+
+.table-wrapper {
+  @apply overflow-x-auto rounded-xl;
+}
+
+table {
+  @apply table-auto border-collapse;
+  @apply border-gray;
+  @apply overflow-x-auto;
+}
+
+table tr:first-child th:first-child {
+  @apply rounded-tl-[1rem];
+}
+
+table tr:first-child th:last-child {
+  @apply rounded-tr-[1rem];
+}
+
+table th,
+table td {
+  @apply whitespace-nowrap px-[0.75rem] py-[0.5rem];
+}
+
+table th {
+  @apply bg-gray;
 }
