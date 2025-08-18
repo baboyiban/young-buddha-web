@@ -48,7 +48,7 @@ function LoginContent() {
         className="button purple"
       >
         {loading ? (
-          <LoadingSpinner size="sm" color="white" showMessage={false} />
+          <LoadingSpinner color="white" showMessage={false} />
         ) : (
           <>
             <span>Google로 로그인</span>
@@ -64,7 +64,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-          <LoadingSpinner size="lg" message="로그인 페이지 로딩 중..." />
+          <LoadingSpinner message="로그인 페이지 로딩 중..." />
         </div>
       }
     >

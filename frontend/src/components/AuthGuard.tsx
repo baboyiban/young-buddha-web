@@ -23,7 +23,7 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="lg" message="인증 확인 중..." />
+        <LoadingSpinner message="인증 확인 중..." />
       </div>
     )
   }
@@ -31,7 +31,7 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
   if (!isAuthenticated) {
     return fallback || (
       <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size="md" message="로그인이 필요합니다..." showMessage={true} />
+        <LoadingSpinner message="로그인이 필요합니다..." showMessage={true} />
       </div>
     )
   }
