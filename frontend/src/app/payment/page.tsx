@@ -121,10 +121,15 @@ export default function PaymentPage() {
     }
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const handleDelete = async (request: PaymentRequest) => {
     if (!window.confirm('정말로 이 신청을 삭제하시겠습니까?')) return
+    if (deletingId) return // 이미 삭제 중인 경우 중복 실행 방지
 
     try {
+      setDeletingId(request.id) // 삭제 시작
+
       // 시트에서 데이터 삭제 (통합 DELETE: spreadsheet_id, sheet_name, query)
       const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
       const sheetName = '일정불참결재시트'
@@ -155,6 +160,8 @@ export default function PaymentPage() {
       } catch { }
     } catch (err) {
       alert('삭제 중 오류가 발생했습니다.')
+    } finally {
+      setDeletingId(null) // 삭제 완료
     }
   }
 
@@ -354,16 +361,22 @@ export default function PaymentPage() {
                           )}
                         </td>
                         <td className="">{r.approved || '대기'}</td>
-                        <td className="flex gap-[0.25rem]">
+                        <td className="flex justify-center gap-[0.25rem]">
                           {isEditing ? (
                             <>
                               <button onClick={() => handleUpdate(r)} className="text-sm purple" disabled={submitting}>저장</button>
-                              <button onClick={handleEditCancel} className="text-sm">취소</button>
+                              <button onClick={handleEditCancel} className="text-sm gray">취소</button>
                             </>
                           ) : (
                             <>
-                              <button onClick={() => handleEditStart(r)} className="text-sm purple">수정</button>
-                              <button onClick={() => handleDelete(r)} className="text-sm red">삭제</button>
+                              <button onClick={() => handleEditStart(r)} className="text-sm purple" disabled={deletingId === r.id}>수정</button>
+                              <button
+                                onClick={() => handleDelete(r)}
+                                className="text-sm red"
+                                disabled={deletingId === r.id}
+                              >
+                                {deletingId === r.id ? '삭제 중...' : '삭제'}
+                              </button>
                             </>
                           )}
                         </td>
