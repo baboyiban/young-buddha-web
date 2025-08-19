@@ -8,13 +8,6 @@ export class AuthService {
   private useMockAuth = false; // 강제로 실제 인증 사용
 
   constructor() {
-    // 디버깅용 로그
-    console.log("AuthService initialized:", {
-      NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_USE_REAL_AUTH: process.env.NEXT_PUBLIC_USE_REAL_AUTH,
-      useMockAuth: this.useMockAuth,
-      baseUrl: this.baseUrl,
-    });
   }
 
   async getCurrentUser(): Promise<User> {
@@ -32,15 +25,6 @@ export class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.log("getCurrentUser failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-        });
-
-        if (response.status === 401 && errorData.code === "TOKEN_EXPIRED") {
-          console.log("🔴 JWT TOKEN EXPIRED in getCurrentUser");
-        }
 
         const error = new Error(
           `Failed to get current user: ${response.status}`
@@ -140,9 +124,6 @@ export class AuthService {
   }
 
   async checkAuthStatus(): Promise<boolean> {
-    console.log("checkAuthStatus called, useMockAuth:", this.useMockAuth);
-    console.log("All cookies:", document.cookie);
-
     if (this.useMockAuth) {
       return this.getMockAuthStatus();
     }
@@ -150,7 +131,6 @@ export class AuthService {
     try {
       // HttpOnly 쿠키는 JavaScript에서 읽을 수 없으므로
       // 직접 /api/auth/me를 호출해서 인증 상태 확인
-      console.log("Making request to:", `${this.baseUrl}/api/auth/me`);
       const response = await fetch(`${this.baseUrl}/api/auth/me`, {
         credentials: "include",
         headers: {
@@ -160,30 +140,14 @@ export class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.log("Auth check failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-        });
-
-        // JWT 만료나 인증 실패시 명확히 로그
-        if (response.status === 401) {
-          if (errorData.code === "TOKEN_EXPIRED") {
-            console.log("🔴 JWT TOKEN EXPIRED - User needs to re-login");
-          } else {
-            console.log("🔴 AUTHENTICATION FAILED - No valid token");
-          }
-        }
 
         this.clearAuthData();
         return false;
       }
 
       const user = await response.json();
-      console.log("✅ User data retrieved:", user);
       return true;
     } catch (error) {
-      console.log("❌ Network error during auth check:", error);
       this.clearAuthData();
       return false;
     }
@@ -226,23 +190,16 @@ export class AuthService {
 
   // JWT 만료 테스트용 디버깅 함수
   async testJwtExpiry(): Promise<void> {
-    console.log("🧪 Starting JWT expiry test...");
 
     try {
       // 즉시 호출
-      console.log("📞 Immediate call:");
       const user1 = await this.getCurrentUser();
-      console.log("✅ Success:", user1);
 
       // 2초 후 호출 (JWT가 1초로 설정되어 있으므로 실패해야 함)
-      console.log("⏰ Waiting 2 seconds...");
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      console.log("📞 Call after 2 seconds:");
       const user2 = await this.getCurrentUser();
-      console.log("✅ Success (unexpected):", user2);
     } catch (error) {
-      console.log("❌ Expected failure after 2 seconds:", error);
     }
   }
 }
