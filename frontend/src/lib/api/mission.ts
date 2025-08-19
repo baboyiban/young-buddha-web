@@ -23,26 +23,21 @@ export async function fetchMissionData(): Promise<MissionData> {
     const SHEET = {
       spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
       sheetName: "[NEW] 생활소임_2학기",
-      baseDate: "2025-07-17",
-      baseRow: 159,
-      startCol: "A",
-      endCol: "R",
+      endCol: "R", // 최대 R열까지 사용
     } as const;
 
-    // 날짜 기준으로 오늘 행의 range 계산 (클라이언트 계산)
-    const today = new Date();
-    const row = calculateRowFromDate(SHEET.baseDate, SHEET.baseRow, today);
-    const range = `${SHEET.sheetName}!${SHEET.startCol}${row}:${SHEET.endCol}${row}`;
+    // 오늘 날짜(YYYY-MM-DD) 기준으로 A열(날짜)에서 해당 행을 조회
+    const todayStr = getLocalDateYmd(new Date());
+    // 1차: 날짜 타입 셀인 경우 (GViz) -> date 'YYYY-MM-DD'
+    let query = `SELECT * WHERE A = date '${todayStr}'`;
 
-    // 백엔드 Sheets Read API 호출
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL ||
-      (process.env.NODE_ENV === "production" ? "" : "http://localhost:8080");
+    // 백엔드 Sheets Query API 호출 (Next.js rewrites를 타도록 상대 경로 사용)
     const qs = new URLSearchParams({
       spreadsheet_id: SHEET.spreadsheetId,
-      range,
+      sheet_name: SHEET.sheetName,
+      query,
     });
-    const response = await fetch(`${baseUrl}/api/sheets/read?${qs.toString()}`, {
+    const response = await fetch(`/api/sheets/query?${qs.toString()}`, {
       credentials: "include",
     });
 
@@ -50,8 +45,26 @@ export async function fetchMissionData(): Promise<MissionData> {
       throw new Error("Failed to fetch mission data");
     }
 
-    const data: { values?: string[][] } = await response.json();
-    const rawData: string[] = Array.isArray(data.values) && data.values.length > 0 ? data.values[0] : [];
+    let data: any = await response.json();
+    let rows: any[] = data?.table?.rows || [];
+
+    // 2차: 문자열로 저장된 경우 재조회
+    if (rows.length === 0) {
+      query = `SELECT * WHERE A = '${todayStr}'`;
+      const qs2 = new URLSearchParams({
+        spreadsheet_id: SHEET.spreadsheetId,
+        sheet_name: SHEET.sheetName,
+        query,
+      });
+      const res2 = await fetch(`/api/sheets/query?${qs2.toString()}`, { credentials: "include" });
+      if (res2.ok) {
+        data = await res2.json();
+        rows = data?.table?.rows || [];
+      }
+    }
+    const first = rows[0];
+    const cells = (first?.c || []) as Array<{ v?: any; f?: string | null }>;
+    const rawData: string[] = cells.map(cellToDisplayString);
 
     return processMissionData(rawData);
   } catch (error) {
@@ -66,8 +79,8 @@ function processMissionData(rawData: string[]): MissionData {
   );
 
   return {
-    date: cleanData[MISSION_INDICES.date] || "",
-    dayOfWeek: cleanData[MISSION_INDICES.dayOfWeek] || "",
+    date: `${normalizeToKoreanDate(cleanData[MISSION_INDICES.date]) || ""} ${cleanData[MISSION_INDICES.dayOfWeek] || deriveKoreanWeekday(cleanData[MISSION_INDICES.date])}`.trim(),
+    dayOfWeek: cleanData[MISSION_INDICES.dayOfWeek] || deriveKoreanWeekday(cleanData[MISSION_INDICES.date]),
     morningMeal: getMissionMembers(cleanData, MISSION_INDICES.morningMeal),
     morningHelper: getMissionMembers(cleanData, MISSION_INDICES.morningHelper),
     morningDishes: getMissionMembers(cleanData, MISSION_INDICES.morningDishes),
@@ -100,14 +113,84 @@ function getLocalDateYmd(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-// baseDate(YYYY-MM-DD)부터의 일수 차이로 행 번호 계산
-function calculateRowFromDate(baseDate: string, baseRow: number, targetDate: Date): number {
-  const base = new Date(baseDate + "T00:00:00");
-  const dayMs = 24 * 60 * 60 * 1000;
-  const diffDays = Math.floor((stripTime(targetDate).getTime() - base.getTime()) / dayMs);
-  return baseRow + diffDays;
+// deprecated: 행 번호 계산 로직은 Visualization API 쿼리로 대체
+
+// GViz 셀을 사람이 읽기 쉬운 문자열로 변환
+function cellToDisplayString(cell?: { v?: any; f?: string | null }): string {
+  if (!cell) return "";
+  // 1) 포맷팅된 값이 있으면 우선 사용 (날짜/시간 등)
+  if (cell.f && typeof cell.f === "string" && cell.f.trim().length > 0) {
+    return cell.f;
+  }
+  const v = cell.v;
+  if (v === null || v === undefined) return "";
+  // 2) Date(yyyy,mm,dd[,hh,MM,ss]) 형태 문자열 처리
+  if (typeof v === "string") {
+    const m = v.match(/^Date\((\d+),(\d+),(\d+)(?:,[^)]*)?\)$/);
+    if (m) {
+      const yyyy = parseInt(m[1], 10);
+      const mm0 = parseInt(m[2], 10); // 0-based month
+      const dd = parseInt(m[3], 10);
+      const mm = String(mm0 + 1).padStart(2, "0");
+      const day = String(dd).padStart(2, "0");
+      return `${yyyy}-${mm}-${day}`;
+    }
+    return v;
+  }
+  // 3) 숫자/불리언 등 일반 값 문자열화
+  return String(v);
 }
 
-function stripTime(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+// YYYY-MM-DD 또는 Date(...) 또는 기타를 받아 "YYYY년 M월 D일"로 변환
+function normalizeToKoreanDate(s?: string): string {
+  if (!s) return ''
+  // 이미 한글 포맷이면 그대로 반환
+  if (/^\d{4}년\s*\d{1,2}월/.test(s)) return s
+
+  // YYYY-MM-DD 형식
+  const m1 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (m1) {
+    const yyyy = m1[1]
+    const mm = String(parseInt(m1[2], 10))
+    const dd = String(parseInt(m1[3], 10))
+    return `${yyyy}년 ${mm}월 ${dd}일`
+  }
+
+  // Date(yyyy,mm,dd) 형태
+  const m2 = s.match(/^Date\((\d+),(\d+),(\d+)(?:,[^)]*)?\)$/)
+  if (m2) {
+    const yyyy = m2[1]
+    const mm = String(parseInt(m2[2], 10) + 1)
+    const dd = String(parseInt(m2[3], 10))
+    return `${yyyy}년 ${mm}월 ${dd}일`
+  }
+
+  // fallback: try Date.parse
+  const parsed = Date.parse(s)
+  if (!isNaN(parsed)) {
+    const dt = new Date(parsed)
+    return dt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+  }
+
+  return s
+}
+
+// 문자열 날짜에서 한국어 요일(예: 화요일)을 유도
+function deriveKoreanWeekday(dateStr?: string): string {
+  if (!dateStr) return ''
+  // try normalized YYYY-MM-DD
+  let iso = null as string | null
+  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (m) {
+    const yyyy = Number(m[1])
+    const mm = Number(m[2])
+    const dd = Number(m[3])
+    iso = new Date(yyyy, mm - 1, dd).toISOString()
+  } else {
+    const parsed = Date.parse(dateStr)
+    if (!isNaN(parsed)) iso = new Date(parsed).toISOString()
+  }
+  if (!iso) return ''
+  const wd = new Date(iso).toLocaleDateString('ko-KR', { weekday: 'long' })
+  return wd
 }

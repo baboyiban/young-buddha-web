@@ -21,6 +21,8 @@ export default function PaymentPage() {
   const [requests, setRequests] = useState<PaymentRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Partial<PaymentRequest>>({})
   const [form, setForm] = useState<PaymentRequest>({
     id: '',
     name: '',
@@ -67,30 +69,37 @@ export default function PaymentPage() {
     setForm((f) => ({ ...f, ...({ [name]: value } as Partial<PaymentRequest>) } as PaymentRequest))
   }
 
+  const handleEditChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target
+    setEditForm((f) => ({ ...f, [name]: value }))
+  }
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       setSubmitting(true)
-      // 시트에 데이터 추가
+      // 시트에 데이터 추가 (통합 CREATE 엔드포인트 사용)
       const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
-      const range = '일정불참결재시트!A2:G2'
-      // range A..G 는 7개 열이므로 values도 7개 전달
+      const sheetName = '일정불참결재시트'
       const row = [
-        generateUniqueId(), // 고유 번호
-        user?.name || '',
-        form.type,
-        shortDate(new Date()), // 신청 날짜
-        form.absentDate,
-        form.schedule,
-        form.reason,
-        '대기',
+        generateUniqueId(), // 고유 번호 (A)
+        user?.name || '',    // 신청자명 (B)
+        form.type,           // 구분 (C)
+        shortDate(new Date()), // 신청일 (D)
+        form.absentDate,     // 불참일 (E)
+        form.schedule,       // 일정 (F)
+        form.reason,         // 사유 (G)
+        '대기',              // 상태 (H)
       ]
-      const res = await fetch('/api/sheets/write', {
+      const query = `INSERT ${JSON.stringify(row)}`
+      const res = await fetch('/api/sheets/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spreadsheet_id: sheetId, range, values: [row], append: true }),
+        body: JSON.stringify({ spreadsheet_id: sheetId, sheet_name: sheetName, query }),
       })
       const result = await res.json()
       if (!res.ok) {
@@ -115,15 +124,16 @@ export default function PaymentPage() {
     if (!window.confirm('정말로 이 신청을 삭제하시겠습니까?')) return
 
     try {
-      // 시트에서 데이터 삭제 (쿼리 기반 삭제 API 사용)
+      // 시트에서 데이터 삭제 (통합 DELETE: spreadsheet_id, sheet_name, query)
       const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
+      const sheetName = '일정불참결재시트'
       const query = `SELECT * WHERE A = '${request.id}'`
       const res = await fetch('/api/sheets/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           spreadsheet_id: sheetId,
-          sheet_name: '일정불참결재시트',
+          sheet_name: sheetName,
           query
         }),
       })
@@ -142,6 +152,63 @@ export default function PaymentPage() {
       } catch { }
     } catch (err) {
       alert('삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleEditStart = (r: PaymentRequest) => {
+    setEditingId(r.id)
+    setEditForm({
+      type: r.type,
+      absentDate: r.absentDate,
+      schedule: r.schedule,
+      reason: r.reason,
+    })
+  }
+
+  const handleEditCancel = () => {
+    setEditingId(null)
+    setEditForm({})
+  }
+
+  const handleUpdate = async (original: PaymentRequest) => {
+    if (!editingId) return
+    try {
+      setSubmitting(true)
+      const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
+      const sheetName = '일정불참결재시트'
+      const updatedRow = [
+        original.id,
+        original.name,
+        editForm.type ?? original.type,
+        original.requestDate || shortDate(new Date()),
+        editForm.absentDate ?? original.absentDate,
+        editForm.schedule ?? original.schedule,
+        editForm.reason ?? original.reason,
+        original.approved || '대기',
+      ]
+      const query = `UPDATE id=${JSON.stringify(original.id)} VALUES ${JSON.stringify(updatedRow)}`
+      const res = await fetch('/api/sheets/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheet_id: sheetId, sheet_name: sheetName, query }),
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        console.error('sheets update failed', result)
+        throw new Error(result?.message || 'Sheets update failed')
+      }
+      // 갱신 후 목록 재조회
+      try {
+        const { fetchFilteredPayments } = await import('@/lib/api/payment')
+        if (user?.name) {
+          const data = await fetchFilteredPayments(user.name)
+          setRequests(data)
+        }
+      } catch { }
+      setEditingId(null)
+      setEditForm({})
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -197,7 +264,7 @@ export default function PaymentPage() {
                   name="schedule"
                   value={form.schedule}
                   onChange={handleChange}
-                  placeholder="불참할 일정을 입력해주세요 (예: 10:00-12:00, 오전 세미나)"
+                  placeholder="예) 청붓 일정 불참"
                   className="border border-gray-300 rounded px-3 py-2"
                 />
               </div>
@@ -210,7 +277,7 @@ export default function PaymentPage() {
                   name="reason"
                   value={form.reason}
                   onChange={handleChange}
-                  placeholder="사유를 직접 작성해주세요"
+                  placeholder="예) 불교대 반담당회의 (20:00-21:30)"
                   rows={4}
                 />
               </div>
@@ -242,24 +309,63 @@ export default function PaymentPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {requests.map((r) => (
-                    <tr key={r.id} className="">
-                      <td className="">{r.type}</td>
-                      <td className="">{r.requestDate || '-'}</td>
-                      <td className="">{r.absentDate}</td>
-                      <td className="">{r.schedule || '-'}</td>
-                      <td className="">{r.reason || '-'}</td>
-                      <td className="">{r.approved || '대기'}</td>
-                      <td className="">
-                        <button
-                          onClick={() => handleDelete(r)}
-                          className="text-sm red"
-                        >
-                          삭제
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {requests.map((r) => {
+                    const isEditing = editingId === r.id
+                    return (
+                      <tr key={r.id} className="">
+                        <td className="">
+                          {isEditing ? (
+                            <select name="type" value={editForm.type ?? r.type} onChange={handleEditChange} className="text-sm">
+                              <option value="정기">정기</option>
+                              <option value="비정기">비정기</option>
+                              <option value="추가요청">추가요청</option>
+                              <option value="사후알림">사후알림</option>
+                              <option value="야근신청">야근신청</option>
+                              <option value="기타">기타</option>
+                            </select>
+                          ) : (
+                            r.type
+                          )}
+                        </td>
+                        <td className="">{r.requestDate || '-'}</td>
+                        <td className="">
+                          {isEditing ? (
+                            <input type="date" name="absentDate" value={editForm.absentDate ?? r.absentDate} onChange={handleEditChange} className="text-sm" />
+                          ) : (
+                            r.absentDate
+                          )}
+                        </td>
+                        <td className="">
+                          {isEditing ? (
+                            <input type="text" name="schedule" value={editForm.schedule ?? r.schedule} onChange={handleEditChange} className="text-sm border border-gray-300 rounded px-2 py-1" />
+                          ) : (
+                            r.schedule || '-'
+                          )}
+                        </td>
+                        <td className="">
+                          {isEditing ? (
+                            <input type="text" name="reason" value={editForm.reason ?? r.reason} onChange={handleEditChange} className="text-sm border border-gray-300 rounded px-2 py-1 w-full" />
+                          ) : (
+                            r.reason || '-'
+                          )}
+                        </td>
+                        <td className="">{r.approved || '대기'}</td>
+                        <td className="flex gap-[0.25rem]">
+                          {isEditing ? (
+                            <>
+                              <button onClick={() => handleUpdate(r)} className="text-sm purple" disabled={submitting}>저장</button>
+                              <button onClick={handleEditCancel} className="text-sm">취소</button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => handleEditStart(r)} className="text-sm purple">수정</button>
+                              <button onClick={() => handleDelete(r)} className="text-sm red">삭제</button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
