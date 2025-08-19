@@ -22,7 +22,6 @@ async fn main() {
 
     // app state
     let app_state = state::AppState::from_env();
-    let _config = config::AppConfig::from_env();
 
     // Validate required secrets in production; fail fast to avoid running with broken security
     if app_state.is_production && app_state.jwt_secret.is_none() {

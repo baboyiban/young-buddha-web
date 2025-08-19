@@ -20,19 +20,20 @@ pub struct AppState {
 
 impl AppState {
     pub fn from_env() -> Arc<Self> {
-        let jwt_secret = std::env::var("JWT_SECRET").ok();
-        let node_env = std::env::var("NODE_ENV").unwrap_or_else(|_| "development".into());
-        let is_production = node_env == "production";
+        // Centralize env parsing in config::AppConfig
+        let cfg = crate::config::AppConfig::from_env();
+        let jwt_secret = cfg.jwt_secret.clone();
+        let is_production = cfg.is_production();
         let db_path = std::env::var("DB_PATH").unwrap_or_else(|_| "./data.db".into());
         let frontend_url = std::env::var("FRONTEND_URL").unwrap_or_else(|_| {
             if is_production {
-                "https://young-buddha.online".into() // 프로덕션 도메인으로 변경 필요
+                "https://young-buddha.online".into()
             } else {
-                "http://localhost:3000".into() // 개발 환경
+                "http://localhost:3000".into()
             }
         });
 
-        // open sqlite and ensure schema exists (drop connection after init)
+        // DB schema initialization responsibility should be moved to db/pool.rs or migration tooling.
         let db = Connection::open(&db_path).expect("failed to open sqlite db");
         db.execute_batch(
             r#"
@@ -46,7 +47,6 @@ impl AppState {
                 reason TEXT
             );
 
-            -- Google OAuth tokens per user (for Sheets API on behalf of the user)
             CREATE TABLE IF NOT EXISTS user_tokens (
                 email TEXT PRIMARY KEY,
                 access_token TEXT NOT NULL,
@@ -56,13 +56,10 @@ impl AppState {
             "#,
         ).expect("failed to create tables");
 
-        // build shared http client
-    let http_client = Client::new();
+        let http_client = Client::new();
+        let redis_client = cfg.redis_url.clone().and_then(|u| redis::Client::open(u).ok());
 
-    // optional redis client (reused across requests if configured)
-    let redis_client = std::env::var("REDIS_URL").ok().and_then(|u| redis::Client::open(u).ok());
-
-    Arc::new(Self { jwt_secret, is_production, db_path, frontend_url, http_client, redis_client })
+        Arc::new(Self { jwt_secret, is_production, db_path, frontend_url, http_client, redis_client })
     }
 }
 
