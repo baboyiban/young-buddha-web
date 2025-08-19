@@ -1,9 +1,21 @@
+// Custom error type for API errors
+class ApiError extends Error {
+  status: number;
+  data: any;
+  constructor(message: string, status: number, data: any) {
+    super(message);
+    this.status = status;
+    this.data = data;
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
 // Generic HTTP client for API calls
 export class HttpClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = '') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl: string = "") {
+    this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
   private async handleResponse<T>(res: Response): Promise<T> {
@@ -13,48 +25,53 @@ export class HttpClient {
     } catch {
       /* ignore */
     }
-    
+
     if (!res.ok) {
-      const error = new Error(
-        body?.message || `API error: ${res.status}`
+      throw new ApiError(
+        body?.message || `API error: ${res.status}`,
+        res.status,
+        body,
       );
-      (error as any).status = res.status;
-      (error as any).data = body;
-      throw error;
     }
-    
-    return body;
+
+    return body as T;
+  }
+
+  private buildUrl(url: string): string {
+    return url.startsWith("/")
+      ? `${this.baseUrl}${url}`
+      : `${this.baseUrl}/${url}`;
   }
 
   async get<T>(url: string): Promise<T> {
-    const res = await fetch(this.baseUrl + url, {
-      method: 'GET',
-      credentials: 'include',
+    const res = await fetch(this.buildUrl(url), {
+      method: "GET",
+      credentials: "include",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
     return this.handleResponse<T>(res);
   }
 
-  async post<T>(url: string, body: any): Promise<T> {
-    const res = await fetch(this.baseUrl + url, {
-      method: 'POST',
-      credentials: 'include',
+  async post<T>(url: string, body: object): Promise<T> {
+    const res = await fetch(this.buildUrl(url), {
+      method: "POST",
+      credentials: "include",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
     });
     return this.handleResponse<T>(res);
   }
 
-  async put<T>(url: string, body: any): Promise<T> {
-    const res = await fetch(this.baseUrl + url, {
-      method: 'PUT',
-      credentials: 'include',
+  async put<T>(url: string, body: object): Promise<T> {
+    const res = await fetch(this.buildUrl(url), {
+      method: "PUT",
+      credentials: "include",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
     });
@@ -62,13 +79,18 @@ export class HttpClient {
   }
 
   async delete<T>(url: string): Promise<T> {
-    const res = await fetch(this.baseUrl + url, {
-      method: 'DELETE',
-      credentials: 'include',
+    const res = await fetch(this.buildUrl(url), {
+      method: "DELETE",
+      credentials: "include",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
     return this.handleResponse<T>(res);
   }
 }
+
+// ApiError 타입을 활용하면 catch에서 아래처럼 타입 체크가 가능합니다:
+// try { ... } catch (error) {
+//   if (error instanceof ApiError) { ... }
+// }

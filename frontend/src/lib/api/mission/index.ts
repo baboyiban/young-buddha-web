@@ -1,5 +1,6 @@
 import { MissionData } from "@/types/mission";
 import { sheetsRead } from "@/lib/api/sheets/client";
+import { SheetsCell, SheetsRow, SheetsData } from "@/types/sheets";
 
 // 상수 정의
 const SHEET_CONFIG = {
@@ -7,88 +8,88 @@ const SHEET_CONFIG = {
   sheetName: "[NEW] 생활소임_2학기",
 } as const;
 
-// 미션 항목 인덱스 정의
 const MISSION_INDICES = {
   date: 0,
   dayOfWeek: 1,
-  morningMeal: [2, 3],
-  morningHelper: [4, 5],
-  morningDishes: [6, 7, 8],
+  morningMeal: [2, 3] as const,
+  morningHelper: [4, 5] as const,
+  morningDishes: [6, 7, 8] as const,
   laundry: {
     wash: 9,
     hang: 10,
     fold: 11,
   },
-  afternoonCushion: [12, 13],
-  eveningMeal: [14, 15, 16],
+  afternoonCushion: [12, 13] as const,
+  eveningMeal: [14, 15, 16] as const,
   eveningCushion: 17,
 } as const;
 
 export async function fetchMissionData(): Promise<MissionData> {
-  try {
-    // 오늘 날짜(YYYY-MM-DD) 기준으로 A열(날짜)에서 해당 행을 조회
-    const todayStr = getLocalDateYmd(new Date());
-    
-    // 1차: 날짜 타입 셀인 경우 (GViz) -> date 'YYYY-MM-DD'
-    let query = `SELECT * WHERE A = date '${todayStr}'`;
-    let data = await sheetsRead(SHEET_CONFIG.spreadsheetId, SHEET_CONFIG.sheetName, query);
-    let rows: any[] = data?.table?.rows || [];
+  const todayStr = getLocalDateYmd(new Date());
 
-    // 2차: 문자열로 저장된 경우 재조회
-    if (rows.length === 0) {
-      query = `SELECT * WHERE A = '${todayStr}'`;
-      data = await sheetsRead(SHEET_CONFIG.spreadsheetId, SHEET_CONFIG.sheetName, query);
-      rows = data?.table?.rows || [];
-    }
+  let query = `SELECT * WHERE A = date '${todayStr}'`;
+  let data = (await sheetsRead(
+    SHEET_CONFIG.spreadsheetId,
+    SHEET_CONFIG.sheetName,
+    query,
+  )) as SheetsData;
+  let rows: SheetsRow[] = data.table?.rows ?? [];
 
-    if (rows.length === 0) {
-      throw new Error("오늘의 미션 데이터를 찾을 수 없습니다.");
-    }
+  if (rows.length === 0) {
+    query = `SELECT * WHERE A = '${todayStr}'`;
+    data = (await sheetsRead(
+      SHEET_CONFIG.spreadsheetId,
+      SHEET_CONFIG.sheetName,
+      query,
+    )) as SheetsData;
+    rows = data.table?.rows ?? [];
+  }
 
-    const first = rows[0];
-    const cells = (first?.c || []) as Array<{ v?: any; f?: string | null }>;
-    const rawData: string[] = cells.map(cellToDisplayString);
-
-    return processMissionData(rawData);
-  } catch (error) {
-    console.error("미션 데이터 조회 실패:", error);
+  if (rows.length === 0) {
+    console.error("오늘의 미션 데이터를 찾을 수 없습니다.", {
+      todayStr,
+      query,
+    });
     throw new Error("미션 데이터를 불러오는데 실패했습니다.");
   }
+
+  const firstRow = rows[0];
+  const cells = firstRow.c ?? [];
+  const rawData: string[] = cells.map(cellToDisplayString);
+
+  return processMissionData(rawData);
 }
 
 function processMissionData(rawData: string[]): MissionData {
-  const cleanData = rawData.map((cell: string) =>
-    cell && cell !== "-" ? cell : ""
-  );
-
   return {
-    date: `${normalizeToKoreanDate(cleanData[MISSION_INDICES.date]) || ""} ${cleanData[MISSION_INDICES.dayOfWeek] || deriveKoreanWeekday(cleanData[MISSION_INDICES.date])}`.trim(),
-    dayOfWeek: cleanData[MISSION_INDICES.dayOfWeek] || deriveKoreanWeekday(cleanData[MISSION_INDICES.date]),
-    morningMeal: getMissionMembers(cleanData, MISSION_INDICES.morningMeal),
-    morningHelper: getMissionMembers(cleanData, MISSION_INDICES.morningHelper),
-    morningDishes: getMissionMembers(cleanData, MISSION_INDICES.morningDishes),
+    date: `${normalizeToKoreanDate(rawData[MISSION_INDICES.date]) || ""} ${rawData[MISSION_INDICES.dayOfWeek] || deriveKoreanWeekday(rawData[MISSION_INDICES.date])}`.trim(),
+    dayOfWeek:
+      rawData[MISSION_INDICES.dayOfWeek] ||
+      deriveKoreanWeekday(rawData[MISSION_INDICES.date]),
+    morningMeal: getMissionMembers(rawData, MISSION_INDICES.morningMeal),
+    morningHelper: getMissionMembers(rawData, MISSION_INDICES.morningHelper),
+    morningDishes: getMissionMembers(rawData, MISSION_INDICES.morningDishes),
     laundry: {
-      wash: cleanData[MISSION_INDICES.laundry.wash] || undefined,
-      hang: cleanData[MISSION_INDICES.laundry.hang] || undefined,
-      fold: cleanData[MISSION_INDICES.laundry.fold] || undefined,
+      wash: rawData[MISSION_INDICES.laundry.wash] || undefined,
+      hang: rawData[MISSION_INDICES.laundry.hang] || undefined,
+      fold: rawData[MISSION_INDICES.laundry.fold] || undefined,
     },
     afternoonCushion: getMissionMembers(
-      cleanData,
-      MISSION_INDICES.afternoonCushion
+      rawData,
+      MISSION_INDICES.afternoonCushion,
     ),
-    eveningMeal: getMissionMembers(cleanData, MISSION_INDICES.eveningMeal),
-    eveningCushion: cleanData[MISSION_INDICES.eveningCushion] || undefined,
+    eveningMeal: getMissionMembers(rawData, MISSION_INDICES.eveningMeal),
+    eveningCushion: rawData[MISSION_INDICES.eveningCushion] || undefined,
   };
 }
 
 function getMissionMembers(
   items: string[],
-  indices: readonly number[]
+  indices: readonly number[],
 ): string[] {
   return indices.map((index) => items[index]).filter(Boolean);
 }
 
-// 로컬 타임존 기준 YYYY-MM-DD
 function getLocalDateYmd(d: Date = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -96,82 +97,68 @@ function getLocalDateYmd(d: Date = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-// GViz 셀을 사람이 읽기 쉬운 문자열로 변환
-function cellToDisplayString(cell?: { v?: any; f?: string | null }): string {
+function cellToDisplayString(cell?: SheetsCell): string {
   if (!cell) return "";
-  // 1) 포맷팅된 값이 있으면 우선 사용 (날짜/시간 등)
   if (cell.f && typeof cell.f === "string" && cell.f.trim().length > 0) {
     return cell.f;
   }
   const v = cell.v;
-  if (v === null || v === undefined) return "";
-  // 2) Date(yyyy,mm,dd[,hh,MM,ss]) 형태 문자열 처리
+  if (v === null || v === undefined || v === "-") return "";
   if (typeof v === "string") {
     const m = v.match(/^Date\((\d+),(\d+),(\d+)(?:,[^)]*)?\)$/);
     if (m) {
       const yyyy = parseInt(m[1], 10);
-      const mm0 = parseInt(m[2], 10); // 0-based month
-      const dd = parseInt(m[3], 10);
-      const mm = String(mm0 + 1).padStart(2, "0");
-      const day = String(dd).padStart(2, "0");
-      return `${yyyy}-${mm}-${day}`;
+      const mm = String(parseInt(m[2], 10) + 1).padStart(2, "0");
+      const dd = String(parseInt(m[3], 10)).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
     }
     return v;
   }
-  // 3) 숫자/불리언 등 일반 값 문자열화
   return String(v);
 }
 
-// YYYY-MM-DD 또는 Date(...) 또는 기타를 받아 "YYYY년 M월 D일"로 변환
 function normalizeToKoreanDate(s?: string): string {
-  if (!s) return ''
-  // 이미 한글 포맷이면 그대로 반환
-  if (/^\d{4}년\s*\d{1,2}월/.test(s)) return s
-
-  // YYYY-MM-DD 형식
-  const m1 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!s) return "";
+  if (/^\d{4}년\s*\d{1,2}월/.test(s)) return s;
+  const m1 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (m1) {
-    const yyyy = m1[1]
-    const mm = String(parseInt(m1[2], 10))
-    const dd = String(parseInt(m1[3], 10))
-    return `${yyyy}년 ${mm}월 ${dd}일`
+    const yyyy = m1[1];
+    const mm = String(parseInt(m1[2], 10));
+    const dd = String(parseInt(m1[3], 10));
+    return `${yyyy}년 ${mm}월 ${dd}일`;
   }
-
-  // Date(yyyy,mm,dd) 형태
-  const m2 = s.match(/^Date\((\d+),(\d+),(\d+)(?:,[^)]*)?\)$/)
+  const m2 = s.match(/^Date\((\d+),(\d+),(\d+)(?:,[^)]*)?\)$/);
   if (m2) {
-    const yyyy = m2[1]
-    const mm = String(parseInt(m2[2], 10) + 1)
-    const dd = String(parseInt(m2[3], 10))
-    return `${yyyy}년 ${mm}월 ${dd}일`
+    const yyyy = m2[1];
+    const mm = String(parseInt(m2[2], 10) + 1);
+    const dd = String(parseInt(m2[3], 10));
+    return `${yyyy}년 ${mm}월 ${dd}일`;
   }
-
-  // fallback: try Date.parse
-  const parsed = Date.parse(s)
+  const parsed = Date.parse(s);
   if (!isNaN(parsed)) {
-    const dt = new Date(parsed)
-    return dt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+    const dt = new Date(parsed);
+    return dt.toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   }
-
-  return s
+  return s;
 }
 
-// 문자열 날짜에서 한국어 요일(예: 화요일)을 유도
 function deriveKoreanWeekday(dateStr?: string): string {
-  if (!dateStr) return ''
-  // try normalized YYYY-MM-DD
-  let iso = null as string | null
-  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!dateStr) return "";
+  let iso: string | null = null;
+  const m = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (m) {
-    const yyyy = Number(m[1])
-    const mm = Number(m[2])
-    const dd = Number(m[3])
-    iso = new Date(yyyy, mm - 1, dd).toISOString()
+    const yyyy = Number(m[1]);
+    const mm = Number(m[2]);
+    const dd = Number(m[3]);
+    iso = new Date(yyyy, mm - 1, dd).toISOString();
   } else {
-    const parsed = Date.parse(dateStr)
-    if (!isNaN(parsed)) iso = new Date(parsed).toISOString()
+    const parsed = Date.parse(dateStr);
+    if (!isNaN(parsed)) iso = new Date(parsed).toISOString();
   }
-  if (!iso) return ''
-  const wd = new Date(iso).toLocaleDateString('ko-KR', { weekday: 'long' })
-  return wd
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("ko-KR", { weekday: "long" });
 }
