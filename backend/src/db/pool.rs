@@ -20,3 +20,37 @@ where
     .await
     .expect("spawn join")
 }
+
+/// Initialize DB schema synchronously. Intended to be called at startup.
+pub fn initialize_db_sync(path: &str) -> rusqlite::Result<()> {
+    let conn = open_sqlite_conn(path)?;
+    conn.execute_batch(
+        r#"
+        CREATE TABLE IF NOT EXISTS database_request (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            request_date TEXT NOT NULL,
+            absent_date TEXT,
+            partial_schedule TEXT,
+            reason TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS user_tokens (
+            email TEXT PRIMARY KEY,
+            access_token TEXT NOT NULL,
+            refresh_token TEXT,
+            expires_at INTEGER NOT NULL
+        );
+        "#,
+    )?;
+    Ok(())
+}
+
+/// Async wrapper around `initialize_db_sync` using spawn_blocking.
+pub async fn initialize_db(path: &str) -> rusqlite::Result<()> {
+    let path = path.to_string();
+    tokio::task::spawn_blocking(move || initialize_db_sync(&path))
+        .await
+        .expect("spawn join")
+}

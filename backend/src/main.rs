@@ -5,6 +5,7 @@ mod state;
 mod types;
 mod config;
 mod api;
+mod db;
 
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -29,6 +30,17 @@ async fn main() {
         std::process::exit(1);
     } else if app_state.jwt_secret.is_none() {
         tracing::warn!("JWT_SECRET is not set — auth endpoints will not work (acceptable for local development)");
+    }
+
+    // initialize global redis client if present in app state (avoid per-request Client::open)
+    if let Some(rc) = &app_state.redis_client {
+        crate::auth::redis_cache::init_global_redis(rc.clone());
+        tracing::info!("Initialized global Redis client from REDIS_URL");
+    }
+    // initialize DB schema asynchronously at startup (migrations should be used in prod)
+    if let Err(e) = crate::db::pool::initialize_db(&app_state.db_path).await {
+        tracing::error!(error = %e, "failed to initialize database");
+        std::process::exit(1);
     }
 
     // initialize global redis client if present in app state (avoid per-request Client::open)
