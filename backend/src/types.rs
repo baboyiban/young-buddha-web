@@ -2,7 +2,6 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
-use rusqlite::Connection;
 use reqwest::Client;
 use redis;
 
@@ -33,28 +32,7 @@ impl AppState {
             }
         });
 
-        // DB schema initialization responsibility should be moved to db/pool.rs or migration tooling.
-        let db = Connection::open(&db_path).expect("failed to open sqlite db");
-        db.execute_batch(
-            r#"
-            CREATE TABLE IF NOT EXISTS database_request (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                request_date TEXT NOT NULL,
-                absent_date TEXT,
-                partial_schedule TEXT,
-                reason TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS user_tokens (
-                email TEXT PRIMARY KEY,
-                access_token TEXT NOT NULL,
-                refresh_token TEXT,
-                expires_at INTEGER NOT NULL
-            );
-            "#,
-        ).expect("failed to create tables");
+    // DB initialization is moved to startup path (main.rs) to avoid blocking in from_env
 
         let http_client = Client::new();
         let redis_client = cfg.redis_url.clone().and_then(|u| redis::Client::open(u).ok());

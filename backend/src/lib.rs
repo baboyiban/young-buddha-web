@@ -4,6 +4,7 @@ pub mod auth;
 pub mod auth_tokens;
 pub mod state;
 pub mod config;
+pub mod db;
 
 // Re-export commonly used items for integration tests
 pub use routes::*;
