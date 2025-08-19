@@ -1,7 +1,7 @@
 use axum::{Router, routing::{get, post}, response::IntoResponse, Json, extract::State};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use crate::state::AppState;
+use crate::types::{CreateRequest, DatabaseRow};
 use rusqlite::Connection;
 use std::sync::Arc;
 
@@ -11,28 +11,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/database", get(list))
 }
 
-#[derive(Debug, Deserialize)]
-struct CreateRequest {
-    name: String,
-    #[serde(rename = "type")]
-    kind: String,
-    request_date: String,
-    absent_date: Option<String>,
-    partial_schedule: Option<String>,
-    reason: Option<String>,
-}
 
-#[derive(Debug, Serialize)]
-struct DatabaseRow {
-    id: i64,
-    name: String,
-    #[serde(rename = "type")]
-    kind: String,
-    request_date: String,
-    absent_date: Option<String>,
-    partial_schedule: Option<String>,
-    reason: Option<String>,
-}
 
 async fn create(State(state): State<Arc<AppState>>, Json(body): Json<CreateRequest>) -> impl IntoResponse {
     let sql = "INSERT INTO database_request (name, type, request_date, absent_date, partial_schedule, reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6)";

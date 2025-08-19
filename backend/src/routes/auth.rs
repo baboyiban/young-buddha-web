@@ -1,7 +1,7 @@
 use axum::{Router, routing::{get, post, delete}, response::{IntoResponse, Response}, Json, extract::State};
-use serde::{Deserialize};
 use serde_json::json;
 use crate::state::AppState;
+use crate::types::{CallbackQuery, TokenResponse, GoogleUserInfo, JwtClaims, AuthClaims};
 use std::sync::Arc;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use redis::AsyncCommands;
@@ -57,36 +57,7 @@ fn verify_oauth_state(state: &str) -> bool {
     false
 }
 
-#[derive(Deserialize)]
-struct CallbackQuery {
-    code: Option<String>,
-    state: Option<String>,
-}
 
-#[derive(Deserialize)]
-struct TokenResponse {
-    access_token: String,
-    #[allow(dead_code)]
-    token_type: Option<String>,
-    expires_in: Option<i64>,
-    refresh_token: Option<String>,
-    #[allow(dead_code)]
-    id_token: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct GoogleUserInfo {
-    email: Option<String>,
-    name: Option<String>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct JwtClaims {
-    name: String,
-    email: String,
-    role: String,
-    exp: i64,
-}
 
 async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<CallbackQuery>, headers: axum::http::HeaderMap) -> Response {
     tracing::info!("OAuth callback received: code={:?}, state={:?}", q.code.is_some(), q.state);
@@ -311,16 +282,7 @@ async fn google_auth_get(State(_state): State<Arc<AppState>>) -> Response {
     ).into_response()
 }
 
-#[derive(Debug, Deserialize)]
-struct Claims {
-    #[allow(dead_code)] sub: Option<String>,
-    name: Option<String>,
-    email: Option<String>,
-    role: Option<String>,
-    #[allow(dead_code)] exp: Option<i64>,
-    #[allow(dead_code)] access_token: Option<String>,
-    #[allow(dead_code)] refresh_token: Option<String>,
-}
+
 
 async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) -> impl IntoResponse {
     let Some(secret) = state.jwt_secret.as_deref() else {
@@ -368,7 +330,7 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
         }
     }
 
-    match decode::<Claims>(
+    match decode::<AuthClaims>(
         &token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::new(Algorithm::HS256),
