@@ -84,8 +84,7 @@ export default function PaymentPage() {
     try {
       setSubmitting(true)
       // 시트에 데이터 추가 (통합 CREATE 엔드포인트 사용)
-      const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
-      const sheetName = '일정불참결재시트'
+      const { spreadsheetId: sheetId, sheetName } = (await import('@/lib/constants/sheets')).PAYMENT_SHEET
       const row = [
         generateUniqueId(), // 고유 번호 (A)
         user?.name || '',    // 신청자명 (B)
@@ -97,17 +96,8 @@ export default function PaymentPage() {
         '대기',              // 상태 (H)
       ]
       const query = `INSERT ${JSON.stringify(row)}`
-      const res = await fetch('/api/sheets/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ spreadsheet_id: sheetId, sheet_name: sheetName, query }),
-      })
-      const result = await res.json()
-      if (!res.ok) {
-        console.error('sheets write failed', res.status, result)
-        throw new Error(result?.message || 'Sheets write failed')
-      }
+      const { sheetsCreate } = await import('@/lib/api/sheetsClient')
+      const result = await sheetsCreate(sheetId, sheetName, query)
       // 성공 시 최신 목록 재조회
       try {
         const { fetchFilteredPayments } = await import('@/lib/api/payment')
@@ -132,25 +122,10 @@ export default function PaymentPage() {
       setDeletingId(request.id) // 삭제 시작
 
       // 시트에서 데이터 삭제 (통합 DELETE: spreadsheet_id, sheet_name, query)
-      const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
-      const sheetName = '일정불참결재시트'
-      const query = `SELECT * WHERE A = '${request.id}'`
-      const res = await fetch('/api/sheets/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          spreadsheet_id: sheetId,
-          sheet_name: sheetName,
-          query
-        }),
-      })
-      let result: any
-      try { result = await res.json() } catch { result = undefined }
-      if (!res.ok) {
-        console.error('sheets delete failed', res.status, result)
-        throw new Error(result?.message || 'Sheets delete failed')
-      }
+      const { PAYMENT_SHEET } = await import('@/lib/constants/sheets')
+      const { sheetsDelete, escapeSheetString } = await import('@/lib/api/sheetsClient')
+      const query = `SELECT * WHERE A = '${escapeSheetString(request.id)}'`
+      await sheetsDelete(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query)
       // 삭제 후 목록 갱신
       try {
         const { fetchFilteredPayments } = await import('@/lib/api/payment')
@@ -185,8 +160,7 @@ export default function PaymentPage() {
     if (!editingId) return
     try {
       setUpdating(true)
-      const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
-      const sheetName = '일정불참결재시트'
+      const { PAYMENT_SHEET } = await import('@/lib/constants/sheets')
       const updatedRow = [
         original.id,
         original.name,
@@ -197,18 +171,9 @@ export default function PaymentPage() {
         editForm.reason ?? original.reason,
         original.approved || '대기',
       ]
+      const { sheetsUpdate } = await import('@/lib/api/sheetsClient')
       const query = `UPDATE id=${JSON.stringify(original.id)} VALUES ${JSON.stringify(updatedRow)}`
-      const res = await fetch('/api/sheets/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ spreadsheet_id: sheetId, sheet_name: sheetName, query }),
-      })
-      const result = await res.json()
-      if (!res.ok) {
-        console.error('sheets update failed', res.status, result)
-        throw new Error(result?.message || 'Sheets update failed')
-      }
+      await sheetsUpdate(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query)
       // 갱신 후 목록 재조회
       try {
         const { fetchFilteredPayments } = await import('@/lib/api/payment')

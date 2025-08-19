@@ -70,7 +70,7 @@ export class AuthService {
     return data.auth_url;
   }
 
-  async logout(): Promise<void> {
+  async logout(shouldRedirect = true): Promise<void> {
     try {
       await fetch(`${this.baseUrl}/api/auth/logout`, {
         method: "DELETE",
@@ -81,7 +81,9 @@ export class AuthService {
     }
 
     this.clearAuthData();
-    window.location.href = "/login";
+    if (shouldRedirect && typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
   }
 
   clearAuthData(): void {
