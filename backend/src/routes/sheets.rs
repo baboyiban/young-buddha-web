@@ -15,12 +15,9 @@ use rusqlite::OptionalExtension;
 // Public router (OAuth only)
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
-        // Deprecated: "/sheets/query" -> New preferred: "/sheets/read"
-        .route("/sheets/query", get(query_sheet))
         .route("/sheets/read", get(query_sheet))
-    // CRUD with unified parameters: spreadsheet_id, sheet_name, query
-    .route("/sheets/create", post(create_with_query))
-    .route("/sheets/update", post(update_with_query))
+        .route("/sheets/create", post(create_with_query))
+        .route("/sheets/update", post(update_with_query))
         .route("/sheets/delete", post(delete_by_query))
 }
 // Visualization API Query Language 기반 쿼리 핸들러
