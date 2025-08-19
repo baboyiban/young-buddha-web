@@ -99,11 +99,12 @@ export default function PaymentPage() {
       const res = await fetch('/api/sheets/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ spreadsheet_id: sheetId, sheet_name: sheetName, query }),
       })
       const result = await res.json()
       if (!res.ok) {
-        console.error('sheets write failed', result)
+        console.error('sheets write failed', res.status, result)
         throw new Error(result?.message || 'Sheets write failed')
       }
       // 성공 시 최신 목록 재조회
@@ -131,15 +132,17 @@ export default function PaymentPage() {
       const res = await fetch('/api/sheets/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           spreadsheet_id: sheetId,
           sheet_name: sheetName,
           query
         }),
       })
-      const result = await res.json()
+      let result: any
+      try { result = await res.json() } catch { result = undefined }
       if (!res.ok) {
-        console.error('sheets delete failed', result)
+        console.error('sheets delete failed', res.status, result)
         throw new Error(result?.message || 'Sheets delete failed')
       }
       // 삭제 후 목록 갱신
@@ -190,11 +193,12 @@ export default function PaymentPage() {
       const res = await fetch('/api/sheets/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ spreadsheet_id: sheetId, sheet_name: sheetName, query }),
       })
       const result = await res.json()
       if (!res.ok) {
-        console.error('sheets update failed', result)
+        console.error('sheets update failed', res.status, result)
         throw new Error(result?.message || 'Sheets update failed')
       }
       // 갱신 후 목록 재조회
