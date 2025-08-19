@@ -8,9 +8,8 @@ use axum::{
 use serde_json::{json, Value};
 use std::sync::Arc;
 use crate::state::AppState;
-use crate::types::{QueryParams, CommonParams, GoogleRefreshResponse, SheetsClaims, ApiError};
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
-use rusqlite::OptionalExtension;
+use crate::types::{QueryParams, CommonParams, ApiError};
+use crate::auth_tokens::{HTTP_CLIENT, authenticate_and_get_token};
 
 // Public router (OAuth only)
 pub fn router() -> Router<Arc<AppState>> {
@@ -34,7 +33,7 @@ async fn query_sheet(
         Err(err) => return err.into_response(),
     };
 
-    let client = reqwest::Client::new();
+    let client = &*HTTP_CLIENT;
 
     // 2. Visualization API 쿼리 실행
     let url = format!(
@@ -56,11 +55,11 @@ async fn query_sheet(
                     format!("시트 쿼리 실패: {}", status)).into_response();
             }
             
-            let text = r.text().await.unwrap_or_default();
-            match parse_gviz_json(&text) {
-                Ok(v) => (StatusCode::OK, Json(v)).into_response(),
-                Err(e) => ApiError::bad_gateway("PARSE_FAILED", e).into_response(),
-            }
+                    let text = r.text().await.unwrap_or_default();
+                    match parse_gviz_json(&text) {
+                        Ok(v) => (StatusCode::OK, Json(v)).into_response(),
+                        Err(e) => e.into_response(),
+                    }
         }
         Err(err) => err.into_response(),
     }
@@ -79,7 +78,7 @@ async fn delete_by_query(
         Err(err) => return err.into_response(),
     };
 
-    let client = reqwest::Client::new();
+    let client = &*HTTP_CLIENT;
 
     // 2. 전체 시트 데이터 조회
     let rows_all = match fetch_all_sheet_data(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
@@ -185,7 +184,7 @@ async fn create_with_query(
         Err(err) => return err.into_response(),
     };
 
-    let client = reqwest::Client::new();
+    let client = &*HTTP_CLIENT;
 
     // 2. INSERT 쿼리 파싱
     let q = params.query.trim();
@@ -245,7 +244,7 @@ async fn update_with_query(
         Err(err) => return err.into_response(),
     };
 
-    let client = reqwest::Client::new();
+    let client = &*HTTP_CLIENT;
 
     // 2. UPDATE 쿼리 파싱
     let (target_id, values_vec) = match parse_update_query(&params.query) {
@@ -443,20 +442,7 @@ async fn sheets_api_delete_row_with_token(
 // ======== Helpers ========
 
 // 공통 인증 및 토큰 검증
-async fn authenticate_and_get_token(
-    headers: &HeaderMap,
-    state: &AppState,
-) -> Result<(String, String), ApiError> {
-    let client = reqwest::Client::new();
-    
-    let email = get_email_from_jwt_cookie(headers, state.jwt_secret.as_deref())
-        .ok_or_else(|| ApiError::unauthorized("로그인이 필요합니다."))?;
-    
-    let user_token = get_valid_user_token(&client, &state.db_path, &email).await
-        .ok_or_else(|| ApiError::unauthorized("유효한 Google 액세스 토큰이 없습니다."))?;
-    
-    Ok((email, user_token))
-}
+// authenticate_and_get_token moved to `auth_tokens.rs`
 
 // 시트 전체 데이터 조회 (Sheets API v4 사용)
 async fn fetch_all_sheet_data_v4(
@@ -523,8 +509,7 @@ async fn fetch_all_sheet_data(
     }
     
     let text = resp.text().await.unwrap_or_default();
-    let parsed = parse_gviz_json(&text)
-        .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
+    let parsed = parse_gviz_json(&text)?;
     
     Ok(parsed.get("table")
         .and_then(|t| t.get("rows"))
@@ -602,189 +587,12 @@ fn get_row_id(row: &Value) -> Option<String> {
 }
 
 // GViz(JSONP) 응답 텍스트에서 JSON 객체만 추출하여 파싱
-fn parse_gviz_json(text: &str) -> Result<Value, String> {
-    let json_start = text.find('{').ok_or_else(|| "GViz 응답에서 JSON 시작 위치를 찾지 못했습니다.".to_string())?;
-    let json_end = text.rfind('}').ok_or_else(|| "GViz 응답에서 JSON 종료 위치를 찾지 못했습니다.".to_string())?;
+fn parse_gviz_json(text: &str) -> Result<Value, ApiError> {
+    let json_start = text.find('{').ok_or_else(|| ApiError::bad_gateway("PARSE_FAILED", "GViz 응답에서 JSON 시작 위치를 찾지 못했습니다."))?;
+    let json_end = text.rfind('}').ok_or_else(|| ApiError::bad_gateway("PARSE_FAILED", "GViz 응답에서 JSON 종료 위치를 찾지 못했습니다."))?;
     if json_end < json_start {
-        return Err("GViz 응답의 JSON 범위가 올바르지 않습니다.".to_string());
+        return Err(ApiError::bad_gateway("PARSE_FAILED", "GViz 응답의 JSON 범위가 올바르지 않습니다."));
     }
     let json_str = &text[json_start..=json_end];
-    serde_json::from_str::<Value>(json_str).map_err(|e| format!("JSON 파싱 실패: {}", e))
-}
-
-// ======== JWT 및 토큰 관리 ========
-
-// JWT 쿠키에서 이메일 추출
-fn get_email_from_jwt_cookie(headers: &HeaderMap, jwt_secret: Option<&str>) -> Option<String> {
-    let jwt_secret = jwt_secret?;
-    let cookie_header = headers.get("cookie")?;
-    let cookie_str = cookie_header.to_str().ok()?;
-    
-    // 쿠키에서 jwt 값 찾기
-    let jwt_token = cookie_str
-        .split(';')
-        .find_map(|part| {
-            let trimmed = part.trim();
-            if let Some((key, value)) = trimmed.split_once('=') {
-                if key == "jwt" {
-                    Some(value.to_string())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })?;
-
-    // JWT 디코딩
-
-    match decode::<SheetsClaims>(
-        &jwt_token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
-        &Validation::new(Algorithm::HS256),
-    ) {
-        Ok(token_data) => {
-            tracing::debug!("JWT validation successful in sheets");
-            token_data.claims.email
-        }
-        Err(err) => {
-            match err.kind() {
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("JWT token expired in sheets API");
-                }
-                _ => {
-                    tracing::warn!("JWT validation failed in sheets API: {:?}", err.kind());
-                }
-            }
-            None
-        }
-    }
-}
-
-// 만료 시 자동 refresh하여 유효 access_token 반환
-async fn get_valid_user_token(
-    client: &reqwest::Client,
-    db_path: &str,
-    email: &str,
-) -> Option<String> {
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    // 1) DB에서 access_token, expires_at 읽기 (blocking)
-    let row: Option<(String, i64)> = tokio::task::spawn_blocking({
-        let db_path = db_path.to_string();
-        let email = email.to_string();
-        move || -> Option<(String, i64)> {
-            let db = rusqlite::Connection::open(&db_path).ok()?;
-            let mut stmt = db
-                .prepare("SELECT access_token, expires_at FROM user_tokens WHERE email = ?1")
-                .ok()?;
-            let mut rows = stmt.query(rusqlite::params![email]).ok()?;
-            if let Some(row) = rows.next().ok().flatten() {
-                let access_token: String = row.get(0).ok()?;
-                let expires_at: i64 = row.get(1).ok()?;
-                Some((access_token, expires_at))
-            } else {
-                None
-            }
-        }
-    })
-    .await
-    .ok()
-    .flatten();
-
-    if let Some((access_token, expires_at)) = row {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .ok()?
-            .as_secs() as i64;
-        if expires_at > now + 30 {
-            return Some(access_token);
-        }
-    }
-
-    // 2) 만료: refresh 시도
-    refresh_user_access_token(client, db_path, email).await
-}
-
-// refresh_token으로 access_token 재발급
-async fn refresh_user_access_token(
-    client: &reqwest::Client,
-    db_path: &str,
-    email: &str,
-) -> Option<String> {
-    use time::OffsetDateTime;
-
-    // 2-1) DB에서 refresh_token 읽기 (blocking)
-    let refresh_token: Option<String> = tokio::task::spawn_blocking({
-        let db_path = db_path.to_string();
-        let email = email.to_string();
-        move || -> Option<String> {
-            let db = rusqlite::Connection::open(&db_path).ok()?;
-            let mut stmt = db
-                .prepare("SELECT refresh_token FROM user_tokens WHERE email = ?1")
-                .ok()?;
-            // optional()은 Row 없음도 None으로 바꿔줍니다.
-            stmt.query_row(rusqlite::params![email], |row| row.get::<_, Option<String>>(0))
-                .optional()  // Result<Option<String>> -> Result<Option<Option<String>>>
-                .ok()?       // Result -> Option
-                .flatten()   // Option<Option<String>> -> Option<String>
-        }
-    })
-    .await
-    .ok()
-    .flatten();
-
-    let refresh_token = refresh_token?;
-
-    // 2-2) 구글 토큰 엔드포인트로 refresh 요청 (async)
-    let client_id = std::env::var("GOOGLE_CLIENT_ID").ok()?;
-    let client_secret = std::env::var("GOOGLE_CLIENT_SECRET").ok()?;
-    let form = [
-        ("grant_type", "refresh_token"),
-        ("client_id", client_id.as_str()),
-        ("client_secret", client_secret.as_str()),
-        ("refresh_token", refresh_token.as_str()),
-    ];
-
-    let resp = client
-        .post("https://oauth2.googleapis.com/token")
-        .form(&form)
-        .send()
-        .await
-        .ok()?;
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        tracing::warn!(target="auth", %status, body = %body, email = %email, "Google refresh_token request failed");
-        return None;
-    }
-    let gr: GoogleRefreshResponse = resp.json().await.ok()?;
-
-    let new_access = gr.access_token.clone();
-    let expires_in = gr.expires_in.unwrap_or(3600);
-    let new_expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
-
-    // 2-3) DB에 새 access_token(+Optional 새 refresh_token) 저장 (blocking)
-    let _ = tokio::task::spawn_blocking({
-        let db_path = db_path.to_string();
-        let email = email.to_string();
-        let new_access2 = new_access.clone();
-        let new_expires_at2 = new_expires_at;
-        let new_rt = gr.refresh_token.clone();
-        move || {
-            if let Ok(db) = rusqlite::Connection::open(&db_path) {
-                let _ = db.execute(
-                    "UPDATE user_tokens
-                     SET access_token = ?1,
-                         expires_at   = ?2,
-                         refresh_token = COALESCE(?3, refresh_token)
-                     WHERE email = ?4",
-                    rusqlite::params![new_access2, new_expires_at2, new_rt, email],
-                );
-            }
-        }
-    })
-    .await;
-
-    Some(new_access)
+    serde_json::from_str::<Value>(json_str).map_err(|e| ApiError::bad_gateway("PARSE_FAILED", format!("JSON 파싱 실패: {}", e)))
 }
