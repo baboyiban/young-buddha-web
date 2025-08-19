@@ -1,4 +1,5 @@
 mod routes;
+mod auth;
 mod auth_tokens;
 mod state;
 mod types;
