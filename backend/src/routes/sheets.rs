@@ -15,7 +15,9 @@ use rusqlite::OptionalExtension;
 // Public router (OAuth only)
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
+        // Deprecated: "/sheets/query" -> New preferred: "/sheets/read"
         .route("/sheets/query", get(query_sheet))
+        .route("/sheets/read", get(query_sheet))
     // CRUD with unified parameters: spreadsheet_id, sheet_name, query
     .route("/sheets/create", post(create_with_query))
     .route("/sheets/update", post(update_with_query))
@@ -26,6 +28,8 @@ pub fn router() -> Router<Arc<AppState>> {
 struct QueryParams {
     spreadsheet_id: String,
     sheet_name: String,
+    // allow alias "read" for backward/forward compatibility when renaming
+    #[serde(alias = "read")]
     query: String,
 }
 
@@ -70,16 +74,11 @@ async fn query_sheet(
                 ).into_response();
             }
             let text = r.text().await.unwrap_or_default();
-            // Visualization API는 JSONP 형식으로 반환하므로 파싱 필요
-            let json_start = text.find('{').unwrap_or(0);
-            let json_end = text.rfind('}').unwrap_or(text.len()-1);
-            let json_str = &text[json_start..=json_end];
-            let parsed: Result<Value, _> = serde_json::from_str(json_str);
-            match parsed {
+            match parse_gviz_json(&text) {
                 Ok(v) => (StatusCode::OK, Json(v)).into_response(),
                 Err(e) => (
                     StatusCode::BAD_GATEWAY,
-                    Json(json!({ "error": true, "code": "PARSE_FAILED", "message": format!("JSON 파싱 실패: {}", e), "raw": text }))
+                    Json(json!({ "error": true, "code": "PARSE_FAILED", "message": e, "raw": text }))
                 ).into_response(),
             }
         }
@@ -157,14 +156,8 @@ async fn delete_by_query(
                 ).into_response();
             }
             let text = r.text().await.unwrap_or_default();
-            let json_start = text.find('{').unwrap_or(0);
-            let json_end = text.rfind('}').unwrap_or(text.len()-1);
-            let json_str = &text[json_start..=json_end];
-            let parsed: Result<Value, _> = serde_json::from_str(json_str);
-            match parsed {
-                Ok(v) => {
-                    v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default()
-                }
+            match parse_gviz_json(&text) {
+                Ok(v) => v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default(),
                 Err(_) => {
                     return (
                         StatusCode::BAD_GATEWAY,
@@ -198,11 +191,7 @@ async fn delete_by_query(
                 ).into_response();
             }
             let text = r.text().await.unwrap_or_default();
-            let json_start = text.find('{').unwrap_or(0);
-            let json_end = text.rfind('}').unwrap_or(text.len()-1);
-            let json_str = &text[json_start..=json_end];
-            let parsed: Result<Value, _> = serde_json::from_str(json_str);
-            match parsed {
+            match parse_gviz_json(&text) {
                 Ok(v) => v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default(),
                 Err(_) => vec![],
             }
@@ -377,11 +366,7 @@ async fn update_with_query(
                 ).into_response();
             }
             let text = r.text().await.unwrap_or_default();
-            let json_start = text.find('{').unwrap_or(0);
-            let json_end = text.rfind('}').unwrap_or(text.len()-1);
-            let json_str = &text[json_start..=json_end];
-            let parsed: Result<Value, _> = serde_json::from_str(json_str);
-            match parsed {
+            match parse_gviz_json(&text) {
                 Ok(v) => {
                     let rows = v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default();
                     if rows.is_empty() {
@@ -434,11 +419,7 @@ async fn update_with_query(
                 ).into_response();
             }
             let text = r.text().await.unwrap_or_default();
-            let json_start = text.find('{').unwrap_or(0);
-            let json_end = text.rfind('}').unwrap_or(text.len()-1);
-            let json_str = &text[json_start..=json_end];
-            let parsed: Result<Value, _> = serde_json::from_str(json_str);
-            match parsed {
+            match parse_gviz_json(&text) {
                 Ok(v) => {
                     let rows = v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default();
                     let mut target_row_index: Option<usize> = None;
@@ -575,6 +556,19 @@ async fn sheets_api_append_with_token(
     }
 
     Ok(())
+}
+
+// ======== Helpers ========
+
+// GViz(JSONP) 응답 텍스트에서 JSON 객체만 추출하여 파싱
+fn parse_gviz_json(text: &str) -> Result<Value, String> {
+    let json_start = text.find('{').ok_or_else(|| "GViz 응답에서 JSON 시작 위치를 찾지 못했습니다.".to_string())?;
+    let json_end = text.rfind('}').ok_or_else(|| "GViz 응답에서 JSON 종료 위치를 찾지 못했습니다.".to_string())?;
+    if json_end < json_start {
+        return Err("GViz 응답의 JSON 범위가 올바르지 않습니다.".to_string());
+    }
+    let json_str = &text[json_start..=json_end];
+    serde_json::from_str::<Value>(json_str).map_err(|e| format!("JSON 파싱 실패: {}", e))
 }
 
 // ======== JWT 및 토큰 관리 ========
