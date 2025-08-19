@@ -4,8 +4,6 @@ use crate::state::AppState;
 use crate::types::{CallbackQuery, TokenResponse, GoogleUserInfo, JwtClaims, AuthClaims};
 use std::sync::Arc;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
-use redis::Commands;
-use sha2::{Digest, Sha256};
 use rand::{distributions::Alphanumeric, Rng};
 use axum::http::{HeaderMap, HeaderValue, header::SET_COOKIE};
 use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
@@ -299,40 +297,21 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
         );
     };
 
-    // Try Redis cache first (use blocking redis API inside spawn_blocking to avoid async API mismatch)
-    if let Ok(redis_url) = std::env::var("REDIS_URL") {
-        if let Ok(client) = redis::Client::open(redis_url) {
-            let token_clone = token.clone();
-            let client_move = client.clone();
-            match tokio::task::spawn_blocking(move || -> Result<Option<String>, redis::RedisError> {
-                let mut conn = client_move.get_connection()?;
-                let mut hasher = Sha256::new();
-                hasher.update(token_clone.as_bytes());
-                let key = format!("auth:jwt:{}", hex::encode(hasher.finalize()));
-                let val: Option<String> = conn.get(key)?;
-                Ok(val)
-            }).await
-            {
-                Ok(Ok(Some(cached))) => {
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&cached) {
-                        if v.get("valid").and_then(|b| b.as_bool()).unwrap_or(false) {
-                            let name = v.get("name").and_then(|s| s.as_str()).unwrap_or_default().to_string();
-                            let email = v.get("email").and_then(|s| s.as_str()).unwrap_or_default().to_string();
-                            let role = v.get("role").and_then(|s| s.as_str()).unwrap_or_default().to_string();
-                            return (
-                                axum::http::StatusCode::OK,
-                                Json(json!({"name":name,"email":email,"role":role})),
-                            );
-                        } else {
-                            return (
-                                axum::http::StatusCode::UNAUTHORIZED,
-                                Json(json!({"error":true,"message":"Invalid token (cached)","code":"INVALID_TOKEN"})),
-                            );
-                        }
-                    }
-                }
-                _ => {}
-            }
+    // Try Redis cache first (use helper)
+    if let Some(v) = crate::auth::redis_cache::get_cached_jwt(&token).await {
+        if v.get("valid").and_then(|b| b.as_bool()).unwrap_or(false) {
+            let name = v.get("name").and_then(|s| s.as_str()).unwrap_or_default().to_string();
+            let email = v.get("email").and_then(|s| s.as_str()).unwrap_or_default().to_string();
+            let role = v.get("role").and_then(|s| s.as_str()).unwrap_or_default().to_string();
+            return (
+                axum::http::StatusCode::OK,
+                Json(json!({"name":name,"email":email,"role":role})),
+            );
+        } else {
+            return (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(json!({"error":true,"message":"Invalid token (cached)","code":"INVALID_TOKEN"})),
+            );
         }
     }
 
@@ -342,25 +321,12 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
         &Validation::new(Algorithm::HS256),
     ) {
         Ok(data) => {
-            // store positive result in Redis (if configured) using blocking API inside spawn_blocking
-            if let Ok(redis_url) = std::env::var("REDIS_URL") {
-                if let Ok(client) = redis::Client::open(redis_url) {
-                    let token_clone = token.clone();
-                    let client_move = client.clone();
-                    let name = data.claims.name.clone().unwrap_or_default();
-                    let email = data.claims.email.clone().unwrap_or_default();
-                    let role = data.claims.role.clone().unwrap_or_default();
-                    let cached = json!({"valid":true,"name":name,"email":email,"role":role}).to_string();
-                    let _ = tokio::task::spawn_blocking(move || -> Result<(), redis::RedisError> {
-                        let mut conn = client_move.get_connection()?;
-                        let mut hasher = Sha256::new();
-                        hasher.update(token_clone.as_bytes());
-                        let key = format!("auth:jwt:{}", hex::encode(hasher.finalize()));
-                        let _: () = conn.set_ex(key, cached, 1800)?;
-                        Ok(())
-                    }).await;
-                }
-            }
+            // store positive result in Redis (if configured)
+            let name = data.claims.name.clone().unwrap_or_default();
+            let email = data.claims.email.clone().unwrap_or_default();
+            let role = data.claims.role.clone().unwrap_or_default();
+            let cached_obj = json!({"valid":true,"name":name,"email":email,"role":role});
+            let _ = crate::auth::redis_cache::store_valid_jwt(&token, cached_obj).await;
             let now = OffsetDateTime::now_utc().unix_timestamp();
             tracing::info!("JWT validation successful for user: {:?}, current_time={}, token_exp={:?}", 
                 data.claims.email, now, data.claims.exp);
@@ -426,3 +392,5 @@ fn build_clear_cookie(secure: bool) -> String {
         if secure { "; Secure" } else { "" }
     )
 }
+
+// redis helpers moved to `src/auth/redis_cache.rs`
