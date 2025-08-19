@@ -35,9 +35,9 @@ export async function fetchMissionData(): Promise<MissionData> {
     const qs = new URLSearchParams({
       spreadsheet_id: SHEET.spreadsheetId,
       sheet_name: SHEET.sheetName,
-      query,
+      read: query,
     });
-    const response = await fetch(`/api/sheets/query?${qs.toString()}`, {
+    const response = await fetch(`/api/sheets/read?${qs.toString()}`, {
       credentials: "include",
     });
 
@@ -54,9 +54,9 @@ export async function fetchMissionData(): Promise<MissionData> {
       const qs2 = new URLSearchParams({
         spreadsheet_id: SHEET.spreadsheetId,
         sheet_name: SHEET.sheetName,
-        query,
+        read: query,
       });
-      const res2 = await fetch(`/api/sheets/query?${qs2.toString()}`, { credentials: "include" });
+      const res2 = await fetch(`/api/sheets/read?${qs2.toString()}`, { credentials: "include" });
       if (res2.ok) {
         data = await res2.json();
         rows = data?.table?.rows || [];
