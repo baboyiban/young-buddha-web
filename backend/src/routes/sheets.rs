@@ -10,6 +10,7 @@ use std::sync::Arc;
 use crate::state::AppState;
 use crate::types::{QueryParams, CommonParams, ApiError};
 use crate::auth_tokens::{HTTP_CLIENT, authenticate_and_get_token};
+use crate::routes::sheets_parser;
 
 // Public router (OAuth only)
 pub fn router() -> Router<Arc<AppState>> {
@@ -54,12 +55,11 @@ async fn query_sheet(
                 return ApiError::bad_gateway("SHEETS_API_FAILED", 
                     format!("시트 쿼리 실패: {}", status)).into_response();
             }
-            
-                    let text = r.text().await.unwrap_or_default();
-                    match parse_gviz_json(&text) {
-                        Ok(v) => (StatusCode::OK, Json(v)).into_response(),
-                        Err(e) => e.into_response(),
-                    }
+            let text = r.text().await.unwrap_or_default();
+            match sheets_parser::parse_gviz_json(&text) {
+                Ok(v) => (StatusCode::OK, Json(v)).into_response(),
+                Err(e) => e.into_response(),
+            }
         }
         Err(err) => err.into_response(),
     }
