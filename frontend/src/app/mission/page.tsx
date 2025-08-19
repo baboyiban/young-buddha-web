@@ -30,7 +30,7 @@ export default function Mission() {
   if (loading) {
     return (
       <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
-        <LoadingSpinner message="데이터를 불러오는 중..." />
+        <LoadingSpinner />
       </div>
     )
   }
