@@ -3,20 +3,16 @@ use axum::http::HeaderMap;
 use crate::state::AppState;
 use crate::types::ApiError;
 use reqwest;
-use once_cell::sync::Lazy;
 use rusqlite::OptionalExtension;
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
-
-// Reuse a single reqwest client across modules
-pub static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| reqwest::Client::new());
 
 // 공통 인증 및 토큰 검증
 pub async fn authenticate_and_get_token(
     headers: &HeaderMap,
     state: &AppState,
 ) -> Result<(String, String), ApiError> {
-    let client = &*HTTP_CLIENT;
+    let client = &state.http_client;
 
     let email = get_email_from_jwt_cookie(headers, state.jwt_secret.as_deref())
         .ok_or_else(|| ApiError::unauthorized("로그인이 필요합니다."))?;

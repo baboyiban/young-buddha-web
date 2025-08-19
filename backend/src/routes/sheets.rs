@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use crate::state::AppState;
 use crate::types::{QueryParams, CommonParams, ApiError};
-use crate::auth_tokens::{HTTP_CLIENT, authenticate_and_get_token};
+use crate::auth_tokens::authenticate_and_get_token;
 use crate::routes::sheets_client;
 use crate::routes::sheets_parser;
 
@@ -35,7 +35,7 @@ async fn query_sheet(
         Err(err) => return err.into_response(),
     };
 
-    let client = &*HTTP_CLIENT;
+    let client = &state.http_client;
 
     // 2. Visualization API 쿼리 실행
     let url = format!(
@@ -79,7 +79,7 @@ async fn delete_by_query(
         Err(err) => return err.into_response(),
     };
 
-    let client = &*HTTP_CLIENT;
+    let client = &state.http_client;
 
     // 2. 전체 시트 데이터 조회
     let rows_all = match sheets_client::fetch_all_sheet_data(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
@@ -185,7 +185,7 @@ async fn create_with_query(
         Err(err) => return err.into_response(),
     };
 
-    let client = &*HTTP_CLIENT;
+    let client = &state.http_client;
 
     // 2. INSERT 쿼리 파싱
     let q = params.query.trim();
@@ -245,7 +245,7 @@ async fn update_with_query(
         Err(err) => return err.into_response(),
     };
 
-    let client = &*HTTP_CLIENT;
+    let client = &state.http_client;
 
     // 2. UPDATE 쿼리 파싱
     let (target_id, values_vec) = match parse_update_query(&params.query) {
