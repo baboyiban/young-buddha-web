@@ -10,6 +10,7 @@ use std::sync::Arc;
 use crate::state::AppState;
 use crate::types::{QueryParams, CommonParams, ApiError};
 use crate::auth_tokens::{HTTP_CLIENT, authenticate_and_get_token};
+use crate::routes::sheets_client;
 use crate::routes::sheets_parser;
 
 // Public router (OAuth only)
@@ -81,7 +82,7 @@ async fn delete_by_query(
     let client = &*HTTP_CLIENT;
 
     // 2. 전체 시트 데이터 조회
-    let rows_all = match fetch_all_sheet_data(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
+    let rows_all = match sheets_client::fetch_all_sheet_data(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
         Ok(rows) => rows,
         Err(err) => return err.into_response(),
     };
@@ -114,7 +115,7 @@ async fn delete_by_query(
 
     // 5. 실제 행 삭제 (batchUpdate 사용)
     // 시트 ID 조회
-    let sheet_id = match get_sheet_id_by_name(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
+    let sheet_id = match sheets_client::get_sheet_id_by_name(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
         Ok(id) => id,
         Err(err) => {
             tracing::warn!(target="sheets", error = ?err, "Failed to get sheet ID, falling back to clear method");
@@ -127,7 +128,7 @@ async fn delete_by_query(
             let end_col = number_to_column_letters(max_cols as u32);
             let clear_range = format!("{}!A{}:{}{}", params.sheet_name, delete_row_index, end_col, delete_row_index);
             
-            return match sheets_api_write_with_token(&client, &params.spreadsheet_id, &clear_range, &[empty_values], &user_token).await {
+            return match sheets_client::sheets_api_write_with_token(&client, &params.spreadsheet_id, &clear_range, &[empty_values], &user_token).await {
                 Ok(()) => {
                     tracing::info!(target="sheets", id = %target_id, row = delete_row_index, range = %clear_range, "row cleared (fallback method)");
                     (StatusCode::OK, Json(json!({ "success": true, "deleted": 1, "method": "clear" }))).into_response()
@@ -138,7 +139,7 @@ async fn delete_by_query(
     };
 
     // 실제 행 삭제 실행
-    match sheets_api_delete_row_with_token(&client, &params.spreadsheet_id, sheet_id, delete_row_index - 1, &user_token).await {
+    match sheets_client::sheets_api_delete_row_with_token(&client, &params.spreadsheet_id, sheet_id, delete_row_index - 1, &user_token).await {
         Ok(()) => {
             tracing::info!(target="sheets", id = %target_id, row = delete_row_index, sheet_id = sheet_id, "row actually deleted - other rows shifted up");
             (StatusCode::OK, Json(json!({ 
@@ -159,7 +160,7 @@ async fn delete_by_query(
             let end_col = number_to_column_letters(max_cols as u32);
             let clear_range = format!("{}!A{}:{}{}", params.sheet_name, delete_row_index, end_col, delete_row_index);
             
-            match sheets_api_write_with_token(&client, &params.spreadsheet_id, &clear_range, &[empty_values], &user_token).await {
+            match sheets_client::sheets_api_write_with_token(&client, &params.spreadsheet_id, &clear_range, &[empty_values], &user_token).await {
                 Ok(()) => {
                     tracing::info!(target="sheets", id = %target_id, row = delete_row_index, range = %clear_range, "row cleared (fallback after delete failed)");
                     (StatusCode::OK, Json(json!({ "success": true, "deleted": 1, "method": "clear_fallback" }))).into_response()
@@ -201,7 +202,7 @@ async fn create_with_query(
 
     // 3. 시트에 데이터 추가
     let range = format!("{}!A:Z", params.sheet_name);
-    match sheets_api_append_with_token(&client, &params.spreadsheet_id, &range, &[values_vec], &user_token).await {
+    match sheets_client::sheets_api_append_with_token(&client, &params.spreadsheet_id, &range, &[values_vec], &user_token).await {
         Ok(()) => (StatusCode::OK, Json(json!({ "success": true }))).into_response(),
         Err(e) => ApiError::bad_gateway("SHEETS_WRITE_FAILED", e).into_response(),
     }
@@ -253,7 +254,7 @@ async fn update_with_query(
     };
 
     // 3. 전체 시트 데이터 조회 (Sheets API v4 사용으로 정확한 행 번호 확인)
-    let rows_all = match fetch_all_sheet_data_v4(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
+    let rows_all = match sheets_client::fetch_all_sheet_data_v4(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
         Ok(rows) => rows,
         Err(err) => return err.into_response(),
     };
@@ -291,7 +292,7 @@ async fn update_with_query(
         values_count = values_vec.len(),
         "updating row with new values");
     
-    match sheets_api_write_with_token(&client, &params.spreadsheet_id, &range, &[values_vec.clone()], &user_token).await {
+    match sheets_client::sheets_api_write_with_token(&client, &params.spreadsheet_id, &range, &[values_vec.clone()], &user_token).await {
         Ok(()) => {
             tracing::info!(target="sheets", 
                 target_id = %target_id, 
@@ -321,249 +322,14 @@ fn number_to_column_letters(mut n: u32) -> String {
     s
 }
 
-// ======== OAuth Sheets API Functions ========
-
-// OAuth 토큰으로 스프레드시트 쓰기
-async fn sheets_api_write_with_token(
-    client: &reqwest::Client,
-    spreadsheet_id: &str,
-    range: &str,
-    values: &[Vec<String>],
-    access_token: &str,
-) -> Result<(), String> {
-    let url = format!(
-        "https://sheets.googleapis.com/v4/spreadsheets/{}/values/{}?valueInputOption=RAW",
-        urlencoding::encode(spreadsheet_id),
-        urlencoding::encode(range)
-    );
-
-    let body = json!({
-        "values": values,
-        "majorDimension": "ROWS"
-    });
-
-    let resp = client
-        .put(&url)
-        .bearer_auth(access_token)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("네트워크 요청 실패: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!("Sheets API 오류 {}: {}", status, body));
-    }
-
-    Ok(())
-}
-
-// OAuth 토큰으로 스프레드시트에 행을 append
-async fn sheets_api_append_with_token(
-    client: &reqwest::Client,
-    spreadsheet_id: &str,
-    range: &str,
-    values: &[Vec<String>],
-    access_token: &str,
-) -> Result<(), String> {
-    // use the append endpoint
-    let url = format!(
-        "https://sheets.googleapis.com/v4/spreadsheets/{}/values/{}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
-        urlencoding::encode(spreadsheet_id),
-        urlencoding::encode(range)
-    );
-
-    let body = json!({
-        "values": values,
-        "majorDimension": "ROWS"
-    });
-
-    let resp = client
-        .post(&url)
-        .bearer_auth(access_token)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("네트워크 요청 실패: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!("Sheets API 오류 {}: {}", status, body));
-    }
-
-    Ok(())
-}
-
-// 실제 행 삭제 (batchUpdate 사용)
-async fn sheets_api_delete_row_with_token(
-    client: &reqwest::Client,
-    spreadsheet_id: &str,
-    sheet_id: u32, // 시트 ID (시트 이름이 아님)
-    row_index: usize, // 0-based 행 인덱스
-    access_token: &str,
-) -> Result<(), String> {
-    let url = format!(
-        "https://sheets.googleapis.com/v4/spreadsheets/{}:batchUpdate",
-        urlencoding::encode(spreadsheet_id)
-    );
-
-    let body = json!({
-        "requests": [{
-            "deleteDimension": {
-                "range": {
-                    "sheetId": sheet_id,
-                    "dimension": "ROWS",
-                    "startIndex": row_index,
-                    "endIndex": row_index + 1
-                }
-            }
-        }]
-    });
-
-    let resp = client
-        .post(&url)
-        .bearer_auth(access_token)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("네트워크 요청 실패: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(format!("Sheets API 오류 {}: {}", status, body));
-    }
-
-    Ok(())
-}
+// ======== Helpers ========
 
 // ======== Helpers ========
 
 // 공통 인증 및 토큰 검증
 // authenticate_and_get_token moved to `auth_tokens.rs`
 
-// 시트 전체 데이터 조회 (Sheets API v4 사용)
-async fn fetch_all_sheet_data_v4(
-    client: &reqwest::Client,
-    spreadsheet_id: &str,
-    sheet_name: &str,
-    user_token: &str,
-) -> Result<Vec<Vec<String>>, ApiError> {
-    let url = format!(
-        "https://sheets.googleapis.com/v4/spreadsheets/{}/values/{}!A:Z",
-        urlencoding::encode(spreadsheet_id),
-        urlencoding::encode(sheet_name)
-    );
-    
-    let resp = client.get(&url).bearer_auth(user_token).send().await
-        .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
-    
-    if !resp.status().is_success() {
-        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
-            format!("시트 전체 조회 실패: {}", resp.status())));
-    }
-    
-    let data: Value = resp.json().await
-        .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
-    
-    let values = data.get("values")
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-    
-    let mut result = Vec::new();
-    for row in values {
-        if let Some(row_array) = row.as_array() {
-            let row_strings: Vec<String> = row_array.iter()
-                .map(|cell| cell.as_str().unwrap_or("").to_string())
-                .collect();
-            result.push(row_strings);
-        }
-    }
-    
-    Ok(result)
-}
-
-// 시트 전체 데이터 조회 (기존 Visualization API)
-async fn fetch_all_sheet_data(
-    client: &reqwest::Client,
-    spreadsheet_id: &str,
-    sheet_name: &str,
-    user_token: &str,
-) -> Result<Vec<Value>, ApiError> {
-    let all_query_url = format!(
-        "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
-        spreadsheet_id,
-        urlencoding::encode("SELECT *"),
-        urlencoding::encode(sheet_name)
-    );
-    
-    let resp = client.get(&all_query_url).bearer_auth(user_token).send().await
-        .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
-    
-    if !resp.status().is_success() {
-        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
-            format!("시트 전체 조회 실패: {}", resp.status())));
-    }
-    
-    let text = resp.text().await.unwrap_or_default();
-    let parsed = parse_gviz_json(&text)?;
-    
-    Ok(parsed.get("table")
-        .and_then(|t| t.get("rows"))
-        .and_then(|r| r.as_array())
-        .cloned()
-        .unwrap_or_default())
-}
-
-// 시트 이름으로 시트 ID 조회
-async fn get_sheet_id_by_name(
-    client: &reqwest::Client,
-    spreadsheet_id: &str,
-    sheet_name: &str,
-    user_token: &str,
-) -> Result<u32, ApiError> {
-    let url = format!(
-        "https://sheets.googleapis.com/v4/spreadsheets/{}",
-        urlencoding::encode(spreadsheet_id)
-    );
-    
-    let resp = client.get(&url).bearer_auth(user_token).send().await
-        .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
-    
-    if !resp.status().is_success() {
-        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
-            format!("스프레드시트 메타데이터 조회 실패: {}", resp.status())));
-    }
-    
-    let spreadsheet_data: Value = resp.json().await
-        .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
-    
-    let sheets = spreadsheet_data.get("sheets")
-        .and_then(|s| s.as_array())
-        .ok_or_else(|| ApiError::bad_gateway("PARSE_FAILED", "시트 목록을 찾을 수 없습니다"))?;
-    
-    for sheet in sheets {
-        let properties = sheet.get("properties");
-        let title = properties
-            .and_then(|p| p.get("title"))
-            .and_then(|t| t.as_str());
-        let sheet_id = properties
-            .and_then(|p| p.get("sheetId"))
-            .and_then(|id| id.as_u64());
-            
-        if let (Some(title), Some(id)) = (title, sheet_id) {
-            if title == sheet_name {
-                return Ok(id as u32);
-            }
-        }
-    }
-    
-    Err(ApiError::not_found(format!("시트 '{}'를 찾을 수 없습니다", sheet_name)))
-}
-
+// sheet helpers moved to `sheets_client` and parser moved to `sheets_parser`
 // WHERE A = 'id' 쿼리에서 ID 추출
 fn extract_id_from_where_query(query: &str) -> Result<String, ApiError> {
     let where_clause = query.strip_prefix("SELECT * WHERE A = '")
@@ -584,15 +350,4 @@ fn get_row_id(row: &Value) -> Option<String> {
         .and_then(|cell| cell.get("v"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-}
-
-// GViz(JSONP) 응답 텍스트에서 JSON 객체만 추출하여 파싱
-fn parse_gviz_json(text: &str) -> Result<Value, ApiError> {
-    let json_start = text.find('{').ok_or_else(|| ApiError::bad_gateway("PARSE_FAILED", "GViz 응답에서 JSON 시작 위치를 찾지 못했습니다."))?;
-    let json_end = text.rfind('}').ok_or_else(|| ApiError::bad_gateway("PARSE_FAILED", "GViz 응답에서 JSON 종료 위치를 찾지 못했습니다."))?;
-    if json_end < json_start {
-        return Err(ApiError::bad_gateway("PARSE_FAILED", "GViz 응답의 JSON 범위가 올바르지 않습니다."));
-    }
-    let json_str = &text[json_start..=json_end];
-    serde_json::from_str::<Value>(json_str).map_err(|e| ApiError::bad_gateway("PARSE_FAILED", format!("JSON 파싱 실패: {}", e)))
 }
