@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod sheets;
 pub mod database;
+pub mod sheets_parser;
 
 use axum::Router;
 use crate::state::AppState;
