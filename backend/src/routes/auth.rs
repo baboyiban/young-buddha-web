@@ -297,8 +297,8 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
         );
     };
 
-    // Try Redis cache first (use helper)
-    if let Some(v) = crate::auth::redis_cache::get_cached_jwt(&token).await {
+    // Try Redis cache first (use auth_tokens wrapper)
+    if let Some(v) = crate::auth_tokens::get_cached_jwt(&token).await {
         if v.get("valid").and_then(|b| b.as_bool()).unwrap_or(false) {
             let name = v.get("name").and_then(|s| s.as_str()).unwrap_or_default().to_string();
             let email = v.get("email").and_then(|s| s.as_str()).unwrap_or_default().to_string();
@@ -326,7 +326,7 @@ async fn me(State(state): State<Arc<AppState>>, headers: axum::http::HeaderMap) 
             let email = data.claims.email.clone().unwrap_or_default();
             let role = data.claims.role.clone().unwrap_or_default();
             let cached_obj = json!({"valid":true,"name":name,"email":email,"role":role});
-            let _ = crate::auth::redis_cache::store_valid_jwt(&token, cached_obj).await;
+            let _ = crate::auth_tokens::store_valid_jwt(&token, cached_obj).await;
             let now = OffsetDateTime::now_utc().unix_timestamp();
             tracing::info!("JWT validation successful for user: {:?}, current_time={}, token_exp={:?}", 
                 data.claims.email, now, data.claims.exp);
