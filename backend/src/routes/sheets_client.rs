@@ -215,26 +215,58 @@ pub async fn get_sheet_id_by_name(
     
     let spreadsheet_data: Value = resp.json().await
         .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
-    
-    let sheets = spreadsheet_data.get("sheets")
-        .and_then(|s| s.as_array())
-        .ok_or_else(|| ApiError::bad_gateway("PARSE_FAILED", "시트 목록을 찾을 수 없습니다"))?;
 
-    for sheet in sheets {
-        let properties = sheet.get("properties");
-        let title = properties
-            .and_then(|p| p.get("title"))
-            .and_then(|t| t.as_str());
-        let sheet_id = properties
-            .and_then(|p| p.get("sheetId"))
-            .and_then(|id| id.as_u64());
-            
-        if let (Some(title), Some(id)) = (title, sheet_id) {
-            if title == sheet_name {
-                return Ok(id as u32);
-            }
-        }
+    if let Some(id) = find_sheet_id_in_spreadsheet(&spreadsheet_data, sheet_name) {
+        return Ok(id);
     }
 
     Err(ApiError::not_found(format!("시트 '{}'를 찾을 수 없습니다", sheet_name)))
+}
+
+// Helper: find sheet id from parsed spreadsheet JSON. Separated for unit testing.
+fn find_sheet_id_in_spreadsheet(spreadsheet_data: &Value, sheet_name: &str) -> Option<u32> {
+    let sheets = spreadsheet_data.get("sheets")?.as_array()?;
+    for sheet in sheets {
+        let properties = sheet.get("properties")?;
+        let title = properties.get("title").and_then(|t| t.as_str());
+        let sheet_id = properties.get("sheetId").and_then(|id| id.as_u64());
+        if let (Some(title), Some(id)) = (title, sheet_id) {
+            if title == sheet_name {
+                return Some(id as u32);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_sheet_id_in_spreadsheet;
+    use serde_json::json;
+
+    #[test]
+    fn finds_sheet_id_when_present() {
+        let data = json!({
+            "sheets": [
+                { "properties": { "title": "Sheet1", "sheetId": 123 } },
+                { "properties": { "title": "Data", "sheetId": 456 } }
+            ]
+        });
+        let id = find_sheet_id_in_spreadsheet(&data, "Data");
+        assert_eq!(id, Some(456));
+    }
+
+    #[test]
+    fn returns_none_when_missing() {
+        let data = json!({ "sheets": [] });
+        let id = find_sheet_id_in_spreadsheet(&data, "Data");
+        assert_eq!(id, None);
+    }
+
+    #[test]
+    fn handles_missing_properties() {
+        let data = json!({ "sheets": [ { "no_props": true } ] });
+        let id = find_sheet_id_in_spreadsheet(&data, "Sheet1");
+        assert_eq!(id, None);
+    }
 }

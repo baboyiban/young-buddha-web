@@ -14,3 +14,32 @@ pub fn parse_gviz_json(text: &str) -> Result<Value, ApiError> {
     serde_json::from_str::<Value>(json_str)
         .map_err(|e| ApiError::bad_gateway("PARSE_FAILED", format!("JSON 파싱 실패: {}", e)))
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::parse_gviz_json;
+    // serde_json::json not needed in these tests
+
+    #[test]
+    fn parses_plain_json() {
+        let txt = r#"{"status":"ok","data":[1,2,3]}"#;
+        let v = parse_gviz_json(txt).expect("should parse plain json");
+        assert_eq!(v.get("status").and_then(|s| s.as_str()), Some("ok"));
+        assert_eq!(v.get("data").and_then(|a| a.as_array()).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn parses_jsonp_wrapped() {
+        let txt = "/*O_o*/\ngoogle.visualization.Query.setResponse({\n  \"status\": \"ok\",\n  \"rows\": []\n});";
+        let v = parse_gviz_json(txt).expect("should parse jsonp gviz");
+        assert_eq!(v.get("status").and_then(|s| s.as_str()), Some("ok"));
+    }
+
+    #[test]
+    fn returns_err_on_invalid() {
+        let txt = "no braces here";
+        let r = parse_gviz_json(txt);
+        assert!(r.is_err());
+    }
+}
