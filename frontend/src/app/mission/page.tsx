@@ -92,7 +92,7 @@ export default function Mission() {
 function MissionHeader({ date, dayOfWeek }: { date: string; dayOfWeek: string }) {
   return (
     <div>
-      🌴{date} {dayOfWeek}요일 청년붓다 소임🌴
+      🌴 {date} {dayOfWeek}요일 청년붓다 소임 🌴
     </div>
   )
 }

@@ -112,13 +112,17 @@ table tr:last-child td:last-child {
 
 table th,
 table td {
-  @apply whitespace-nowrap px-[0.75rem] py-[0.5rem];
+  @apply whitespace-nowrap px-[0.5rem] py-[0.25rem];
 }
 
 table th {
-  @apply bg-deep-gray;
+  @apply bg-deep-gray text-center;
 }
 
-table tr:nth-child(odd) {
+tbody:has(tr:nth-child(odd):last-child) tr:nth-child(odd) {
+  @apply bg-gray;
+}
+
+tbody:has(tr:nth-child(even):last-child) tr:nth-child(even) {
   @apply bg-gray;
 }
