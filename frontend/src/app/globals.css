@@ -2,14 +2,14 @@
 
 @theme {
   --color-gray: #f2f2f2;
-  --color-deep-gray: #BFBFBF;
+  --color-deep-gray: #bfbfbf;
   --color-dark-gray: #808080;
-  --color-purple: #E5E5FF;
-  --color-deep-purple: #8080FF;
-  --color-dark-purple: #0000FF;
-  --color-red: #FFE5E5;
-  --color-deep-red: #FF8080;
-  --color-dark-red: #FF0000;
+  --color-purple: #e5e5ff;
+  --color-deep-purple: #8080ff;
+  --color-dark-purple: #0000ff;
+  --color-red: #ffe5e5;
+  --color-deep-red: #ff8080;
+  --color-dark-red: #ff0000;
 }
 
 body {
@@ -17,7 +17,6 @@ body {
 }
 
 @media (max-width: 768px) {
-
   /* 스크롤바 자체를 숨기기 */
   ::-webkit-scrollbar {
     display: none;
@@ -50,6 +49,10 @@ textarea {
 
 button.white {
   @apply bg-white;
+}
+
+button.gray {
+  @apply bg-deep-gray;
 }
 
 button.purple {
@@ -91,24 +94,8 @@ textarea {
 }
 
 table {
-  @apply table-auto border-collapse overflow-x-auto border-gray text-left w-full;
+  @apply table-auto border-collapse overflow-x-auto border-gray text-center w-full;
 }
-
-/* table tr:first-child th:first-child {
-  @apply rounded-tl-[1rem];
-}
-
-table tr:first-child th:last-child {
-  @apply rounded-tr-[1rem];
-}
-
-table tr:last-child td:first-child {
-  @apply rounded-bl-[1rem];
-}
-
-table tr:last-child td:last-child {
-  @apply rounded-br-[1rem];
-} */
 
 table th,
 table td {

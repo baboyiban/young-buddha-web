@@ -185,7 +185,8 @@ async fn delete_by_query(
     }
 
     let Some(delete_row_index) = target_row_index else {
-        return ApiError::not_found("삭제할 대상 행을 찾지 못했습니다.").into_response();
+        tracing::warn!(target="sheets", target_id = %target_id, "Delete request for non-existent row - possibly already deleted");
+        return ApiError::not_found("삭제할 대상 행을 찾지 못했습니다. 이미 삭제되었을 수 있습니다.").into_response();
     };
 
     // 5. 실제 행 삭제 (batchUpdate 사용)
@@ -283,6 +284,30 @@ async fn create_with_query(
     }
 }
 
+// UPDATE 쿼리에서 ID와 VALUES 추출
+fn parse_update_query(query: &str) -> Result<(String, Vec<String>), ApiError> {
+    let q = query.trim();
+    let Some(rest) = q.strip_prefix("UPDATE ") else {
+        return Err(ApiError::bad_request("INVALID_QUERY", 
+            "UPDATE 구문을 사용하세요: UPDATE id=<...> VALUES [\"...\"]"));
+    };
+
+    let (id_part, values_part) = rest.split_once("VALUES")
+        .ok_or_else(|| ApiError::bad_request("INVALID_QUERY", "VALUES 섹션이 필요합니다."))?;
+
+    let id = id_part.strip_prefix("id=")
+        .ok_or_else(|| ApiError::bad_request("INVALID_QUERY", "id=<...> 형식이 필요합니다."))?
+        .trim()
+        .trim_matches('\'')
+        .trim_matches('"')
+        .to_string();
+
+    let values_vec: Vec<String> = serde_json::from_str(values_part.trim())
+        .map_err(|e| ApiError::bad_request("INVALID_VALUES", format!("VALUES 파싱 실패: {}", e)))?;
+
+    Ok((id, values_vec))
+}
+
 // POST /api/sheets/update { spreadsheet_id, sheet_name, query }
 // query DSL: "UPDATE id=<ROW_ID> VALUES [\"col1\", \"col2\", ...]"
 async fn update_with_query(
@@ -298,164 +323,64 @@ async fn update_with_query(
 
     let client = reqwest::Client::new();
 
-    // Parse query: UPDATE id=... VALUES [...]
-    let q = params.query.trim();
-    let Some(rest) = q.strip_prefix("UPDATE ") else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": true, "code": "INVALID_QUERY", "message": "UPDATE 구문을 사용하세요: UPDATE id=<...> VALUES [\"...\"]" })),
-        ).into_response();
+    // 2. UPDATE 쿼리 파싱
+    let (target_id, values_vec) = match parse_update_query(&params.query) {
+        Ok((id, values)) => (id, values),
+        Err(err) => return err.into_response(),
     };
 
-    let (id_part, values_part) = match rest.split_once("VALUES") {
-        Some((a, b)) => (a.trim(), b.trim()),
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": true, "code": "INVALID_QUERY", "message": "VALUES 섹션이 필요합니다." })),
-            ).into_response();
-        }
+    // 3. 전체 시트 데이터 조회 (Sheets API v4 사용으로 정확한 행 번호 확인)
+    let rows_all = match fetch_all_sheet_data_v4(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await {
+        Ok(rows) => rows,
+        Err(err) => return err.into_response(),
     };
 
-    let id = match id_part.strip_prefix("id=") {
-        Some(v) => v.trim().trim_matches('\'').trim_matches('"').to_string(),
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": true, "code": "INVALID_QUERY", "message": "id=<...> 형식이 필요합니다." })),
-            ).into_response();
-        }
-    };
-
-    let values_vec: Result<Vec<String>, _> = serde_json::from_str(values_part);
-    let values_vec = match values_vec {
-        Ok(v) => v,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(json!({ "error": true, "code": "INVALID_VALUES", "message": format!("VALUES 파싱 실패: {}", e) })),
-            ).into_response();
-        }
-    };
-
-    // 1) 행 위치 조회: Visualization API로 A열(id) 기준으로 검색
-    let query_url = format!(
-        "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
-        params.spreadsheet_id,
-        urlencoding::encode(&format!("SELECT * WHERE A = '{}'", id)),
-        urlencoding::encode(&params.sheet_name)
-    );
-
-    let resp = client.get(&query_url).bearer_auth(&user_token).send().await;
-    let (_row_index_hint, _cells_len) = match resp {
-        Ok(r) => {
-            if !r.status().is_success() {
-                return (
-                    StatusCode::BAD_GATEWAY,
-                    Json(json!({ "error": true, "code": "SHEETS_API_FAILED", "message": format!("시트 쿼리 실패: {}", r.status()) })),
-                ).into_response();
-            }
-            let text = r.text().await.unwrap_or_default();
-            match parse_gviz_json(&text) {
-                Ok(v) => {
-                    let rows = v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default();
-                    if rows.is_empty() {
-                        return (
-                            StatusCode::NOT_FOUND,
-                            Json(json!({ "error": true, "code": "ROW_NOT_FOUND", "message": "해당 id의 행을 찾을 수 없습니다." })),
-                        ).into_response();
-                    }
-                    let first_row = rows[0].clone();
-                    let cells = first_row.get("c").and_then(|c| c.as_array()).cloned().unwrap_or_default();
-                    let cells_len = cells.len();
-                    // Visualization API는 헤더가 1행이고 데이터가 2행부터라고 가정
-                    (Some(2usize), cells_len)
-                }
-                Err(_) => {
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        Json(json!({ "error": true, "code": "PARSE_FAILED", "message": "JSON 파싱 실패" })),
-                    ).into_response();
-                }
+    // 4. 대상 행 찾기 (실제 시트 행 번호 기준)
+    let mut target_row_index: Option<usize> = None;
+    
+    for (i, row) in rows_all.iter().enumerate() {
+        if let Some(id_val) = row.get(0) {
+            if id_val == &target_id {
+                let actual_row = i + 1; // Sheets API v4는 1-based 인덱스 (헤더 포함)
+                tracing::info!(target="sheets", 
+                    sheets_api_index = i, 
+                    actual_sheet_row = actual_row, 
+                    target_id = %target_id, 
+                    "found target row for update using Sheets API v4");
+                target_row_index = Some(actual_row);
+                break;
             }
         }
-        Err(e) => {
-            return (
-                StatusCode::BAD_GATEWAY,
-                Json(json!({ "error": true, "code": "NETWORK_FAILED", "message": format!("네트워크 요청 실패: {}", e) })),
-            ).into_response();
-        }
+    }
+
+    let Some(row_index) = target_row_index else {
+        return ApiError::not_found("수정할 대상 행을 찾지 못했습니다.").into_response();
     };
 
-    // row_index_opt는 데이터의 첫 행이 몇 번째 실제 행인지 필요. 위에서 2로 시작하지만,
-    // 실제 대상 행 번호는 결과의 첫 번째 행의 인덱스를 알아야 한다. 간단화를 위해 id는 유일하고,
-    // 해당 id를 가진 행이 결과 rows[0]이며, 실제 행 번호는 헤더 다음 줄부터 i+2.
-    // 위 파싱에서 i를 구하지 않았으므로 다시 rows 위치를 알아야 한다. 간략히 다시 쿼리하여 전체 시트를 가져와 위치를 찾는다.
-
-    // 전체 시트에서 id로 위치 찾기 (성능보다 단순함 우선)
-    let all_query_url = format!(
-        "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
-        params.spreadsheet_id,
-        urlencoding::encode("SELECT *"),
-        urlencoding::encode(&params.sheet_name)
-    );
-    let resp_all = client.get(&all_query_url).bearer_auth(&user_token).send().await;
-    let row_index = match resp_all {
-        Ok(r) => {
-            if !r.status().is_success() {
-                return (
-                    StatusCode::BAD_GATEWAY,
-                    Json(json!({ "error": true, "code": "SHEETS_API_FAILED", "message": format!("시트 전체 조회 실패: {}", r.status()) })),
-                ).into_response();
-            }
-            let text = r.text().await.unwrap_or_default();
-            match parse_gviz_json(&text) {
-                Ok(v) => {
-                    let rows = v.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array()).cloned().unwrap_or_default();
-                    let mut target_row_index: Option<usize> = None;
-                    for (i, row) in rows.iter().enumerate() {
-                        let cells = row.get("c").and_then(|c| c.as_array()).cloned().unwrap_or_default();
-                        let a_val = cells.get(0).and_then(|c| c.get("v")).and_then(|vv| vv.as_str()).unwrap_or("");
-                        if a_val == id {
-                            target_row_index = Some(i + 2); // 헤더 1행, 데이터 2행부터
-                            break;
-                        }
-                    }
-                    match target_row_index {
-                        Some(idx) => idx,
-                        None => {
-                            return (
-                                StatusCode::NOT_FOUND,
-                                Json(json!({ "error": true, "code": "ROW_NOT_FOUND", "message": "해당 id의 행을 찾을 수 없습니다." })),
-                            ).into_response();
-                        }
-                    }
-                }
-                Err(_) => {
-                    return (
-                        StatusCode::BAD_GATEWAY,
-                        Json(json!({ "error": true, "code": "PARSE_FAILED", "message": "JSON 파싱 실패" })),
-                    ).into_response();
-                }
-            }
-        }
-        Err(e) => {
-            return (
-                StatusCode::BAD_GATEWAY,
-                Json(json!({ "error": true, "code": "NETWORK_FAILED", "message": format!("네트워크 요청 실패: {}", e) })),
-            ).into_response();
-        }
-    };
-
-    // 2) 대상 행에 전체 값을 덮어쓰기
+    // 5. 대상 행에 값 덮어쓰기
     let end_col = number_to_column_letters(values_vec.len() as u32);
     let range = format!("{}!A{}:{}{}", params.sheet_name, row_index, end_col, row_index);
-    match sheets_api_write_with_token(&client, &params.spreadsheet_id, &range, &[values_vec], &user_token).await {
-        Ok(()) => (StatusCode::OK, Json(json!({ "success": true, "row": row_index }))).into_response(),
-        Err(e) => (
-            StatusCode::BAD_GATEWAY,
-            Json(json!({ "error": true, "code": "SHEETS_WRITE_FAILED", "message": e })),
-        ).into_response(),
+    
+    tracing::info!(target="sheets", 
+        target_id = %target_id, 
+        row = row_index, 
+        range = %range, 
+        values_count = values_vec.len(),
+        "updating row with new values");
+    
+    match sheets_api_write_with_token(&client, &params.spreadsheet_id, &range, &[values_vec.clone()], &user_token).await {
+        Ok(()) => {
+            tracing::info!(target="sheets", 
+                target_id = %target_id, 
+                row = row_index, 
+                values = ?values_vec,
+                "row updated successfully - should overwrite existing row, not add new one");
+            (StatusCode::OK, Json(json!({ "success": true, "row": row_index, "method": "update_existing" }))).into_response()
+        }
+        Err(e) => {
+            tracing::error!(target="sheets", target_id = %target_id, row = row_index, error = %e, "failed to update row");
+            ApiError::bad_gateway("SHEETS_WRITE_FAILED", e).into_response()
+        }
     }
 }
 
@@ -609,7 +534,49 @@ async fn authenticate_and_get_token(
     Ok((email, user_token))
 }
 
-// 시트 전체 데이터 조회
+// 시트 전체 데이터 조회 (Sheets API v4 사용)
+async fn fetch_all_sheet_data_v4(
+    client: &reqwest::Client,
+    spreadsheet_id: &str,
+    sheet_name: &str,
+    user_token: &str,
+) -> Result<Vec<Vec<String>>, ApiError> {
+    let url = format!(
+        "https://sheets.googleapis.com/v4/spreadsheets/{}/values/{}!A:Z",
+        urlencoding::encode(spreadsheet_id),
+        urlencoding::encode(sheet_name)
+    );
+    
+    let resp = client.get(&url).bearer_auth(user_token).send().await
+        .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
+    
+    if !resp.status().is_success() {
+        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
+            format!("시트 전체 조회 실패: {}", resp.status())));
+    }
+    
+    let data: Value = resp.json().await
+        .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
+    
+    let values = data.get("values")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    
+    let mut result = Vec::new();
+    for row in values {
+        if let Some(row_array) = row.as_array() {
+            let row_strings: Vec<String> = row_array.iter()
+                .map(|cell| cell.as_str().unwrap_or("").to_string())
+                .collect();
+            result.push(row_strings);
+        }
+    }
+    
+    Ok(result)
+}
+
+// 시트 전체 데이터 조회 (기존 Visualization API)
 async fn fetch_all_sheet_data(
     client: &reqwest::Client,
     spreadsheet_id: &str,
