@@ -1,13 +1,22 @@
 import { AuthResponse } from "@/types/auth";
 import { User } from "@/types/user";
+import { HttpClient } from "@/lib/config/http";
+
+type ApiResponse<T> = {
+  data: T;
+  error?: string;
+  message?: string;
+};
 
 export class AuthService {
   private baseUrl =
     process.env.NEXT_PUBLIC_API_URL ||
     (process.env.NODE_ENV === "production" ? "" : "http://localhost:8080");
   private useMockAuth = false; // 강제로 실제 인증 사용
+  private httpClient: HttpClient;
 
   constructor() {
+    this.httpClient = new HttpClient(this.baseUrl);
   }
 
   async getCurrentUser(): Promise<User> {
@@ -16,25 +25,7 @@ export class AuthService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/api/auth/me`, {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-
-        const error = new Error(
-          `Failed to get current user: ${response.status}`
-        );
-        (error as any).status = response.status;
-        (error as any).data = errorData;
-        throw error;
-      }
-
-      return await response.json();
+      return await this.httpClient.get<User>(`/api/auth/me`);
     } catch (error) {
       this.handleAuthError(error);
       throw error;
@@ -46,22 +37,9 @@ export class AuthService {
       return this.mockGoogleAuth();
     }
 
-    const response = await fetch(`${this.baseUrl}/api/auth/google`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        redirect_uri: window.location.origin + "/login",
-      }),
+    const data: AuthResponse = await this.httpClient.post<AuthResponse>(`/api/auth/google`, {
+      redirect_uri: window.location.origin + "/login",
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to start Google auth");
-    }
-
-    const data: AuthResponse = await response.json();
 
     if (!data.auth_url) {
       throw new Error("인증 URL을 받지 못했습니다");
@@ -72,10 +50,7 @@ export class AuthService {
 
   async logout(shouldRedirect = true): Promise<void> {
     try {
-      await fetch(`${this.baseUrl}/api/auth/logout`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      await this.httpClient.delete(`/api/auth/logout`);
     } catch (error) {
       console.error("로그아웃 중 오류:", error);
     }
@@ -133,21 +108,7 @@ export class AuthService {
     try {
       // HttpOnly 쿠키는 JavaScript에서 읽을 수 없으므로
       // 직접 /api/auth/me를 호출해서 인증 상태 확인
-      const response = await fetch(`${this.baseUrl}/api/auth/me`, {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-
-        this.clearAuthData();
-        return false;
-      }
-
-      const user = await response.json();
+      await this.httpClient.get<User>(`/api/auth/me`);
       return true;
     } catch (error) {
       this.clearAuthData();
@@ -192,7 +153,6 @@ export class AuthService {
 
   // JWT 만료 테스트용 디버깅 함수
   async testJwtExpiry(): Promise<void> {
-
     try {
       // 즉시 호출
       const user1 = await this.getCurrentUser();
@@ -202,6 +162,7 @@ export class AuthService {
 
       const user2 = await this.getCurrentUser();
     } catch (error) {
+      // Silent error handling
     }
   }
 }

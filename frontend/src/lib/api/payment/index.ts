@@ -2,7 +2,18 @@ import { PaymentRequest } from "@/app/payment/page";
 import { PAYMENT_SHEET } from "@/lib/api/sheets";
 import { sheetsRead, escapeSheetString } from "@/lib/api/sheets/client";
 
-export async function fetchFilteredPayments(userName: string) {
+type SheetsData = {
+  table?: {
+    rows?: Array<{
+      c?: Array<{
+        v?: any;
+        f?: string | null;
+      }>;
+    }>;
+  };
+};
+
+export async function fetchFilteredPayments(userName: string): Promise<PaymentRequest[]> {
   try {
     if (!userName || typeof userName !== "string") {
       throw new Error("유효하지 않은 사용자 이름입니다.");
@@ -11,7 +22,7 @@ export async function fetchFilteredPayments(userName: string) {
     const safeUserName = escapeSheetString(userName).slice(0, 200);
     const query = `SELECT * WHERE B = '${safeUserName}'`;
     
-    const data = await sheetsRead(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query);
+    const data: SheetsData = await sheetsRead(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query);
     
     // Visualization API JSON 구조에서 rows 추출
     const rows = data.table?.rows || [];
