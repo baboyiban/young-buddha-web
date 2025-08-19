@@ -96,7 +96,7 @@ export default function PaymentPage() {
         '대기',              // 상태 (H)
       ]
       const query = `INSERT ${JSON.stringify(row)}`
-      const { sheetsCreate } = await import('@/lib/api/sheetsClient')
+      const { sheetsCreate } = await import('@/lib/api/sheets/client')
       const result = await sheetsCreate(sheetId, sheetName, query)
       // 성공 시 최신 목록 재조회
       try {
@@ -123,7 +123,7 @@ export default function PaymentPage() {
 
       // 시트에서 데이터 삭제 (통합 DELETE: spreadsheet_id, sheet_name, query)
       const { PAYMENT_SHEET } = await import('@/lib/constants/sheets')
-      const { sheetsDelete, escapeSheetString } = await import('@/lib/api/sheetsClient')
+      const { sheetsDelete, escapeSheetString } = await import('@/lib/api/sheets/client')
       const query = `SELECT * WHERE A = '${escapeSheetString(request.id)}'`
       await sheetsDelete(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query)
       // 삭제 후 목록 갱신
@@ -171,7 +171,7 @@ export default function PaymentPage() {
         editForm.reason ?? original.reason,
         original.approved || '대기',
       ]
-      const { sheetsUpdate } = await import('@/lib/api/sheetsClient')
+      const { sheetsUpdate } = await import('@/lib/api/sheets/client')
       const query = `UPDATE id=${JSON.stringify(original.id)} VALUES ${JSON.stringify(updatedRow)}`
       await sheetsUpdate(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query)
       // 갱신 후 목록 재조회
