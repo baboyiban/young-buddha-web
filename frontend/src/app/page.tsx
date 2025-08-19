@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 export default function Home() {
   return (
     <div className="mx-[0.5rem] bg-white p-[1rem] rounded-xl min-h-[calc(100svh-52px-0.5rem)] flex">

@@ -1,4 +1,11 @@
 import { MissionData } from "@/types/mission";
+import { sheetsRead } from "@/lib/api/sheets/client";
+
+// 상수 정의
+const SHEET_CONFIG = {
+  spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
+  sheetName: "[NEW] 생활소임_2학기",
+} as const;
 
 // 미션 항목 인덱스 정의
 const MISSION_INDICES = {
@@ -19,57 +26,33 @@ const MISSION_INDICES = {
 
 export async function fetchMissionData(): Promise<MissionData> {
   try {
-    // 시트 설정 상수 (필요시 여기만 수정)
-    const SHEET = {
-      spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
-      sheetName: "[NEW] 생활소임_2학기",
-      endCol: "R", // 최대 R열까지 사용
-    } as const;
-
     // 오늘 날짜(YYYY-MM-DD) 기준으로 A열(날짜)에서 해당 행을 조회
     const todayStr = getLocalDateYmd(new Date());
+    
     // 1차: 날짜 타입 셀인 경우 (GViz) -> date 'YYYY-MM-DD'
     let query = `SELECT * WHERE A = date '${todayStr}'`;
-
-    // 백엔드 Sheets Query API 호출 (Next.js rewrites를 타도록 상대 경로 사용)
-    const qs = new URLSearchParams({
-      spreadsheet_id: SHEET.spreadsheetId,
-      sheet_name: SHEET.sheetName,
-      read: query,
-    });
-    const response = await fetch(`/api/sheets/read?${qs.toString()}`, {
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch mission data");
-    }
-
-    let data: any = await response.json();
+    let data = await sheetsRead(SHEET_CONFIG.spreadsheetId, SHEET_CONFIG.sheetName, query);
     let rows: any[] = data?.table?.rows || [];
 
     // 2차: 문자열로 저장된 경우 재조회
     if (rows.length === 0) {
       query = `SELECT * WHERE A = '${todayStr}'`;
-      const qs2 = new URLSearchParams({
-        spreadsheet_id: SHEET.spreadsheetId,
-        sheet_name: SHEET.sheetName,
-        read: query,
-      });
-      const res2 = await fetch(`/api/sheets/read?${qs2.toString()}`, { credentials: "include" });
-      if (res2.ok) {
-        data = await res2.json();
-        rows = data?.table?.rows || [];
-      }
+      data = await sheetsRead(SHEET_CONFIG.spreadsheetId, SHEET_CONFIG.sheetName, query);
+      rows = data?.table?.rows || [];
     }
+
+    if (rows.length === 0) {
+      throw new Error("오늘의 미션 데이터를 찾을 수 없습니다.");
+    }
+
     const first = rows[0];
     const cells = (first?.c || []) as Array<{ v?: any; f?: string | null }>;
     const rawData: string[] = cells.map(cellToDisplayString);
 
     return processMissionData(rawData);
   } catch (error) {
-    console.error("Error fetching mission data:", error);
-    throw error;
+    console.error("미션 데이터 조회 실패:", error);
+    throw new Error("미션 데이터를 불러오는데 실패했습니다.");
   }
 }
 
@@ -112,8 +95,6 @@ function getLocalDateYmd(d: Date = new Date()): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-
-// deprecated: 행 번호 계산 로직은 Visualization API 쿼리로 대체
 
 // GViz 셀을 사람이 읽기 쉬운 문자열로 변환
 function cellToDisplayString(cell?: { v?: any; f?: string | null }): string {
