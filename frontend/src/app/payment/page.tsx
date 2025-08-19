@@ -20,7 +20,8 @@ export default function PaymentPage() {
   const { user, loading: authLoading } = useAuth()
   const [requests, setRequests] = useState<PaymentRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(false) // 결재 신청용
+  const [updating, setUpdating] = useState(false) // 수정용
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<PaymentRequest>>({})
   const [form, setForm] = useState<PaymentRequest>({
@@ -183,7 +184,7 @@ export default function PaymentPage() {
   const handleUpdate = async (original: PaymentRequest) => {
     if (!editingId) return
     try {
-      setSubmitting(true)
+      setUpdating(true)
       const sheetId = '1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo'
       const sheetName = '일정불참결재시트'
       const updatedRow = [
@@ -218,15 +219,18 @@ export default function PaymentPage() {
       } catch { }
       setEditingId(null)
       setEditForm({})
+    } catch (err) {
+      console.error('Update failed:', err)
+      alert('수정 중 오류가 발생했습니다.')
     } finally {
-      setSubmitting(false)
+      setUpdating(false)
     }
   }
 
   if (loading || authLoading) {
     return (
       <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
-        <LoadingSpinner message="페이지를 불러오는 중..." />
+        <LoadingSpinner />
       </div>
     )
   }
@@ -364,7 +368,9 @@ export default function PaymentPage() {
                         <td className="flex justify-center gap-[0.25rem]">
                           {isEditing ? (
                             <>
-                              <button onClick={() => handleUpdate(r)} className="text-sm purple" disabled={submitting}>저장</button>
+                              <button onClick={() => handleUpdate(r)} className="text-sm purple" disabled={updating}>
+                                {updating ? '저장 중...' : '저장'}
+                              </button>
                               <button onClick={handleEditCancel} className="text-sm gray">취소</button>
                             </>
                           ) : (
