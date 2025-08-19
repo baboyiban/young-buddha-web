@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use rusqlite::Connection;
+use reqwest::Client;
 
 // ======== Application State ========
 
@@ -12,6 +13,7 @@ pub struct AppState {
     pub is_production: bool,
     pub db_path: String,
     pub frontend_url: String,
+    pub http_client: Client,
 }
 
 impl AppState {
@@ -52,7 +54,10 @@ impl AppState {
             "#,
         ).expect("failed to create tables");
 
-        Arc::new(Self { jwt_secret, is_production, db_path, frontend_url })
+    // build shared http client
+    let http_client = Client::new();
+
+    Arc::new(Self { jwt_secret, is_production, db_path, frontend_url, http_client })
     }
 }
 

@@ -97,7 +97,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
         ("redirect_uri", redirect_uri.as_str()),
         ("grant_type", "authorization_code"),
     ];
-    let token_resp = match reqwest::Client::new()
+    let token_resp = match state.http_client
         .post("https://oauth2.googleapis.com/token")
         .form(&form)
         .send()
@@ -114,7 +114,7 @@ async fn google_callback(State(state): State<Arc<AppState>>, Query(q): Query<Cal
     let token_json: TokenResponse = match token_resp.json().await { Ok(j) => j, Err(e) => return (axum::http::StatusCode::BAD_GATEWAY, Json(json!({"error":true,"message":format!("Token parse failed: {}", e)}))).into_response() };
 
     // fetch user info
-    let user_resp = match reqwest::Client::new()
+    let user_resp = match state.http_client
         .get("https://www.googleapis.com/oauth2/v1/userinfo?alt=json")
         .bearer_auth(&token_json.access_token)
         .send()
