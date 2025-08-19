@@ -5,10 +5,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use crate::state::AppState;
+use crate::types::{QueryParams, CommonParams, GoogleRefreshResponse, SheetsClaims, ApiError};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use rusqlite::OptionalExtension;
 
@@ -20,15 +20,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/sheets/update", post(update_with_query))
         .route("/sheets/delete", post(delete_by_query))
 }
-// Visualization API Query Language 기반 쿼리 핸들러
-#[derive(Debug, Deserialize)]
-struct QueryParams {
-    spreadsheet_id: String,
-    sheet_name: String,
-    // allow alias "read" for backward/forward compatibility when renaming
-    #[serde(alias = "read")]
-    query: String,
-}
+
 
 // GET /api/sheets/query?spreadsheet_id=...&sheet_name=...&query=...
 async fn query_sheet(
@@ -74,72 +66,7 @@ async fn query_sheet(
     }
 }
 
-// ======== Types ========
 
-// 공통 파라미터 (CRUD 모두 동일한 형식: spreadsheet_id, sheet_name, query)
-#[derive(Debug, Deserialize)]
-struct CommonParams {
-    spreadsheet_id: String,
-    sheet_name: String,
-    query: String,
-}
-
-// Google refresh token 응답
-#[derive(Deserialize)]
-struct GoogleRefreshResponse {
-    access_token: String,
-    #[allow(dead_code)]
-    token_type: Option<String>,
-    expires_in: Option<i64>,
-    refresh_token: Option<String>,
-}
-
-// 에러 응답 타입
-#[derive(Debug)]
-struct ApiError {
-    status: StatusCode,
-    code: &'static str,
-    message: String,
-}
-
-impl ApiError {
-    fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
-        Self {
-            status,
-            code,
-            message: message.into(),
-        }
-    }
-
-    fn unauthorized(message: impl Into<String>) -> Self {
-        Self::new(StatusCode::UNAUTHORIZED, "NOT_AUTHENTICATED", message)
-    }
-
-    fn bad_request(code: &'static str, message: impl Into<String>) -> Self {
-        Self::new(StatusCode::BAD_REQUEST, code, message)
-    }
-
-    fn not_found(message: impl Into<String>) -> Self {
-        Self::new(StatusCode::NOT_FOUND, "ROW_NOT_FOUND", message)
-    }
-
-    fn bad_gateway(code: &'static str, message: impl Into<String>) -> Self {
-        Self::new(StatusCode::BAD_GATEWAY, code, message)
-    }
-}
-
-impl IntoResponse for ApiError {
-    fn into_response(self) -> axum::response::Response {
-        (
-            self.status,
-            Json(json!({
-                "error": true,
-                "code": self.code,
-                "message": self.message
-            }))
-        ).into_response()
-    }
-}
 
 async fn delete_by_query(
     State(state): State<Arc<AppState>>,
@@ -710,12 +637,8 @@ fn get_email_from_jwt_cookie(headers: &HeaderMap, jwt_secret: Option<&str>) -> O
         })?;
 
     // JWT 디코딩
-    #[derive(serde::Deserialize)]
-    struct Claims {
-        email: Option<String>,
-    }
 
-    match decode::<Claims>(
+    match decode::<SheetsClaims>(
         &jwt_token,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
         &Validation::new(Algorithm::HS256),

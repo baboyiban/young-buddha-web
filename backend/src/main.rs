@@ -1,5 +1,6 @@
 mod routes;
 mod state;
+mod types;
 
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
