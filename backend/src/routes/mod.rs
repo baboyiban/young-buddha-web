@@ -3,6 +3,7 @@ pub mod sheets;
 pub mod database;
 pub mod sheets_parser;
 pub mod sheets_client;
+pub mod health;
 
 use axum::Router;
 use crate::types::AppState;
@@ -28,6 +29,7 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
 
     // Build API router with the same state type
     let api: Router<Arc<AppState>> = Router::new()
+    .route("/health", axum::routing::get(health::health))
         .merge(auth::router())
         .merge(sheets::router())
         .merge(database::router())
