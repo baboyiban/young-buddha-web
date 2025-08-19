@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await authService.logout();
+    await authService.logout(false);
     // 캐시 초기화
     cachedAuth = null;
     cacheTimestamp = 0;

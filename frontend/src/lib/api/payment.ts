@@ -1,24 +1,15 @@
 import { PaymentRequest } from "@/app/payment/page";
+import { PAYMENT_SHEET } from "@/lib/constants/sheets";
+import { sheetsRead, escapeSheetString } from "@/lib/api/sheetsClient";
 
 export async function fetchFilteredPayments(userName: string) {
-  const sheetId = "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo";
-  const sheetName = "일정불참결재시트";
-  const query = `SELECT * WHERE B = '${userName}'`;
-  const url = `/api/sheets/read?spreadsheet_id=${sheetId}&sheet_name=${encodeURIComponent(
-    sheetName
-  )}&read=${encodeURIComponent(query)}`;
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) {
-    let body: any = undefined;
-    try {
-      body = await res.json();
-    } catch {
-      /* ignore */
-    }
-    console.error("sheets read failed", res.status, body);
-    throw new Error(body?.message || "시트 쿼리 실패");
+  if (!userName || typeof userName !== "string") {
+    throw new Error("Invalid userName");
   }
-  const data = await res.json();
+  const safeUserName = escapeSheetString(userName).slice(0, 200);
+
+  const query = `SELECT * WHERE B = '${safeUserName}'`;
+  const data = await sheetsRead(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query);
   // Visualization API JSON 구조에서 rows 추출
   const rows = data.table?.rows || [];
   // 각 row의 c 배열에서 값 추출
