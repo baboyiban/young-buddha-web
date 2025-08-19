@@ -1,6 +1,6 @@
 use axum::{Router, routing::{get, post}, response::IntoResponse, Json, extract::State};
 use serde_json::json;
-use crate::state::AppState;
+use crate::types::AppState;
 use crate::types::{CreateRequest, DatabaseRow, ApiError};
 use rusqlite::Connection;
 use std::sync::Arc;

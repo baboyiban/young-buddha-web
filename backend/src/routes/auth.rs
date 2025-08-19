@@ -1,6 +1,6 @@
 use axum::{Router, routing::{get, post, delete}, response::{IntoResponse, Response}, Json, extract::State};
 use serde_json::json;
-use crate::state::AppState;
+use crate::types::AppState;
 use crate::types::{CallbackQuery, TokenResponse, GoogleUserInfo, JwtClaims, AuthClaims};
 use std::sync::Arc;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
