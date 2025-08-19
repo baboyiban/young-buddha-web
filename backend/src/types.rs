@@ -4,6 +4,7 @@ use serde_json::json;
 use std::sync::Arc;
 use rusqlite::Connection;
 use reqwest::Client;
+use redis;
 
 // ======== Application State ========
 
@@ -14,6 +15,7 @@ pub struct AppState {
     pub db_path: String,
     pub frontend_url: String,
     pub http_client: Client,
+    pub redis_client: Option<redis::Client>,
 }
 
 impl AppState {
@@ -54,10 +56,13 @@ impl AppState {
             "#,
         ).expect("failed to create tables");
 
-    // build shared http client
+        // build shared http client
     let http_client = Client::new();
 
-    Arc::new(Self { jwt_secret, is_production, db_path, frontend_url, http_client })
+    // optional redis client (reused across requests if configured)
+    let redis_client = std::env::var("REDIS_URL").ok().and_then(|u| redis::Client::open(u).ok());
+
+    Arc::new(Self { jwt_secret, is_production, db_path, frontend_url, http_client, redis_client })
     }
 }
 

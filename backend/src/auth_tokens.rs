@@ -1,6 +1,6 @@
 use axum::http::HeaderMap;
 // serde_json::json not used here
-use crate::state::AppState;
+use crate::types::AppState;
 use crate::types::ApiError;
 use reqwest;
 use rusqlite::OptionalExtension;
