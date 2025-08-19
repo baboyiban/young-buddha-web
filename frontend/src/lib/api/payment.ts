@@ -1,32 +1,43 @@
 import { PaymentRequest } from "@/app/payment/page";
 import { PAYMENT_SHEET } from "@/lib/constants/sheets";
-import { sheetsRead, escapeSheetString } from "@/lib/api/sheetsClient";
-export async function fetchFilteredPayments(userName: string) {
-  if (!userName || typeof userName !== "string") {
+import { sheetsRead, escapeSheetQueryString } from "@/lib/api/sheetsClient";
+
+type SheetsCell = { v?: any; f?: string | null };
+type SheetsRow = { c?: SheetsCell[] };
+type SheetsData = { table?: { rows?: SheetsRow[] } };
+
+export async function fetchFilteredPayments(
+  userName: string,
+): Promise<PaymentRequest[]> {
+  if (typeof userName !== "string" || !userName.trim()) {
     throw new Error("Invalid userName");
   }
-  const safeUserName = escapeSheetString(userName).slice(0, 200);
 
+  const safeUserName = escapeSheetQueryString(userName).slice(0, 200);
   const query = `SELECT * WHERE B = '${safeUserName}'`;
-  const data = await sheetsRead(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query);
-  // Visualization API JSON 구조에서 rows 추출
-  const rows = data.table?.rows || [];
-  // 각 row의 c 배열에서 값 추출
+  const data = (await sheetsRead(
+    PAYMENT_SHEET.spreadsheetId,
+    PAYMENT_SHEET.sheetName,
+    query,
+  )) as SheetsData;
+
+  const rows = data.table?.rows ?? [];
+
   return rows
-    .map((row: any, idx: number) => {
-      const cells = row.c || [];
+    .map((row: SheetsRow, idx: number): PaymentRequest => {
+      const c = row.c ?? [];
       return {
-        id: cells[0]?.v || `${userName}-${idx}`,
-        name: cells[1]?.v || "",
-        type: cells[2]?.v || "",
-        requestDate: cells[3]?.v || "",
-        absentDate: cells[4]?.v || "",
-        schedule: cells[5]?.v || "",
-        reason: cells[6]?.v || "",
-        approved: cells[7]?.v || "",
-      } as PaymentRequest;
+        id: c[0]?.v ?? `${safeUserName}-${idx}`,
+        name: c[1]?.v ?? "",
+        type: c[2]?.v ?? "",
+        requestDate: c[3]?.v ?? "",
+        absentDate: c[4]?.v ?? "",
+        schedule: c[5]?.v ?? "",
+        reason: c[6]?.v ?? "",
+        approved: c[7]?.v ?? "",
+      };
     })
     .filter(
-      (request: PaymentRequest) => request.id && request.id.trim() !== ""
-    ); // 빈 행 필터링
+      (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
+    );
 }
