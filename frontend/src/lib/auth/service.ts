@@ -12,8 +12,6 @@ export class AuthService {
   // 기본적으로 상대 경로를 사용해 Next.js 리라이트를 타도록 설정
   // (브라우저에서 내부 도커 호스트를 직접 호출하지 않도록 함)
   private baseUrl = "";
-  private useMockAuth =
-    process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
   private httpClient: HttpClient;
 
   constructor() {
@@ -21,9 +19,6 @@ export class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    if (this.useMockAuth) {
-      return this.getMockUser();
-    }
     try {
       const resp = await this.httpClient.get<ApiResponse<User>>(`/api/auth/me`);
       if (resp.error) throw new Error(resp.error);
@@ -35,9 +30,6 @@ export class AuthService {
   }
 
   async getGoogleAuthUrl(): Promise<string> {
-    if (this.useMockAuth) {
-      return this.mockGoogleAuth();
-    }
     const resp = await this.httpClient.post<ApiResponse<AuthResponse>>(
       `/api/auth/google`,
       {
@@ -102,9 +94,6 @@ export class AuthService {
   }
 
   async checkAuthStatus(): Promise<boolean> {
-    if (this.useMockAuth) {
-      return this.getMockAuthStatus();
-    }
     try {
       const resp = await this.httpClient.get<ApiResponse<User>>(`/api/auth/me`);
       if (resp.error) throw new Error(resp.error);
@@ -123,26 +112,7 @@ export class AuthService {
     }
   }
 
-  // Mock 메서드들 (개발 환경용)
-  private getMockUser(): User {
-    return {
-      id: "mock-user-1",
-      email: "test@example.com",
-      name: "테스트 사용자",
-      picture: "https://via.placeholder.com/40",
-      roles: ["user"],
-    };
-  }
-
-  private async mockGoogleAuth(): Promise<string> {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    document.cookie = "jwt=mock-jwt-token; path=/";
-    return window.location.origin + "/login?login=success";
-  }
-
-  private getMockAuthStatus(): boolean {
-    return AuthService.getJwtFromCookie() === "mock-jwt-token";
-  }
+  // 목(auth) 제거됨
 
   async testJwtExpiry(): Promise<void> {
     try {
