@@ -13,10 +13,10 @@ use crate::services::SheetsService;
 // Public router (OAuth only)
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/sheets/read", get(query_sheet))
-        .route("/sheets/create", post(create_with_query))
-        .route("/sheets/update", post(update_with_query))
-        .route("/sheets/delete", post(delete_by_query))
+        .route("/read", get(query_sheet))
+        .route("/create", post(create_with_query))
+        .route("/update", post(update_with_query))
+        .route("/delete", post(delete_by_query))
 }
 
 // GET /api/sheets/query?spreadsheet_id=...&sheet_name=...&query=...
