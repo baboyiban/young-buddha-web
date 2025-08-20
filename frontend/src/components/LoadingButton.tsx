@@ -1,5 +1,3 @@
-import LoadingSpinner from './LoadingSpinner'
-
 interface LoadingButtonProps {
   loading: boolean
   children: React.ReactNode

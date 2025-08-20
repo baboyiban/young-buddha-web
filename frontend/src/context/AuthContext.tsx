@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async () => {
-    const authUrl = await authService.startGoogleAuth();
+    const authUrl = await authService.getGoogleAuthUrl();
     window.location.href = authUrl;
   };
 
