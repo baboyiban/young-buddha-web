@@ -19,9 +19,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        BACKEND_ORIGIN: http://backend:8080
     container_name: young-buddha-frontend
     depends_on:
       - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8080
+      - NEXT_PUBLIC_USE_MOCK_AUTH=false
     env_file:
       - frontend/.env.local
     ports:
