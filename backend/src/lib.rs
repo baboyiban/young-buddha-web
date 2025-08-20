@@ -8,6 +8,7 @@ pub mod state;
 pub mod types;
 
 // Re-export commonly used items for integration tests
-pub use routes::*;
+// Re-export specific symbols instead of globs to avoid ambiguous glob re-exports
+pub use routes::build_router;
 pub use types::AppState;
-pub use services::*;
+pub use services::auth::AuthService;

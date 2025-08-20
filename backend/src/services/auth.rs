@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 use crate::types::{AppState, CallbackQuery, TokenResponse, GoogleUserInfo, JwtClaims, ApiError};
 use crate::auth_tokens::authenticate_and_get_token;
-use axum::http::{HeaderMap, HeaderValue, header::SET_COOKIE};
+use axum::http::{HeaderMap, HeaderValue};
 use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
 use rand::{distributions::Alphanumeric, Rng};
 use serde_json::json;
@@ -73,7 +74,7 @@ impl AuthService {
 
     pub fn create_auth_cookies(jwt_token: &str, frontend_url: &str) -> Vec<HeaderValue> {
         let mut cookies = Vec::new();
-        
+
         // JWT 토큰 쿠키
         let jwt_cookie = format!(
             "jwt_token={}; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age={}",
@@ -100,7 +101,7 @@ impl AuthService {
         headers: HeaderMap,
     ) -> Result<(Vec<HeaderValue>, serde_json::Value), ApiError> {
         tracing::info!("OAuth callback received: code={:?}, state={:?}", query.code.is_some(), query.state);
-        
+
         // 모든 쿠키 로그
         if let Some(cookie_header) = headers.get("cookie") {
             if let Ok(cookie_str) = cookie_header.to_str() {
@@ -109,18 +110,18 @@ impl AuthService {
         } else {
             tracing::warn!("No cookies received in callback");
         }
-        
+
         // validate query
         let code = query.code.ok_or_else(|| {
             tracing::error!("Missing authorization code in callback");
             ApiError::bad_request("MISSING_CODE", "Missing code")
         })?;
-        
+
         let state_query = query.state.ok_or_else(|| {
             tracing::error!("Missing state parameter in callback");
             ApiError::bad_request("MISSING_STATE", "Missing state")
         })?;
-        
+
         // verify oauth_state from memory store
         if !Self::verify_oauth_state(&state_query) {
             tracing::error!("Invalid or expired oauth state: {}", state_query);
@@ -143,7 +144,7 @@ impl AuthService {
             ("redirect_uri", redirect_uri.as_str()),
             ("grant_type", "authorization_code"),
         ];
-        
+
         let token_resp = state.http_client
             .post("https://oauth2.googleapis.com/token")
             .form(&form)
@@ -183,7 +184,7 @@ impl AuthService {
         // create JWT token
         let jwt_secret = state.jwt_secret.as_ref()
             .ok_or_else(|| ApiError::internal_error("JWT_SECRET not configured"))?;
-        
+
         let jwt_token = Self::create_jwt_token(&name, &email, "user", jwt_secret)?;
 
         // create cookies
@@ -205,7 +206,7 @@ impl AuthService {
         headers: HeaderMap,
     ) -> Result<serde_json::Value, ApiError> {
         let (_email, _user_token) = authenticate_and_get_token(&headers, &state).await?;
-        
+
         // 여기서 실제 사용자 정보를 데이터베이스에서 조회할 수 있습니다
         // 현재는 기본 정보만 반환
         Ok(json!({
@@ -216,7 +217,7 @@ impl AuthService {
 
     pub fn logout(frontend_url: &str) -> Vec<HeaderValue> {
         let mut cookies = Vec::new();
-        
+
         // JWT 토큰 쿠키 삭제
         let jwt_cookie = format!(
             "jwt_token=; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age=0",
@@ -233,4 +234,4 @@ impl AuthService {
 
         cookies
     }
-} 
+}

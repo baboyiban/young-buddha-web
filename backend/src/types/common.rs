@@ -1,5 +1,3 @@
-use axum::http::StatusCode;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use reqwest::Client;
 use redis;
@@ -20,7 +18,7 @@ pub struct AppState {
 impl AppState {
     pub fn from_env() -> Arc<Self> {
         let config = crate::config::AppConfig::from_env();
-        
+
         // Validate production configuration
         if let Err(e) = config.validate_production_config() {
             tracing::error!("Configuration validation failed: {}", e);
@@ -35,14 +33,14 @@ impl AppState {
         let http_client = Client::new();
         let redis_client = config.redis_url.clone().and_then(|u| redis::Client::open(u).ok());
 
-        Arc::new(Self { 
-            jwt_secret, 
-            is_production, 
-            db_path, 
-            frontend_url, 
-            http_client, 
+        Arc::new(Self {
+            jwt_secret,
+            is_production,
+            db_path,
+            frontend_url,
+            http_client,
             redis_client,
             config,
         })
     }
-} 
+}
