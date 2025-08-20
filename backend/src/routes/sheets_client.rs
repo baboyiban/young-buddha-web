@@ -119,6 +119,86 @@ pub async fn sheets_api_delete_row_with_token(
     Ok(())
 }
 
+// 새로운 함수들 추가
+pub async fn append_row_to_sheet(
+    client: &reqwest::Client,
+    spreadsheet_id: &str,
+    sheet_name: &str,
+    values: &[Value],
+    access_token: &str,
+) -> Result<serde_json::Value, ApiError> {
+    let range = format!("{}!A:Z", sheet_name);
+    let string_values: Vec<String> = values.iter()
+        .map(|v| match v {
+            Value::String(s) => s.clone(),
+            Value::Number(n) => n.to_string(),
+            _ => "".to_string(),
+        })
+        .collect();
+    
+    sheets_api_append_with_token(client, spreadsheet_id, &range, &[string_values], access_token)
+        .await
+        .map_err(|e| ApiError::bad_gateway("SHEETS_WRITE_FAILED", e))?;
+    
+    Ok(json!({ "success": true, "message": "행이 성공적으로 추가되었습니다" }))
+}
+
+pub async fn update_row_in_sheet(
+    client: &reqwest::Client,
+    spreadsheet_id: &str,
+    sheet_name: &str,
+    row_index: usize,
+    values: &[Value],
+    access_token: &str,
+) -> Result<serde_json::Value, ApiError> {
+    let end_col = number_to_column_letters(values.len() as u32);
+    let range = format!("{}!A{}:{}{}", sheet_name, row_index, end_col, row_index);
+    
+    let string_values: Vec<String> = values.iter()
+        .map(|v| match v {
+            Value::String(s) => s.clone(),
+            Value::Number(n) => n.to_string(),
+            _ => "".to_string(),
+        })
+        .collect();
+    
+    sheets_api_write_with_token(client, spreadsheet_id, &range, &[string_values], access_token)
+        .await
+        .map_err(|e| ApiError::bad_gateway("SHEETS_WRITE_FAILED", e))?;
+    
+    Ok(json!({ "success": true, "message": "행이 성공적으로 업데이트되었습니다" }))
+}
+
+pub async fn delete_row_from_sheet(
+    client: &reqwest::Client,
+    spreadsheet_id: &str,
+    sheet_name: &str,
+    row_index: usize,
+    access_token: &str,
+) -> Result<serde_json::Value, ApiError> {
+    // 먼저 시트 ID를 가져옵니다
+    let sheet_id = get_sheet_id_by_name(client, spreadsheet_id, sheet_name, access_token).await?;
+    
+    // 실제 행 삭제를 수행합니다
+    sheets_api_delete_row_with_token(client, spreadsheet_id, sheet_id, row_index - 1, access_token)
+        .await
+        .map_err(|e| ApiError::bad_gateway("SHEETS_DELETE_FAILED", e))?;
+    
+    Ok(json!({ "success": true, "message": "행이 성공적으로 삭제되었습니다" }))
+}
+
+// A, B, ..., Z, AA, AB ...
+fn number_to_column_letters(mut n: u32) -> String {
+    if n == 0 { return "A".to_string(); }
+    let mut s = String::new();
+    while n > 0 {
+        let rem = (n - 1) % 26;
+        s.insert(0, (b'A' + rem as u8) as char);
+        n = (n - 1) / 26;
+    }
+    s
+}
+
 // 시트 전체 데이터 조회 (Sheets API v4 사용)
 pub async fn fetch_all_sheet_data_v4(
     client: &reqwest::Client,

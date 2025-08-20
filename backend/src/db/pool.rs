@@ -7,6 +7,11 @@ pub fn open_sqlite_conn<P: AsRef<Path>>(path: P) -> rusqlite::Result<Connection>
     Connection::open_with_flags(path, flags)
 }
 
+/// Get a database connection
+pub fn get_connection(path: &str) -> rusqlite::Result<Connection> {
+    open_sqlite_conn(path)
+}
+
 // Example helper that runs blocking DB work in tokio's blocking threadpool
 pub async fn run_blocking<T, F: FnOnce(&Connection) -> T + Send + 'static>(path: &str, f: F) -> T
 where
