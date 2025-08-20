@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+#![allow(dead_code)]
+use serde::Deserialize;
 
 // Visualization API Query Language 기반 쿼리 핸들러
 #[derive(Debug, Deserialize)]
@@ -19,7 +20,7 @@ pub struct CommonParams {
 }
 
 // JWT Claims for sheets
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 pub struct SheetsClaims {
     pub email: Option<String>,
-} 
+}

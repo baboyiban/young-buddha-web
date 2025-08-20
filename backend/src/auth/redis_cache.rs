@@ -10,6 +10,7 @@ pub fn init_global_redis(client: redis::Client) {
     let _ = GLOBAL_REDIS.set(client);
 }
 
+#[allow(dead_code)]
 fn get_client_from_env_or_global() -> Option<redis::Client> {
     if let Some(c) = GLOBAL_REDIS.get() {
         return Some(c.clone());
@@ -21,6 +22,7 @@ fn get_client_from_env_or_global() -> Option<redis::Client> {
 // Small helpers for Redis-backed JWT cache. These use blocking redis APIs
 // and run inside tokio::task::spawn_blocking from the caller.
 
+#[allow(dead_code)]
 pub async fn get_cached_jwt(token: &str) -> Option<serde_json::Value> {
     if let Some(client) = get_client_from_env_or_global() {
         let token_clone = token.to_string();
@@ -42,6 +44,7 @@ pub async fn get_cached_jwt(token: &str) -> Option<serde_json::Value> {
     None
 }
 
+#[allow(dead_code)]
 pub async fn store_valid_jwt(token: &str, cached_obj: serde_json::Value) -> Result<(), ()> {
     if let Some(client) = get_client_from_env_or_global() {
         let token_clone = token.to_string();

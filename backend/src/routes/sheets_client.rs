@@ -135,11 +135,11 @@ pub async fn append_row_to_sheet(
             _ => "".to_string(),
         })
         .collect();
-    
+
     sheets_api_append_with_token(client, spreadsheet_id, &range, &[string_values], access_token)
         .await
         .map_err(|e| ApiError::bad_gateway("SHEETS_WRITE_FAILED", e))?;
-    
+
     Ok(json!({ "success": true, "message": "행이 성공적으로 추가되었습니다" }))
 }
 
@@ -153,7 +153,7 @@ pub async fn update_row_in_sheet(
 ) -> Result<serde_json::Value, ApiError> {
     let end_col = number_to_column_letters(values.len() as u32);
     let range = format!("{}!A{}:{}{}", sheet_name, row_index, end_col, row_index);
-    
+
     let string_values: Vec<String> = values.iter()
         .map(|v| match v {
             Value::String(s) => s.clone(),
@@ -161,11 +161,11 @@ pub async fn update_row_in_sheet(
             _ => "".to_string(),
         })
         .collect();
-    
+
     sheets_api_write_with_token(client, spreadsheet_id, &range, &[string_values], access_token)
         .await
         .map_err(|e| ApiError::bad_gateway("SHEETS_WRITE_FAILED", e))?;
-    
+
     Ok(json!({ "success": true, "message": "행이 성공적으로 업데이트되었습니다" }))
 }
 
@@ -178,12 +178,12 @@ pub async fn delete_row_from_sheet(
 ) -> Result<serde_json::Value, ApiError> {
     // 먼저 시트 ID를 가져옵니다
     let sheet_id = get_sheet_id_by_name(client, spreadsheet_id, sheet_name, access_token).await?;
-    
+
     // 실제 행 삭제를 수행합니다
     sheets_api_delete_row_with_token(client, spreadsheet_id, sheet_id, row_index - 1, access_token)
         .await
         .map_err(|e| ApiError::bad_gateway("SHEETS_DELETE_FAILED", e))?;
-    
+
     Ok(json!({ "success": true, "message": "행이 성공적으로 삭제되었습니다" }))
 }
 
@@ -200,6 +200,7 @@ fn number_to_column_letters(mut n: u32) -> String {
 }
 
 // 시트 전체 데이터 조회 (Sheets API v4 사용)
+#[allow(dead_code)]
 pub async fn fetch_all_sheet_data_v4(
     client: &reqwest::Client,
     spreadsheet_id: &str,
@@ -211,23 +212,23 @@ pub async fn fetch_all_sheet_data_v4(
         urlencoding::encode(spreadsheet_id),
         urlencoding::encode(sheet_name)
     );
-    
+
     let resp = client.get(&url).bearer_auth(user_token).send().await
         .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
-    
+
     if !resp.status().is_success() {
-        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
+        return Err(ApiError::bad_gateway("SHEETS_API_FAILED",
             format!("시트 전체 조회 실패: {}", resp.status())));
     }
-    
+
     let data: Value = resp.json().await
         .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
-    
+
     let values = data.get("values")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    
+
     let mut result = Vec::new();
     for row in values {
         if let Some(row_array) = row.as_array() {
@@ -237,7 +238,7 @@ pub async fn fetch_all_sheet_data_v4(
             result.push(row_strings);
         }
     }
-    
+
     Ok(result)
 }
 
@@ -254,18 +255,18 @@ pub async fn fetch_all_sheet_data(
         urlencoding::encode("SELECT *"),
         urlencoding::encode(sheet_name)
     );
-    
+
     let resp = client.get(&all_query_url).bearer_auth(user_token).send().await
         .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
-    
+
     if !resp.status().is_success() {
-        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
+        return Err(ApiError::bad_gateway("SHEETS_API_FAILED",
         format!("시트 전체 조회 실패: {}", resp.status())));
     }
-    
+
     let text = resp.text().await.unwrap_or_default();
     let parsed = sheets_parser::parse_gviz_json(&text)?;
-    
+
     Ok(parsed.get("table")
         .and_then(|t| t.get("rows"))
         .and_then(|r| r.as_array())
@@ -284,15 +285,15 @@ pub async fn get_sheet_id_by_name(
         "https://sheets.googleapis.com/v4/spreadsheets/{}",
         urlencoding::encode(spreadsheet_id)
     );
-    
+
     let resp = client.get(&url).bearer_auth(user_token).send().await
         .map_err(|_| ApiError::bad_gateway("NETWORK_FAILED", "네트워크 요청 실패"))?;
-    
+
     if !resp.status().is_success() {
-        return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
+        return Err(ApiError::bad_gateway("SHEETS_API_FAILED",
             format!("스프레드시트 메타데이터 조회 실패: {}", resp.status())));
     }
-    
+
     let spreadsheet_data: Value = resp.json().await
         .map_err(|_| ApiError::bad_gateway("PARSE_FAILED", "JSON 파싱 실패"))?;
 

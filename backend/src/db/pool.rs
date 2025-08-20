@@ -13,6 +13,7 @@ pub fn get_connection(path: &str) -> rusqlite::Result<Connection> {
 }
 
 // Example helper that runs blocking DB work in tokio's blocking threadpool
+#[allow(dead_code)]
 pub async fn run_blocking<T, F: FnOnce(&Connection) -> T + Send + 'static>(path: &str, f: F) -> T
 where
     T: Send + 'static,

@@ -195,10 +195,12 @@ pub async fn refresh_user_access_token(
 
 // Re-expose Redis-backed JWT cache helpers so other modules use auth_tokens as the
 // single place for authentication/token related functionality.
+#[allow(dead_code)]
 pub async fn get_cached_jwt(token: &str) -> Option<serde_json::Value> {
     crate::auth::redis_cache::get_cached_jwt(token).await
 }
 
+#[allow(dead_code)]
 pub async fn store_valid_jwt(token: &str, cached_obj: serde_json::Value) -> Result<(), ()> {
     crate::auth::redis_cache::store_valid_jwt(token, cached_obj).await
 }
