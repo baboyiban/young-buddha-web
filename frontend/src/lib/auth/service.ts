@@ -53,6 +53,11 @@ export class AuthService {
     return resp.data.auth_url;
   }
 
+  // 호환성을 위한 별칭 메서드
+  async startGoogleAuth(): Promise<string> {
+    return this.getGoogleAuthUrl();
+  }
+
   async logout(shouldRedirect = true): Promise<void> {
     try {
       await this.httpClient.delete(`/api/auth/logout`);

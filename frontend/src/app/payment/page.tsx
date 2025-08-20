@@ -5,20 +5,9 @@ import { useAuth } from '@/hooks/useAuth'
 import LoadingButton from '@/components/LoadingButton'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { fetchFilteredPayments } from '@/lib/api/payment'
-import { sheetsCreate, sheetsDelete, sheetsUpdate, escapeSheetString } from '@/lib/api/sheets/client'
+import { sheetsCreate, sheetsDelete, sheetsUpdate, escapeSheetQueryString } from '@/lib/api/sheets/client'
 import { PAYMENT_SHEET } from '@/lib/constants/sheets'
-
-// 타입 정의
-export interface PaymentRequest {
-  id: string
-  name: string
-  requestDate: string
-  type: string
-  absentDate: string
-  schedule: string
-  reason: string
-  approved: string
-}
+import { PaymentRequest } from '@/types/payment'
 
 // 헬퍼 함수
 function formatDate(d: string): string {
@@ -51,7 +40,7 @@ export default function PaymentPage() {
   const [updating, setUpdating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<PaymentRequest>>({})
-  
+
   // 폼 상태
   const [form, setForm] = useState<PaymentRequest>({
     id: '',
@@ -89,7 +78,7 @@ export default function PaymentPage() {
         setLoading(false)
       }
     }
-    
+
     loadPayments()
   }, [user])
 
@@ -112,10 +101,10 @@ export default function PaymentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user?.name) return
-    
+
     try {
       setSubmitting(true)
-      
+
       const row = [
         generateUniqueId(),
         user.name,
@@ -126,13 +115,13 @@ export default function PaymentPage() {
         form.reason,
         '대기'
       ]
-      
+
       await sheetsCreate(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, `INSERT ${JSON.stringify(row)}`)
-      
+
       // 신청 후 목록 갱신
       const data = await fetchFilteredPayments(user.name)
       setRequests(data)
-      
+
       // 폼 초기화
       setForm(prev => ({
         ...prev,
@@ -155,13 +144,13 @@ export default function PaymentPage() {
   const handleDelete = async (request: PaymentRequest) => {
     if (!window.confirm('정말로 이 신청을 삭제하시겠습니까?')) return
     if (deletingId) return
-    
+
     try {
       setDeletingId(request.id)
-      
-      const query = `SELECT * WHERE A = '${escapeSheetString(request.id)}'`
+
+      const query = `SELECT * WHERE A = '${escapeSheetQueryString(request.id)}'`
       await sheetsDelete(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, query)
-      
+
       // 삭제 후 목록 갱신
       const data = await fetchFilteredPayments(user?.name || '')
       setRequests(data)
@@ -193,10 +182,10 @@ export default function PaymentPage() {
   // 수정 제출 핸들러
   const handleUpdate = async (original: PaymentRequest) => {
     if (!editingId) return
-    
+
     try {
       setUpdating(true)
-      
+
       const updatedRow = [
         original.id,
         original.name,
@@ -207,13 +196,13 @@ export default function PaymentPage() {
         editForm.reason ?? original.reason,
         original.approved || '대기'
       ]
-      
+
       await sheetsUpdate(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.sheetName, `UPDATE id=${JSON.stringify(original.id)} VALUES ${JSON.stringify(updatedRow)}`)
-      
+
       // 갱신 후 목록 갱신
       const data = await fetchFilteredPayments(user?.name || '')
       setRequests(data)
-      
+
       handleEditCancel()
     } catch (err) {
       console.error('수정 실패:', err)
@@ -241,11 +230,11 @@ export default function PaymentPage() {
               {/* 결재 유형 */}
               <div className="flex flex-col gap-[0.25rem]">
                 <label className="text-sm" htmlFor="type">결재 유형</label>
-                <select 
-                  id="type" 
-                  name="type" 
-                  value={form.type} 
-                  onChange={handleChange} 
+                <select
+                  id="type"
+                  name="type"
+                  value={form.type}
+                  onChange={handleChange}
                   className="grow-1"
                 >
                   <option value="정기">정기</option>
@@ -329,10 +318,10 @@ export default function PaymentPage() {
                     return (
                       <tr key={r.id} className="border-b">
                         <td className="">{isEditing ? (
-                          <select 
-                            name="type" 
-                            value={editForm.type ?? r.type} 
-                            onChange={handleEditChange} 
+                          <select
+                            name="type"
+                            value={editForm.type ?? r.type}
+                            onChange={handleEditChange}
                             className="text-sm"
                           >
                             <option value="정기">정기</option>
@@ -345,59 +334,59 @@ export default function PaymentPage() {
                         ) : (
                           r.type
                         )}</td>
-                        
+
                         <td className="">{formatDate(r.requestDate)}</td>
                         <td className="">{isEditing ? (
-                          <input 
-                            type="date" 
-                            name="absentDate" 
-                            value={editForm.absentDate ?? r.absentDate} 
-                            onChange={handleEditChange} 
-                            className="text-sm" 
+                          <input
+                            type="date"
+                            name="absentDate"
+                            value={editForm.absentDate ?? r.absentDate}
+                            onChange={handleEditChange}
+                            className="text-sm"
                           />
                         ) : (
                           r.absentDate
                         )}</td>
-                        
+
                         <td className="">{isEditing ? (
-                          <input 
-                            type="text" 
-                            name="schedule" 
-                            value={editForm.schedule ?? r.schedule} 
-                            onChange={handleEditChange} 
-                            className="text-sm border border-gray-300 rounded px-2 py-1" 
+                          <input
+                            type="text"
+                            name="schedule"
+                            value={editForm.schedule ?? r.schedule}
+                            onChange={handleEditChange}
+                            className="text-sm border border-gray-300 rounded px-2 py-1"
                           />
                         ) : (
                           r.schedule || '-'
                         )}</td>
-                        
+
                         <td className="">{isEditing ? (
-                          <input 
-                            type="text" 
-                            name="reason" 
-                            value={editForm.reason ?? r.reason} 
-                            onChange={handleEditChange} 
-                            className="text-sm border border-gray-300 rounded px-2 py-1 w-full" 
+                          <input
+                            type="text"
+                            name="reason"
+                            value={editForm.reason ?? r.reason}
+                            onChange={handleEditChange}
+                            className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
                           />
                         ) : (
                           r.reason || '-'
                         )}</td>
-                        
+
                         <td className="">{r.approved || '대기'}</td>
-                        
+
                         <td className="flex justify-center gap-[0.25rem]">
                           {isEditing ? (
                             <>
-                              <button 
-                                onClick={() => handleUpdate(r)} 
-                                className="text-sm purple" 
+                              <button
+                                onClick={() => handleUpdate(r)}
+                                className="text-sm purple"
                                 disabled={updating}
                               >
                                 {updating ? '저장 중...' : '저장'}
                               </button>
-                              <button 
-                                onClick={handleEditCancel} 
-                                className="text-sm gray" 
+                              <button
+                                onClick={handleEditCancel}
+                                className="text-sm gray"
                                 disabled={updating}
                               >
                                 취소
@@ -405,9 +394,9 @@ export default function PaymentPage() {
                             </>
                           ) : (
                             <>
-                              <button 
-                                onClick={() => handleEditStart(r)} 
-                                className="text-sm purple" 
+                              <button
+                                onClick={() => handleEditStart(r)}
+                                className="text-sm purple"
                                 disabled={deletingId === r.id}
                               >
                                 수정

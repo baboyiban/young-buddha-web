@@ -10,7 +10,7 @@ export default function Header() {
     try {
       await logout()
     } catch (error) {
-      alert('로그아웃 중 오류가 발생했습니다.')
+      console.error('로그아웃 중 오류가 발생했습니다.', error)
     }
   }
 

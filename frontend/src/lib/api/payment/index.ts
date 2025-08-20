@@ -1,14 +1,7 @@
-import { PaymentRequest } from "@/app/payment/page";
+import { PaymentRequest } from "@/types/payment";
 import { PAYMENT_SHEET } from "@/lib/api/sheets";
 import { sheetsRead, escapeSheetQueryString } from "@/lib/api/sheets/client";
-
-type SheetsCell = { v?: any; f?: string | null };
-type SheetsRow = { c?: SheetsCell[] };
-type SheetsData = {
-  table?: {
-    rows?: SheetsRow[];
-  };
-};
+import { SheetsData, SheetsRow } from "@/types/sheets";
 
 export async function fetchFilteredPayments(
   userName: string,

@@ -1,3 +1,16 @@
-export type SheetsCell = { v?: any; f?: string | null };
-export type SheetsRow = { c?: SheetsCell[] };
-export type SheetsData = { table?: { rows?: SheetsRow[] } };
+export interface SheetsCell {
+  v?: any;
+  f?: string | null;
+}
+
+export interface SheetsRow {
+  c?: SheetsCell[];
+}
+
+export interface SheetsData {
+  table?: {
+    rows?: SheetsRow[];
+  };
+}
+
+export type SheetsResponse = unknown;

@@ -26,7 +26,7 @@ function LoginContent() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true)
-      const authUrl = await authService.startGoogleAuth()
+      const authUrl = await authService.getGoogleAuthUrl()
       if (authUrl.includes('login=success')) {
         router.push('/?login=success')
       } else {

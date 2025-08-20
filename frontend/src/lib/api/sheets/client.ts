@@ -1,6 +1,5 @@
 import { HttpClient } from "@/lib/config/http";
-
-type SheetsResponse = unknown;
+import { SheetsResponse } from "@/types/sheets";
 
 const httpClient = new HttpClient();
 
