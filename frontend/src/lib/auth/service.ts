@@ -15,8 +15,7 @@ export class AuthService {
       ? "https://your-production-api.com"
       : "http://localhost:8080");
   private useMockAuth =
-    process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true" ||
-    process.env.NODE_ENV !== "production";
+    process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
   private httpClient: HttpClient;
 
   constructor() {
