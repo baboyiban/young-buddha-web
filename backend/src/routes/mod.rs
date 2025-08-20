@@ -27,14 +27,15 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
         ])
         .allow_credentials(true);
 
-    // Build API router with the same state type
-    let api: Router<Arc<AppState>> = Router::new()
-    .route("/health", axum::routing::get(health::health))
-        .merge(auth::router())
-        .merge(sheets::router())
-        .merge(database::router())
-        .layer(cors);
+    // API v1 라우터
+    let api_v1 = Router::new()
+        .route("/health", axum::routing::get(health::health))
+        .nest("/auth", auth::router())
+        .nest("/sheets", sheets::router())
+        .nest("/database", database::router());
 
+    // 메인 라우터
     Router::new()
-        .nest("/api", api)
+        .nest("/api/v1", api_v1)
+        .layer(cors)
 }
