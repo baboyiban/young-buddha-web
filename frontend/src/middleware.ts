@@ -27,8 +27,11 @@ export async function middleware(request: NextRequest) {
 
       // 캐시가 없거나 만료된 경우 백엔드로 검증 요청
       try {
-        const meUrl = new URL("/api/auth/me", request.url);
-        const res = await fetch(meUrl.toString(), {
+        // 내부 도커 네트워크의 백엔드로 직접 호출하여 TLS 문제 회피
+        const backendOrigin =
+          process.env.NEXT_PUBLIC_API_URL || "http://backend:8080";
+        const meUrl = `${backendOrigin.replace(/\/$/, "")}/api/v1/auth/me`;
+        const res = await fetch(meUrl, {
           method: "GET",
           headers: {
             // 백엔드는 cookie에서 jwt를 읽으므로 쿠키 헤더로 전달

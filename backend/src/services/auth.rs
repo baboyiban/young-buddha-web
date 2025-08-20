@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::types::{AppState, CallbackQuery, TokenResponse, GoogleUserInfo, JwtClaims, ApiError};
-use crate::auth_tokens::authenticate_and_get_token;
+use crate::auth_tokens::get_email_from_jwt_cookie;
 use axum::http::{HeaderMap, HeaderValue};
 use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
 use rand::{distributions::Alphanumeric, Rng};
@@ -77,7 +77,7 @@ impl AuthService {
 
         // JWT 토큰 쿠키
         let jwt_cookie = format!(
-            "jwt_token={}; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age={}",
+            "jwt={}; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age={}",
             jwt_token,
             if frontend_url.contains("localhost") { "localhost" } else { ".young-buddha.online" },
             JWT_EXPIRY_SECONDS
@@ -205,13 +205,12 @@ impl AuthService {
         state: Arc<AppState>,
         headers: HeaderMap,
     ) -> Result<serde_json::Value, ApiError> {
-        let (_email, _user_token) = authenticate_and_get_token(&headers, &state).await?;
+        let email = get_email_from_jwt_cookie(&headers, state.jwt_secret.as_deref())
+            .ok_or_else(|| ApiError::unauthorized("로그인이 필요합니다."))?;
 
-        // 여기서 실제 사용자 정보를 데이터베이스에서 조회할 수 있습니다
-        // 현재는 기본 정보만 반환
         Ok(json!({
             "authenticated": true,
-            "message": "User is authenticated"
+            "email": email
         }))
     }
 
@@ -220,7 +219,7 @@ impl AuthService {
 
         // JWT 토큰 쿠키 삭제
         let jwt_cookie = format!(
-            "jwt_token=; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age=0",
+            "jwt=; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age=0",
             if frontend_url.contains("localhost") { "localhost" } else { ".young-buddha.online" }
         );
         cookies.push(HeaderValue::from_str(&jwt_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
