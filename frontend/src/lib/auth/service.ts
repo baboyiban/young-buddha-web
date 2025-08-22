@@ -20,9 +20,19 @@ export class AuthService {
 
   async getCurrentUser(): Promise<User> {
     try {
-      const resp = await this.httpClient.get<ApiResponse<User>>(`/api/auth/me`);
-      if (resp.error) throw new Error(resp.error);
-      return resp.data;
+      // 백엔드 응답: { authenticated: boolean, email: string }
+      const resp = await this.httpClient.get<{ authenticated: boolean; email: string }>(
+        `/api/auth/me`,
+      );
+      // 최소 User 형태로 변환
+      const email = resp.email;
+      const name = email?.split("@")[0] || "User";
+      const user: User = {
+        id: email,
+        email,
+        name,
+      };
+      return user;
     } catch (error: any) {
       this.handleAuthError(error);
       throw error;
@@ -30,16 +40,15 @@ export class AuthService {
   }
 
   async getGoogleAuthUrl(): Promise<string> {
-    const resp = await this.httpClient.post<ApiResponse<AuthResponse>>(
+    // 백엔드 응답: { auth_url: string } (data 래퍼 없음)
+    const resp = await this.httpClient.post<{ auth_url?: string; message?: string }>(
       `/api/auth/google`,
       {
         redirect_uri: window.location.origin + "/login",
       },
     );
-    if (!resp.data?.auth_url) {
-      throw new Error(resp.error || "인증 URL을 받지 못했습니다");
-    }
-    return resp.data.auth_url;
+    if (resp.auth_url) return resp.auth_url;
+    throw new Error(resp.message || "인증 URL을 받지 못했습니다");
   }
 
   // 호환성을 위한 별칭 메서드
