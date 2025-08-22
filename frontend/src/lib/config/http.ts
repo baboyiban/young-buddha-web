@@ -32,12 +32,12 @@ export class HttpClient {
         res.status,
         body,
       );
-      
+
       // 401 에러인 경우 더 명확한 메시지 추가
       if (res.status === 401) {
         error.message = `시트 쿼리 실패: ${res.status} Unauthorized`;
       }
-      
+
       throw error;
     }
 
@@ -50,22 +50,46 @@ export class HttpClient {
       : `${this.baseUrl}/${url}`;
   }
 
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    // 브라우저 환경에서만 JWT 토큰 확인
+    if (typeof window === 'undefined') {
+      return {};
+    }
+
+    try {
+      // AuthService에서 JWT 토큰 가져오기
+      const { AuthService } = await import('@/lib/auth/service');
+      const jwtToken = AuthService.getJwtFromCookie();
+
+      if (jwtToken) {
+        return {
+          'Authorization': `Bearer ${jwtToken}`,
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to get JWT token for auth headers:', error);
+    }
+
+    return {};
+  }
+
   async get<T>(url: string): Promise<T> {
+    const headers = await this.getAuthHeaders();
     const res = await fetch(this.buildUrl(url), {
       method: "GET",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
     return this.handleResponse<T>(res);
   }
 
   async post<T>(url: string, body: object): Promise<T> {
+    const headers = await this.getAuthHeaders();
     const res = await fetch(this.buildUrl(url), {
       method: "POST",
       credentials: "include",
       headers: {
+        ...headers,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -74,10 +98,12 @@ export class HttpClient {
   }
 
   async put<T>(url: string, body: object): Promise<T> {
+    const headers = await this.getAuthHeaders();
     const res = await fetch(this.buildUrl(url), {
       method: "PUT",
       credentials: "include",
       headers: {
+        ...headers,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -86,10 +112,12 @@ export class HttpClient {
   }
 
   async delete<T>(url: string): Promise<T> {
+    const headers = await this.getAuthHeaders();
     const res = await fetch(this.buildUrl(url), {
       method: "DELETE",
       credentials: "include",
       headers: {
+        ...headers,
         "Content-Type": "application/json",
       },
     });
