@@ -82,7 +82,7 @@ impl SheetsService {
         let (target_id, update_data) = Self::extract_update_data_from_query(&params.query)?;
 
         // 4. 대상 행 찾기
-        let target_row_index = Self::find_row_by_id(&rows_all, target_id)?;
+        let target_row_index = Self::find_row_by_id(&rows_all, &target_id)?;
 
         // 5. 행 업데이트
         let result = sheets_client::update_row_in_sheet(&client, &params.spreadsheet_id, &params.sheet_name, target_row_index, &update_data, &user_token).await?;
@@ -107,7 +107,7 @@ impl SheetsService {
         let target_id = Self::extract_id_from_where_query(&params.query)?;
 
         // 4. 대상 행 찾기
-        let target_row_index = Self::find_row_by_id(&rows_all, target_id)?;
+        let target_row_index = Self::find_row_by_id(&rows_all, &target_id)?;
 
         // 5. 행 삭제
         let result = sheets_client::delete_row_from_sheet(&client, &params.spreadsheet_id, &params.sheet_name, target_row_index, &user_token).await?;
@@ -117,36 +117,44 @@ impl SheetsService {
 
     // 헬퍼 함수들
     fn extract_insert_data_from_query(query: &str) -> Result<Vec<Value>, ApiError> {
-        // INSERT INTO table (col1, col2) VALUES (val1, val2) 형태의 쿼리 파싱
-        if !query.to_uppercase().contains("INSERT INTO") {
+        // INSERT [JSON_ARRAY] 형태의 쿼리 파싱
+        if !query.to_uppercase().starts_with("INSERT") {
             return Err(ApiError::bad_request("INVALID_QUERY", "INSERT 쿼리가 아닙니다"));
         }
 
-        // 간단한 VALUES 파싱 (실제로는 더 정교한 파싱이 필요)
-        if let Some(values_start) = query.to_uppercase().find("VALUES") {
-            let values_part = &query[values_start + 6..];
-            let values_part = values_part.trim().trim_matches('(').trim_matches(')');
-            
-            let values: Vec<Value> = values_part
-                .split(',')
-                .map(|v| {
-                    let v = v.trim().trim_matches('\'');
-                    if v.parse::<i64>().is_ok() {
-                        Value::Number(v.parse().unwrap())
-                    } else {
-                        Value::String(v.to_string())
-                    }
-                })
-                .collect();
-
-            Ok(values)
+        // INSERT 다음의 JSON 배열 파싱
+        let json_part = query[6..].trim();
+        
+        // JSON 배열 파싱 시도
+        if let Ok(parsed) = serde_json::from_str::<Vec<Value>>(json_part) {
+            Ok(parsed)
         } else {
-            Err(ApiError::bad_request("INVALID_QUERY", "VALUES 절을 찾을 수 없습니다"))
+            // 실패하면 기존 방식으로 시도
+            if let Some(values_start) = query.to_uppercase().find("VALUES") {
+                let values_part = &query[values_start + 6..];
+                let values_part = values_part.trim().trim_matches('(').trim_matches(')');
+                
+                let values: Vec<Value> = values_part
+                    .split(',')
+                    .map(|v| {
+                        let v = v.trim().trim_matches('\'');
+                        if v.parse::<i64>().is_ok() {
+                            Value::Number(v.parse().unwrap())
+                        } else {
+                            Value::String(v.to_string())
+                        }
+                    })
+                    .collect();
+
+                Ok(values)
+            } else {
+                Err(ApiError::bad_request("INVALID_QUERY", "VALUES 절을 찾을 수 없습니다"))
+            }
         }
     }
 
-    fn extract_update_data_from_query(query: &str) -> Result<(i64, Vec<Value>), ApiError> {
-        // UPDATE table SET col1=val1, col2=val2 WHERE id=123 형태의 쿼리 파싱
+    fn extract_update_data_from_query(query: &str) -> Result<(String, Vec<Value>), ApiError> {
+        // UPDATE table SET col1=val1, col2=val2 WHERE id='REQ-1234567890-1234' 형태의 쿼리 파싱
         if !query.to_uppercase().contains("UPDATE") || !query.to_uppercase().contains("WHERE") {
             return Err(ApiError::bad_request("INVALID_QUERY", "UPDATE 쿼리가 아닙니다"));
         }
@@ -154,43 +162,32 @@ impl SheetsService {
         // ID 추출
         let target_id = Self::extract_id_from_where_query(query)?;
 
-        // SET 절 파싱
-        if let Some(set_start) = query.to_uppercase().find("SET") {
-            let set_end = query.to_uppercase().find("WHERE").unwrap_or(query.len());
-            let set_part = &query[set_start + 3..set_end];
+        // VALUES 절 파싱 (UPDATE id=... VALUES [JSON_ARRAY] 형식)
+        if let Some(values_start) = query.to_uppercase().find("VALUES") {
+            let json_part = &query[values_start + 6..].trim();
             
-            let update_data: Vec<Value> = set_part
-                .split(',')
-                .map(|pair| {
-                    let parts: Vec<&str> = pair.split('=').collect();
-                    if parts.len() == 2 {
-                        let value = parts[1].trim().trim_matches('\'');
-                        if value.parse::<i64>().is_ok() {
-                            Value::Number(value.parse().unwrap())
-                        } else {
-                            Value::String(value.to_string())
-                        }
-                    } else {
-                        Value::String("".to_string())
-                    }
-                })
-                .collect();
-
-            Ok((target_id, update_data))
+            // JSON 배열 파싱 시도
+            if let Ok(parsed) = serde_json::from_str::<Vec<Value>>(json_part) {
+                Ok((target_id, parsed))
+            } else {
+                Err(ApiError::bad_request("INVALID_QUERY", "VALUES 절의 JSON 파싱에 실패했습니다"))
+            }
         } else {
-            Err(ApiError::bad_request("INVALID_QUERY", "SET 절을 찾을 수 없습니다"))
+            Err(ApiError::bad_request("INVALID_QUERY", "VALUES 절을 찾을 수 없습니다"))
         }
     }
 
-    fn extract_id_from_where_query(query: &str) -> Result<i64, ApiError> {
-        // WHERE id=123 형태에서 ID 추출
+    fn extract_id_from_where_query(query: &str) -> Result<String, ApiError> {
+        // WHERE id='REQ-1234567890-1234' 형태에서 ID 추출
         if let Some(where_start) = query.to_uppercase().find("WHERE") {
             let where_part = &query[where_start + 5..];
             if let Some(id_eq) = where_part.find("id=") {
                 let id_part = &where_part[id_eq + 3..];
-                let id_str = id_part.split_whitespace().next().unwrap_or("");
-                id_str.parse::<i64>()
-                    .map_err(|_| ApiError::bad_request("INVALID_ID", "유효하지 않은 ID입니다"))
+                let id_str = id_part.trim().trim_matches('\'').trim_matches('"');
+                if id_str.is_empty() {
+                    return Err(ApiError::bad_request("INVALID_ID", "ID가 비어있습니다"));
+                }
+                Ok(id_str.to_string())
             } else {
                 Err(ApiError::bad_request("INVALID_QUERY", "WHERE 절에서 id를 찾을 수 없습니다"))
             }
@@ -199,7 +196,7 @@ impl SheetsService {
         }
     }
 
-    fn find_row_by_id(rows: &[Value], target_id: i64) -> Result<usize, ApiError> {
+    fn find_row_by_id(rows: &[Value], target_id: &str) -> Result<usize, ApiError> {
         for (i, row) in rows.iter().enumerate() {
             if let Some(id_val) = Self::get_row_id(row) {
                 if id_val == target_id {
@@ -210,11 +207,12 @@ impl SheetsService {
         Err(ApiError::not_found("지정된 ID의 행을 찾을 수 없습니다"))
     }
 
-    fn get_row_id(row: &Value) -> Option<i64> {
+    fn get_row_id(row: &Value) -> Option<String> {
         row.get("c")
             .and_then(|c| c.as_array())
             .and_then(|cells| cells.get(0))
             .and_then(|cell| cell.get("v"))
-            .and_then(|v| v.as_i64())
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
     }
-} 
+}

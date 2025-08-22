@@ -181,6 +181,48 @@ impl AuthService {
         let email = user_info.email.unwrap_or_else(|| "unknown@example.com".to_string());
         let name = user_info.name.unwrap_or_else(|| "Unknown User".to_string());
 
+        // Persist Google tokens for this user (UPSERT)
+        // Calculate absolute expiry timestamp
+        let expires_in = token_data.expires_in.unwrap_or(3600);
+        let expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
+
+        let access_token_to_save = token_data.access_token.clone();
+        let refresh_token_to_save = token_data.refresh_token.clone();
+        let email_for_save = email.clone();
+        let db_path_for_save = state.db_path.clone();
+
+        // Run blocking SQLite write in blocking thread
+        let _ = tokio::task::spawn_blocking(move || {
+            if let Ok(db) = rusqlite::Connection::open(&db_path_for_save) {
+                // Create table if not exists (defensive in case init didn't run yet)
+                let _ = db.execute_batch(
+                    r#"
+                    CREATE TABLE IF NOT EXISTS user_tokens (
+                        email TEXT PRIMARY KEY,
+                        access_token TEXT NOT NULL,
+                        refresh_token TEXT,
+                        expires_at INTEGER NOT NULL
+                    );
+                    "#,
+                );
+
+                // Use INSERT OR REPLACE to upsert tokens
+                let _ = db.execute(
+                    "INSERT INTO user_tokens (email, access_token, refresh_token, expires_at) VALUES (?1, ?2, ?3, ?4)
+                     ON CONFLICT(email) DO UPDATE SET
+                        access_token = excluded.access_token,
+                        refresh_token = COALESCE(excluded.refresh_token, user_tokens.refresh_token),
+                        expires_at = excluded.expires_at",
+                    rusqlite::params![
+                        email_for_save,
+                        access_token_to_save,
+                        refresh_token_to_save,
+                        expires_at
+                    ],
+                );
+            }
+        }).await;
+
         // create JWT token
         let jwt_secret = state.jwt_secret.as_ref()
             .ok_or_else(|| ApiError::internal_error("JWT_SECRET not configured"))?;

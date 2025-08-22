@@ -66,7 +66,15 @@ export default function PaymentPage() {
   // 결재 요청 데이터 로딩
   useEffect(() => {
     const loadPayments = async () => {
-      if (!user?.name) return
+      // 인증 로딩 중이면 대기
+      if (authLoading) return
+
+      // 사용자 정보가 없으면 로딩 종료하고 종료
+      if (!user?.name) {
+        setLoading(false)
+        return
+      }
+
       setLoading(true)
       try {
         const data = await fetchFilteredPayments(user.name)
@@ -80,7 +88,7 @@ export default function PaymentPage() {
     }
 
     loadPayments()
-  }, [user])
+  }, [user, authLoading])
 
   // 폼 값 변경 핸들러
   const handleChange = (
