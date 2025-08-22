@@ -23,10 +23,25 @@ pub async fn authenticate_and_get_token(
     Ok((email, user_token))
 }
 
-// JWT 쿠키에서 이메일 추출
+// JWT 쿠키 또는 Authorization 헤더에서 이메일 추출
 // Note: keep implementation local to sheets module originally; expose a wrapper here for reuse
 pub fn get_email_from_jwt_cookie(headers: &HeaderMap, jwt_secret: Option<&str>) -> Option<String> {
     let jwt_secret = jwt_secret?;
+    
+    // 1. 먼저 Authorization 헤더에서 Bearer 토큰 확인
+    if let Some(auth_header) = headers.get("authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                let jwt_token = auth_str[7..].trim().to_string();
+                if let Some(email) = decode_jwt_token(&jwt_token, jwt_secret) {
+                    tracing::debug!("JWT validation successful from Authorization header");
+                    return Some(email);
+                }
+            }
+        }
+    }
+    
+    // 2. Authorization 헤더가 없거나 유효하지 않으면 쿠키에서 확인
     let cookie_header = headers.get("cookie")?;
     let cookie_str = cookie_header.to_str().ok()?;
 
@@ -46,23 +61,27 @@ pub fn get_email_from_jwt_cookie(headers: &HeaderMap, jwt_secret: Option<&str>) 
             }
         })?;
 
-    // JWT 디코딩
+    decode_jwt_token(&jwt_token, jwt_secret)
+}
+
+// JWT 토큰 디코딩 헬퍼 함수
+fn decode_jwt_token(jwt_token: &str, jwt_secret: &str) -> Option<String> {
     match jsonwebtoken::decode::<crate::types::SheetsClaims>(
-        &jwt_token,
+        jwt_token,
         &jsonwebtoken::DecodingKey::from_secret(jwt_secret.as_bytes()),
         &jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256),
     ) {
         Ok(token_data) => {
-            tracing::debug!("JWT validation successful in sheets (shared)");
+            tracing::debug!("JWT validation successful");
             token_data.claims.email
         }
         Err(err) => {
             match err.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("JWT token expired in sheets API (shared)");
+                    tracing::warn!("JWT token expired");
                 }
                 _ => {
-                    tracing::warn!("JWT validation failed in sheets API (shared): {:?}", err.kind());
+                    tracing::warn!("JWT validation failed: {:?}", err.kind());
                 }
             }
             None
