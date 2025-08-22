@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { MissionData } from '@/types/mission'
 import { fetchMissionData } from '@/lib/api/mission'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -9,6 +10,7 @@ export default function Mission() {
   const [missionData, setMissionData] = useState<MissionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     loadMissionData()
@@ -19,9 +21,17 @@ export default function Mission() {
       setLoading(true)
       const data = await fetchMissionData()
       setMissionData(data)
-    } catch (err) {
-      setError('미션 데이터를 불러오는데 실패했습니다.')
+    } catch (err: any) {
       console.error('Error loading mission data:', err)
+      
+      // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
+      if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('Unauthorized')) {
+        alert('로그인이 필요합니다. 로그인 페이지로 이동합니다.')
+        router.push('/login')
+        return
+      }
+      
+      setError('미션 데이터를 불러오는데 실패했습니다.')
     } finally {
       setLoading(false)
     }
