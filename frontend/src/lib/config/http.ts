@@ -27,11 +27,18 @@ export class HttpClient {
     }
 
     if (!res.ok) {
-      throw new ApiError(
+      const error = new ApiError(
         body?.message || `API error: ${res.status}`,
         res.status,
         body,
       );
+      
+      // 401 에러인 경우 더 명확한 메시지 추가
+      if (res.status === 401) {
+        error.message = `시트 쿼리 실패: ${res.status} Unauthorized`;
+      }
+      
+      throw error;
     }
 
     return body as T;

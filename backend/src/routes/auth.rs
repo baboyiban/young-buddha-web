@@ -48,18 +48,25 @@ async fn google_callback(
     Query(q): Query<CallbackQuery>,
     headers: HeaderMap
 ) -> Response {
-    match AuthService::handle_google_callback(state, q, headers).await {
-        Ok((cookies, response_data)) => {
-            let mut response = (axum::http::StatusCode::OK, Json(response_data)).into_response();
+    match AuthService::handle_google_callback(state.clone(), q, headers).await {
+        Ok((cookies, _response_data)) => {
+            // 로그인 성공 시 프론트엔드 홈페이지로 리다이렉트
+            let redirect_url = format!("{}/?login=success", state.frontend_url);
+            let mut response = axum::response::Redirect::to(&redirect_url).into_response();
             let response_headers = response.headers_mut();
 
+            // 쿠키 설정
             for cookie in cookies {
                 response_headers.append(SET_COOKIE, cookie);
             }
 
             response
         }
-        Err(err) => err.into_response(),
+        Err(_err) => {
+            // 로그인 실패 시 로그인 페이지로 리다이렉트
+            let redirect_url = format!("{}/login?login=error", state.frontend_url);
+            axum::response::Redirect::to(&redirect_url).into_response()
+        }
     }
 }
 
