@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import LoadingButton from "@/components/LoadingButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { fetchFilteredPayments } from "@/lib/api/payment";
+import { fetchFilteredPayments, getUserNameByEmail } from "@/lib/api/payment";
 import {
   sheetsCreate,
   sheetsDelete,
@@ -75,6 +75,8 @@ export default function PaymentPage() {
   // 폼 상태
   const [form, setForm] = useState<PaymentRequest>({
     id: "",
+    email: "",
+    userId: "",
     name: "",
     requestDate: shortDate(new Date()),
     type: "정기",
@@ -89,6 +91,8 @@ export default function PaymentPage() {
     if (!authLoading && user) {
       setForm((prev) => ({
         ...prev,
+        email: user.email || "",
+        userId: user.email?.split("@")[0] || "",
         name: user.name || "",
       }));
     }
@@ -101,14 +105,14 @@ export default function PaymentPage() {
       if (authLoading) return;
 
       // 사용자 정보가 없으면 로딩 종료하고 종료
-      if (!user?.name) {
+      if (!user?.email) {
         setLoading(false);
         return;
       }
 
       setLoading(true);
       try {
-        const data = await fetchFilteredPayments(user.name);
+        const data = await fetchFilteredPayments(user.email);
         const normalized = data.map((r: PaymentRequest) => ({
           ...r,
           requestDate: toYMD(r.requestDate),
@@ -147,15 +151,23 @@ export default function PaymentPage() {
   // 결재 신청 핸들러
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.name) return;
+    if (!user?.email) return;
 
     try {
       setSubmitting(true);
 
       const newId = generateUniqueId();
+
+      // 유저정보 시트에서 이름 조회
+      const userName = await getUserNameByEmail(user.email);
+
+      // Google Sheets에 저장할 데이터 구조
+      // A: 고유번호, B: 이메일, C: 아이디, D: 이름, E: 구분, F: 신청날짜, G: 불참일, H: 불참일정, I: 사유, J: 결재상태
       const newRow = [
         newId,
-        user.name,
+        user.email,
+        user.email.split("@")[0],
+        userName,
         form.type,
         toYMD(form.requestDate),
         toYMD(form.absentDate),
@@ -171,7 +183,7 @@ export default function PaymentPage() {
       );
 
       // 신청 후 목록 갱신
-      const data = await fetchFilteredPayments(user.name);
+      const data = await fetchFilteredPayments(user.email);
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
@@ -211,12 +223,22 @@ export default function PaymentPage() {
 
       // 디버그
       console.log("DEBUG[delete] sheet:", PAYMENT_SHEET);
-      console.log("DEBUG[delete] original.id:", request.id, "len:", String(request.id).length);
+      console.log(
+        "DEBUG[delete] original.id:",
+        request.id,
+        "len:",
+        String(request.id).length,
+      );
       console.log(
         "DEBUG[delete] codepoints:",
-        Array.from(String(request.id)).map((c) => c.charCodeAt(0))
+        Array.from(String(request.id)).map((c) => c.charCodeAt(0)),
       );
-      console.log("DEBUG[delete] normalizedId:", normalizedId, "len:", normalizedId.length);
+      console.log(
+        "DEBUG[delete] normalizedId:",
+        normalizedId,
+        "len:",
+        normalizedId.length,
+      );
       console.log("DEBUG[delete] query:", query);
 
       await sheetsDelete(
@@ -225,7 +247,7 @@ export default function PaymentPage() {
         query,
       );
 
-      const data = await fetchFilteredPayments(user?.name || "");
+      const data = await fetchFilteredPayments(user?.email || "");
       const normalizedRows = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
@@ -262,13 +284,21 @@ export default function PaymentPage() {
     if (!editingId) return;
 
     // 진단 로그
-    console.log("DEBUG[update] current request ids:", requests.map((r) => r.id));
+    console.log(
+      "DEBUG[update] current request ids:",
+      requests.map((r) => r.id),
+    );
     console.log("DEBUG[update] updating id:", original.id);
 
     const existsLocally = requests.some((r) => r.id === original.id);
     if (!existsLocally) {
-      console.error("업데이트 대상 id가 클라이언트에서 발견되지 않음:", original.id);
-      alert("업데이트 대상이 현재 로드된 신청 목록에 없습니다. 시트의 ID 열(A열)이 변경되었는지 확인하세요.");
+      console.error(
+        "업데이트 대상 id가 클라이언트에서 발견되지 않음:",
+        original.id,
+      );
+      alert(
+        "업데이트 대상이 현재 로드된 신청 목록에 없습니다. 시트의 ID 열(A열)이 변경되었는지 확인하세요.",
+      );
       return;
     }
 
@@ -278,15 +308,22 @@ export default function PaymentPage() {
       const normalizedId = normalizeId(original.id);
       const whereId = escapeSheetQueryString(normalizedId);
 
+      // 유저정보 시트에서 이름 조회
+      const userName = await getUserNameByEmail(original.email);
+
+      // Google Sheets에 저장할 데이터 구조
+      // A: 고유번호, B: 이메일, C: 아이디, D: 이름, E: 구분, F: 신청날짜, G: 불참일, H: 불참일정, I: 사유, J: 결재상태
       const updatedRow = [
         normalizedId, // A: id는 정규화된 값으로 고정
-        original.name, // B
-        editForm.type ?? original.type, // C
-        toYMD(original.requestDate), // D
-        toYMD(editForm.absentDate ?? original.absentDate), // E
-        editForm.schedule ?? original.schedule, // F
-        editForm.reason ?? original.reason, // G
-        original.approved || "대기", // H
+        original.email, // B: 이메일
+        original.userId, // C: 아이디
+        userName, // D: 이름
+        editForm.type ?? original.type, // E: 구분
+        toYMD(original.requestDate), // F: 신청날짜
+        toYMD(editForm.absentDate ?? original.absentDate), // G: 불참일
+        editForm.schedule ?? original.schedule, // H: 불참일정
+        editForm.reason ?? original.reason, // I: 사유
+        original.approved || "대기", // J: 결재상태
       ];
 
       // 1차: 단일 따옴표
@@ -294,12 +331,22 @@ export default function PaymentPage() {
 
       // 디버그 상세 로그
       console.log("DEBUG[update] sheet:", PAYMENT_SHEET);
-      console.log("DEBUG[update] original.id:", original.id, "len:", String(original.id).length);
+      console.log(
+        "DEBUG[update] original.id:",
+        original.id,
+        "len:",
+        String(original.id).length,
+      );
       console.log(
         "DEBUG[update] codepoints:",
-        Array.from(String(original.id)).map((c) => c.charCodeAt(0))
+        Array.from(String(original.id)).map((c) => c.charCodeAt(0)),
       );
-      console.log("DEBUG[update] normalizedId:", normalizedId, "len:", normalizedId.length);
+      console.log(
+        "DEBUG[update] normalizedId:",
+        normalizedId,
+        "len:",
+        normalizedId.length,
+      );
       console.log("DEBUG[update] query(1):", query);
       console.log("DEBUG[update] payload row:", updatedRow);
 
@@ -312,7 +359,10 @@ export default function PaymentPage() {
       } catch (e) {
         // 2차: 이중 따옴표로 재시도
         const query2 = `UPDATE WHERE A = "${whereId}" VALUES ${JSON.stringify(updatedRow)}`;
-        console.warn("DEBUG[update] 1차 실패. 이중 따옴표로 재시도. query(2):", query2);
+        console.warn(
+          "DEBUG[update] 1차 실패. 이중 따옴표로 재시도. query(2):",
+          query2,
+        );
         await sheetsUpdate(
           PAYMENT_SHEET.spreadsheetId,
           PAYMENT_SHEET.sheetName,
@@ -320,7 +370,7 @@ export default function PaymentPage() {
         );
       }
 
-      const data = await fetchFilteredPayments(user?.name || "");
+      const data = await fetchFilteredPayments(user?.email || "");
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
@@ -332,7 +382,7 @@ export default function PaymentPage() {
       console.error("handleUpdate error:", err);
       alert(
         "수정 중 오류가 발생했습니다. 개발자 콘솔을 확인하세요.\n" +
-        (err?.message ? `오류: ${err.message}` : ""),
+          (err?.message ? `오류: ${err.message}` : ""),
       );
     } finally {
       setUpdating(false);
@@ -442,6 +492,9 @@ export default function PaymentPage() {
               <table className="max-w-full">
                 <thead>
                   <tr>
+                    <th className="">이메일</th>
+                    <th className="">아이디</th>
+                    <th className="">이름</th>
                     <th className="">구분</th>
                     <th className="">신청 날짜</th>
                     <th className="">불참일</th>
@@ -456,6 +509,9 @@ export default function PaymentPage() {
                     const isEditing = editingId === r.id;
                     return (
                       <tr key={r.id} className="">
+                        <td className="">{r.email}</td>
+                        <td className="">{r.userId}</td>
+                        <td className="">{r.name}</td>
                         <td className="">
                           {isEditing ? (
                             <select

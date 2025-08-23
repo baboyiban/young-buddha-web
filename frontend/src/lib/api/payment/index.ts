@@ -1,17 +1,43 @@
 import { PaymentRequest } from "@/types/payment";
-import { PAYMENT_SHEET } from "@/lib/api/sheets";
+import { PAYMENT_SHEET, USER_SHEET } from "@/lib/constants/sheets";
 import { sheetsRead, escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { SheetsData, SheetsRow } from "@/types/sheets";
 
-export async function fetchFilteredPayments(
-  userName: string,
-): Promise<PaymentRequest[]> {
-  if (!userName || typeof userName !== "string") {
-    throw new Error("유효하지 않은 사용자 이름입니다.");
+// 이메일로 사용자 이름을 조회하는 함수
+export async function getUserNameByEmail(email: string): Promise<string> {
+  if (!email || typeof email !== "string") {
+    throw new Error("유효하지 않은 이메일입니다.");
   }
 
-  const safeUserName = escapeSheetQueryString(userName).slice(0, 200);
-  const query = `SELECT * WHERE B = '${safeUserName}'`;
+  const safeEmail = escapeSheetQueryString(email).slice(0, 200);
+  // A열(이메일)을 기준으로 검색하여 B열(이름)을 선택
+  const query = `SELECT B WHERE A = '${safeEmail}'`;
+
+  const data = (await sheetsRead(
+    USER_SHEET.spreadsheetId,
+    USER_SHEET.sheetName,
+    query,
+  )) as SheetsData;
+
+  const rows = data.table?.rows ?? [];
+  if (rows.length > 0 && rows[0].c && rows[0].c[0]?.v) {
+    return rows[0].c[0].v as string;
+  }
+
+  // 이름을 찾지 못한 경우 이메일의 @ 앞부분을 사용
+  return email.split("@")[0];
+}
+
+export async function fetchFilteredPayments(
+  userEmail: string,
+): Promise<PaymentRequest[]> {
+  if (!userEmail || typeof userEmail !== "string") {
+    throw new Error("유효하지 않은 사용자 이메일입니다.");
+  }
+
+  const safeUserEmail = escapeSheetQueryString(userEmail).slice(0, 200);
+  // B열(이메일)을 기준으로 검색하도록 변경
+  const query = `SELECT * WHERE B = '${safeUserEmail}'`;
 
   const data = (await sheetsRead(
     PAYMENT_SHEET.spreadsheetId,
@@ -21,21 +47,34 @@ export async function fetchFilteredPayments(
 
   const rows = data.table?.rows ?? [];
 
-  return rows
-    .map((row: SheetsRow, idx: number): PaymentRequest => {
+  // 각 행에 대해 이름 조회를 병렬로 처리
+  const requestsWithNames = await Promise.all(
+    rows.map(async (row: SheetsRow, idx: number): Promise<PaymentRequest> => {
       const cells = row.c ?? [];
+      const email = cells[1]?.v ?? "";
+      let userName = "";
+
+      // 이메일이 있는 경우에만 이름 조회
+      if (email) {
+        userName = await getUserNameByEmail(email);
+      }
+
       return {
-        id: cells[0]?.v ?? `${safeUserName}-${idx}`,
-        name: cells[1]?.v ?? "",
-        type: cells[2]?.v ?? "",
-        requestDate: cells[3]?.v ?? "",
-        absentDate: cells[4]?.v ?? "",
-        schedule: cells[5]?.v ?? "",
-        reason: cells[6]?.v ?? "",
-        approved: cells[7]?.v ?? "",
+        id: cells[0]?.v ?? `${safeUserEmail}-${idx}`,
+        email: email,
+        userId: cells[2]?.v ?? "",
+        name: userName, // 조회한 이름 사용 (중복된 이름 무시)
+        type: cells[4]?.v ?? "", // 중복된 이름 컬럼을 건너뛰고 다음 컬럼부터 사용
+        requestDate: cells[5]?.v ?? "",
+        absentDate: cells[6]?.v ?? "",
+        schedule: cells[7]?.v ?? "",
+        reason: cells[8]?.v ?? "",
+        approved: cells[9]?.v ?? "",
       };
-    })
-    .filter(
-      (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
-    );
+    }),
+  );
+
+  return requestsWithNames.filter(
+    (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
+  );
 }

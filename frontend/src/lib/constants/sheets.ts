@@ -4,5 +4,7 @@ export const PAYMENT_SHEET = {
   sheetName: "일정불참결재시트",
 } as const;
 
-// 추가적인 시트 상수는 이 파일에 확장해서 추가하세요.
-export default PAYMENT_SHEET;
+export const USER_SHEET = {
+  spreadsheetId: "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo",
+  sheetName: "유저정보",
+} as const;
