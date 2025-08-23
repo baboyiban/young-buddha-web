@@ -29,6 +29,14 @@ function generateUniqueId(): string {
   return `REQ-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
+// 추가: id 정규화 헬퍼
+function normalizeId(id: string): string {
+  return String(id)
+    .trim()
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // 제로폭 문자 제거
+    .normalize("NFKC");
+}
+
 function shortDate(dt: Date): string {
   const y = dt.getFullYear();
   const m = String(dt.getMonth() + 1).padStart(2, "0");
@@ -167,17 +175,31 @@ export default function PaymentPage() {
     try {
       setDeletingId(request.id);
 
-      const query = `SELECT * WHERE A = '${escapeSheetQueryString(request.id)}'`;
+      const normalized = normalizeId(request.id);
+      const whereId = escapeSheetQueryString(normalized);
+
+      const query = `SELECT * WHERE A = '${whereId}'`;
+
+      // 디버그
+      console.log("DEBUG[delete] sheet:", PAYMENT_SHEET);
+      console.log("DEBUG[delete] original.id:", request.id, "len:", String(request.id).length);
+      console.log(
+        "DEBUG[delete] codepoints:",
+        Array.from(String(request.id)).map((c) => c.charCodeAt(0))
+      );
+      console.log("DEBUG[delete] normalized:", normalized, "len:", normalized.length);
+      console.log("DEBUG[delete] query:", query);
+
       await sheetsDelete(
         PAYMENT_SHEET.spreadsheetId,
         PAYMENT_SHEET.sheetName,
         query,
       );
 
-      // 삭제 후 목록 갱신
       const data = await fetchFilteredPayments(user?.name || "");
       setRequests(data);
     } catch (err) {
+      console.error("handleDelete error:", err);
       alert("삭제 중 오류가 발생했습니다.");
     } finally {
       setDeletingId(null);
@@ -205,33 +227,74 @@ export default function PaymentPage() {
   const handleUpdate = async (original: PaymentRequest) => {
     if (!editingId) return;
 
+    // 진단 로그
+    console.log("DEBUG[update] current request ids:", requests.map((r) => r.id));
+    console.log("DEBUG[update] updating id:", original.id);
+
+    const existsLocally = requests.some((r) => r.id === original.id);
+    if (!existsLocally) {
+      console.error("업데이트 대상 id가 클라이언트에서 발견되지 않음:", original.id);
+      alert("업데이트 대상이 현재 로드된 신청 목록에 없습니다. 시트의 ID 열(A열)이 변경되었는지 확인하세요.");
+      return;
+    }
+
     try {
       setUpdating(true);
 
+      const normalizedId = normalizeId(original.id);
+      const whereId = escapeSheetQueryString(normalizedId);
+
       const updatedRow = [
-        original.id,
-        original.name,
-        editForm.type ?? original.type,
-        original.requestDate,
-        editForm.absentDate ?? original.absentDate,
-        editForm.schedule ?? original.schedule,
-        editForm.reason ?? original.reason,
-        original.approved || "대기",
+        normalizedId, // A: id는 정규화된 값으로 고정
+        original.name, // B
+        editForm.type ?? original.type, // C
+        original.requestDate, // D
+        editForm.absentDate ?? original.absentDate, // E
+        editForm.schedule ?? original.schedule, // F
+        editForm.reason ?? original.reason, // G
+        original.approved || "대기", // H
       ];
 
-      await sheetsUpdate(
-        PAYMENT_SHEET.spreadsheetId,
-        PAYMENT_SHEET.sheetName,
-        `UPDATE id=${JSON.stringify(original.id)} VALUES ${JSON.stringify(updatedRow)}`,
-      );
+      // 1차: 단일 따옴표
+      let query = `UPDATE WHERE A = '${whereId}' VALUES ${JSON.stringify(updatedRow)}`;
 
-      // 갱신 후 목록 갱신
+      // 디버그 상세 로그
+      console.log("DEBUG[update] sheet:", PAYMENT_SHEET);
+      console.log("DEBUG[update] original.id:", original.id, "len:", String(original.id).length);
+      console.log(
+        "DEBUG[update] codepoints:",
+        Array.from(String(original.id)).map((c) => c.charCodeAt(0))
+      );
+      console.log("DEBUG[update] normalizedId:", normalizedId, "len:", normalizedId.length);
+      console.log("DEBUG[update] query(1):", query);
+      console.log("DEBUG[update] payload row:", updatedRow);
+
+      try {
+        await sheetsUpdate(
+          PAYMENT_SHEET.spreadsheetId,
+          PAYMENT_SHEET.sheetName,
+          query,
+        );
+      } catch (e) {
+        // 2차: 이중 따옴표로 재시도
+        const query2 = `UPDATE WHERE A = "${whereId}" VALUES ${JSON.stringify(updatedRow)}`;
+        console.warn("DEBUG[update] 1차 실패. 이중 따옴표로 재시도. query(2):", query2);
+        await sheetsUpdate(
+          PAYMENT_SHEET.spreadsheetId,
+          PAYMENT_SHEET.sheetName,
+          query2,
+        );
+      }
+
       const data = await fetchFilteredPayments(user?.name || "");
       setRequests(data);
-
       handleEditCancel();
-    } catch (err) {
-      alert("수정 중 오류가 발생했습니다.");
+    } catch (err: any) {
+      console.error("handleUpdate error:", err);
+      alert(
+        "수정 중 오류가 발생했습니다. 개발자 콘솔을 확인하세요.\n" +
+        (err?.message ? `오류: ${err.message}` : ""),
+      );
     } finally {
       setUpdating(false);
     }
@@ -353,7 +416,7 @@ export default function PaymentPage() {
                   {requests.map((r) => {
                     const isEditing = editingId === r.id;
                     return (
-                      <tr key={r.id} className="border-b">
+                      <tr key={r.id} className="">
                         <td className="">
                           {isEditing ? (
                             <select

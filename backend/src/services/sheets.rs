@@ -17,7 +17,7 @@ impl SheetsService {
         params: QueryParams,
     ) -> Result<axum::response::Response, ApiError> {
         // 1. 인증 및 토큰 검증
-    let (email, mut user_token) = authenticate_and_get_token(&headers, &state).await?;
+        let (email, mut user_token) = authenticate_and_get_token(&headers, &state).await?;
 
         let client = &state.http_client;
 
@@ -86,17 +86,29 @@ impl SheetsService {
 
         let client = &state.http_client;
 
-        // 2. 전체 시트 데이터 조회
+        // 2. 전체 시트 데이터 조회(GViz rows)
         let rows_all = sheets_client::fetch_all_sheet_data(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await?;
 
-        // 3. 쿼리에서 대상 ID와 업데이트 데이터 추출
-        let (target_id, update_data) = Self::extract_update_data_from_query(&params.query)?;
+        // 3. WHERE 파싱 + VALUES 파싱
+        let (where_token, where_value) = Self::extract_where_from_query(&params.query)?;
+        let update_data = Self::extract_values_array_from_query(&params.query)?;
 
-        // 4. 대상 행 찾기
-        let target_row_index = Self::find_row_by_id(&rows_all, &target_id)?;
+        // 4. 열 인덱스 해석(열문자: A, B, ... AA / id는 0번 컬럼으로 간주 / 그 외 토큰은 전체 스캔)
+        let col_idx_opt = Self::resolve_column_index_optional(&where_token);
 
-        // 5. 행 업데이트
-        let result = sheets_client::update_row_in_sheet(&client, &params.spreadsheet_id, &params.sheet_name, target_row_index, &update_data, &user_token).await?;
+        // 5. 대상 행 찾기(열 지정 시 해당 열만, 아니면 전체 열 스캔)
+        let target_row_index = Self::find_row_by_value(&rows_all, col_idx_opt, &where_value)
+            .ok_or_else(|| ApiError::not_found("지정된 조건에 해당하는 행을 찾을 수 없습니다"))?;
+
+        // 6. 행 업데이트(1-based index)
+        let result = sheets_client::update_row_in_sheet(
+            &client,
+            &params.spreadsheet_id,
+            &params.sheet_name,
+            target_row_index,
+            &update_data,
+            &user_token
+        ).await?;
 
         Ok((StatusCode::OK, Json(result)).into_response())
     }
@@ -111,46 +123,53 @@ impl SheetsService {
 
         let client = &state.http_client;
 
-        // 2. 전체 시트 데이터 조회
+        // 2. 전체 시트 데이터 조회(GViz rows)
         let rows_all = sheets_client::fetch_all_sheet_data(&client, &params.spreadsheet_id, &params.sheet_name, &user_token).await?;
 
-        // 3. 쿼리에서 대상 ID 추출
-        let target_id = Self::extract_id_from_where_query(&params.query)?;
+        // 3. WHERE 파싱
+        let (where_token, where_value) = Self::extract_where_from_query(&params.query)?;
 
-        // 4. 대상 행 찾기
-        let target_row_index = Self::find_row_by_id(&rows_all, &target_id)?;
+        // 4. 열 인덱스 해석(열문자/ID/없으면 전체 스캔)
+        let col_idx_opt = Self::resolve_column_index_optional(&where_token);
 
-        // 5. 행 삭제
-        let result = sheets_client::delete_row_from_sheet(&client, &params.spreadsheet_id, &params.sheet_name, target_row_index, &user_token).await?;
+        // 5. 대상 행 찾기
+        let target_row_index = Self::find_row_by_value(&rows_all, col_idx_opt, &where_value)
+            .ok_or_else(|| ApiError::not_found("지정된 조건에 해당하는 행을 찾을 수 없습니다"))?;
+
+        // 6. 행 삭제(1-based index)
+        let result = sheets_client::delete_row_from_sheet(
+            &client,
+            &params.spreadsheet_id,
+            &params.sheet_name,
+            target_row_index,
+            &user_token
+        ).await?;
 
         Ok((StatusCode::OK, Json(result)).into_response())
     }
 
-    // 헬퍼 함수들
+    // ================= 헬퍼 함수들 =================
+
+    // INSERT [JSON_ARRAY] 형태의 쿼리 파싱
     fn extract_insert_data_from_query(query: &str) -> Result<Vec<Value>, ApiError> {
-        // INSERT [JSON_ARRAY] 형태의 쿼리 파싱
-        if !query.to_uppercase().starts_with("INSERT") {
+        if !query.to_ascii_uppercase().starts_with("INSERT") {
             return Err(ApiError::bad_request("INVALID_QUERY", "INSERT 쿼리가 아닙니다"));
         }
-
-        // INSERT 다음의 JSON 배열 파싱
         let json_part = query[6..].trim();
-        
-        // JSON 배열 파싱 시도
         if let Ok(parsed) = serde_json::from_str::<Vec<Value>>(json_part) {
             Ok(parsed)
         } else {
-            // 실패하면 기존 방식으로 시도
-            if let Some(values_start) = query.to_uppercase().find("VALUES") {
+            // 실패하면 기존 VALUES 구문 fallback
+            if let Some(values_start) = query.to_ascii_uppercase().find("VALUES") {
                 let values_part = &query[values_start + 6..];
                 let values_part = values_part.trim().trim_matches('(').trim_matches(')');
                 
                 let values: Vec<Value> = values_part
                     .split(',')
                     .map(|v| {
-                        let v = v.trim().trim_matches('\'');
+                        let v = v.trim().trim_matches('\'').trim_matches('"');
                         if v.parse::<i64>().is_ok() {
-                            Value::Number(v.parse().unwrap())
+                            Value::Number(v.parse::<i64>().unwrap().into())
                         } else {
                             Value::String(v.to_string())
                         }
@@ -164,58 +183,173 @@ impl SheetsService {
         }
     }
 
-    fn extract_update_data_from_query(query: &str) -> Result<(String, Vec<Value>), ApiError> {
-        // UPDATE table SET col1=val1, col2=val2 WHERE id='REQ-1234567890-1234' 형태의 쿼리 파싱
-        if !query.to_uppercase().contains("UPDATE") || !query.to_uppercase().contains("WHERE") {
+    // UPDATE 쿼리에서 VALUES [ ... ] JSON 배열만 추출
+    fn extract_values_array_from_query(query: &str) -> Result<Vec<Value>, ApiError> {
+        if !query.to_ascii_uppercase().contains("UPDATE") {
             return Err(ApiError::bad_request("INVALID_QUERY", "UPDATE 쿼리가 아닙니다"));
         }
-
-        // ID 추출
-        let target_id = Self::extract_id_from_where_query(query)?;
-
-        // VALUES 절 파싱 (UPDATE id=... VALUES [JSON_ARRAY] 형식)
-        if let Some(values_start) = query.to_uppercase().find("VALUES") {
-            let json_part = &query[values_start + 6..].trim();
-            
-            // JSON 배열 파싱 시도
-            if let Ok(parsed) = serde_json::from_str::<Vec<Value>>(json_part) {
-                Ok((target_id, parsed))
-            } else {
-                Err(ApiError::bad_request("INVALID_QUERY", "VALUES 절의 JSON 파싱에 실패했습니다"))
-            }
+        if let Some(values_start) = query.to_ascii_uppercase().find("VALUES") {
+            let json_part = query[values_start + 6..].trim();
+            serde_json::from_str::<Vec<Value>>(json_part)
+                .map_err(|_| ApiError::bad_request("INVALID_QUERY", "VALUES 절의 JSON 파싱에 실패했습니다"))
         } else {
             Err(ApiError::bad_request("INVALID_QUERY", "VALUES 절을 찾을 수 없습니다"))
         }
     }
 
-    fn extract_id_from_where_query(query: &str) -> Result<String, ApiError> {
-        // WHERE id='REQ-1234567890-1234' 형태에서 ID 추출
-        if let Some(where_start) = query.to_uppercase().find("WHERE") {
-            let where_part = &query[where_start + 5..];
-            if let Some(id_eq) = where_part.find("id=") {
-                let id_part = &where_part[id_eq + 3..];
-                let id_str = id_part.trim().trim_matches('\'').trim_matches('"');
-                if id_str.is_empty() {
-                    return Err(ApiError::bad_request("INVALID_ID", "ID가 비어있습니다"));
-                }
-                Ok(id_str.to_string())
-            } else {
-                Err(ApiError::bad_request("INVALID_QUERY", "WHERE 절에서 id를 찾을 수 없습니다"))
-            }
-        } else {
-            Err(ApiError::bad_request("INVALID_QUERY", "WHERE 절을 찾을 수 없습니다"))
+    // WHERE <토큰> = '값' 또는 "값" 파싱(토큰은 어떤 문자든 허용: 공백/ '=' 전까지)
+    fn extract_where_from_query(query: &str) -> Result<(String, String), ApiError> {
+        let q_upper = query.to_ascii_uppercase();
+        let where_pos = q_upper.find("WHERE")
+            .ok_or_else(|| ApiError::bad_request("INVALID_QUERY", "WHERE 절을 찾을 수 없습니다"))?;
+        // WHERE 다음 부분
+        let mut i = where_pos + "WHERE".len();
+        let bytes = query.as_bytes();
+        // 공백 스킵
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() { i += 1; }
+        // 토큰 추출: 공백 또는 '=' 전까지
+        let token_start = i;
+        while i < bytes.len() && !bytes[i].is_ascii_whitespace() && bytes[i] != b'=' { i += 1; }
+        let mut token = query[token_start..i].trim().to_string();
+        // 공백 스킵
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() { i += 1; }
+        // '=' 스킵
+        if i >= bytes.len() || bytes[i] != b'=' {
+            return Err(ApiError::bad_request("INVALID_QUERY", "WHERE 절의 '=' 가 누락되었습니다"));
         }
+        i += 1;
+        // 공백 스킵
+        while i < bytes.len() && bytes[i].is_ascii_whitespace() { i += 1; }
+        if i >= bytes.len() {
+            return Err(ApiError::bad_request("INVALID_QUERY", "WHERE 값이 누락되었습니다"));
+        }
+        // 값은 따옴표 필수로 가정
+        let quote = bytes[i];
+        if quote != b'\'' && quote != b'"' {
+            return Err(ApiError::bad_request("INVALID_QUERY", "WHERE 값은 따옴표로 감싸야 합니다"));
+        }
+        i += 1;
+        let val_start = i;
+        while i < bytes.len() && bytes[i] != quote { i += 1; }
+        if i >= bytes.len() {
+            return Err(ApiError::bad_request("INVALID_QUERY", "WHERE 값의 닫는 따옴표가 없습니다"));
+        }
+        let value = query[val_start..i].to_string();
+
+        if token.is_empty() {
+            token = "*".to_string(); // 토큰이 비면 전체 스캔 의미로 취급
+        }
+        Ok((token, value))
     }
 
-    fn find_row_by_id(rows: &[Value], target_id: &str) -> Result<usize, ApiError> {
+    // 열 인덱스 해석: 열문자(A..AA..) => Some(idx), 'id' => Some(0), 그 외 => None(전체 스캔)
+    fn resolve_column_index_optional(token: &str) -> Option<usize> {
+        if let Some(idx) = Self::column_letter_to_index(token) {
+            return Some(idx);
+        }
+        if token.eq_ignore_ascii_case("id") {
+            return Some(0);
+        }
+        None // 헤더명을 알 수 없으므로 전체 스캔
+    }
+
+    // A->0, Z->25, AA->26 ...
+    fn column_letter_to_index(token: &str) -> Option<usize> {
+        let t = token.trim();
+        if t.is_empty() { return None; }
+        // 열문자는 ASCII 알파벳으로만 구성
+        if !t.chars().all(|c| c.is_ascii_alphabetic()) {
+            return None;
+        }
+        let mut idx: isize = 0;
+        for ch in t.chars() {
+            let v = (ch.to_ascii_uppercase() as u8 - b'A' + 1) as isize;
+            idx = idx * 26 + v;
+        }
+        Some((idx - 1) as usize)
+    }
+
+    // 문자열 정규화: trim + 제로폭 제거
+    fn normalize_str(s: &str) -> String {
+        s.trim()
+            .replace('\u{200B}', "")
+            .replace('\u{200C}', "")
+            .replace('\u{200D}', "")
+            .replace('\u{FEFF}', "")
+            .to_string()
+    }
+
+    // GViz rows에서 특정 열만 또는 전체 열에서 target과 일치하는 1-based 행 번호 반환
+    fn find_row_by_value(rows: &[Value], col_idx_opt: Option<usize>, target: &str) -> Option<usize> {
+        let target_norm = Self::normalize_str(target);
         for (i, row) in rows.iter().enumerate() {
-            if let Some(id_val) = Self::get_row_id(row) {
-                if id_val == target_id {
-                    return Ok(i + 1); // Sheets API는 1-based indexing
+            if let Some(col_idx) = col_idx_opt {
+                if let Some(cell_str) = Self::get_cell_string(row, col_idx) {
+                    if Self::normalize_str(&cell_str) == target_norm {
+                        return Some(i + 1); // Sheets API는 1-based
+                    }
+                }
+            } else {
+                // 전체 열 스캔
+                if Self::row_contains_value(row, &target_norm) {
+                    return Some(i + 1);
                 }
             }
         }
-        Err(ApiError::not_found("지정된 ID의 행을 찾을 수 없습니다"))
+        None
+    }
+
+    fn row_contains_value(row: &Value, target_norm: &str) -> bool {
+        let cells = match row.get("c").and_then(|c| c.as_array()) {
+            Some(c) => c,
+            None => return false,
+        };
+        for cell in cells {
+            if let Some(s) = Self::cell_to_string(cell) {
+                if Self::normalize_str(&s) == target_norm {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn get_cell_string(row: &Value, col_idx: usize) -> Option<String> {
+        let cells = row.get("c")?.as_array()?;
+        let cell = cells.get(col_idx)?;
+        Self::cell_to_string(cell)
+    }
+
+    fn cell_to_string(cell: &Value) -> Option<String> {
+        let v = cell.get("v")?;
+        if let Some(s) = v.as_str() {
+            return Some(s.to_string());
+        }
+        if let Some(n) = v.as_i64() {
+            return Some(n.to_string());
+        }
+        if let Some(f) = v.as_f64() {
+            return Some(f.to_string());
+        }
+        if let Some(b) = v.as_bool() {
+            return Some(b.to_string());
+        }
+        None
+    }
+
+    // ================= 이하 레거시(호환용) =================
+    // 기존 코드가 참조할 수 있어 남겨두지만, 현재 경로에서는 사용하지 않습니다.
+
+    fn extract_update_data_from_query(_query: &str) -> Result<(String, Vec<Value>), ApiError> {
+        Err(ApiError::bad_request("INVALID_QUERY", "레거시 UPDATE 파서는 사용되지 않습니다"))
+    }
+
+    fn extract_id_from_where_query(_query: &str) -> Result<String, ApiError> {
+        Err(ApiError::bad_request("INVALID_QUERY", "레거시 id 전용 WHERE 파서는 사용되지 않습니다"))
+    }
+
+    fn find_row_by_id(_rows: &[Value], _target_id: &str) -> Result<usize, ApiError> {
+        Err(ApiError::bad_request("INVALID_QUERY", "레거시 id 전용 검색은 사용되지 않습니다"))
     }
 
     fn get_row_id(row: &Value) -> Option<String> {
