@@ -1,4 +1,3 @@
-import { AuthResponse } from "@/types/auth";
 import { User } from "@/types/user";
 import { HttpClient } from "@/lib/config/http";
 
@@ -11,7 +10,7 @@ type ApiResponse<T> = {
 export class AuthService {
   // 기본적으로 상대 경로를 사용해 Next.js 리라이트를 타도록 설정
   // (브라우저에서 내부 도커 호스트를 직접 호출하지 않도록 함)
-  private baseUrl = "";
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
   private httpClient: HttpClient;
 
   constructor() {
@@ -21,9 +20,10 @@ export class AuthService {
   async getCurrentUser(): Promise<User> {
     try {
       // 백엔드 응답: { authenticated: boolean, email: string }
-      const resp = await this.httpClient.get<{ authenticated: boolean; email: string }>(
-        `/api/auth/me`,
-      );
+      const resp = await this.httpClient.get<{
+        authenticated: boolean;
+        email: string;
+      }>(`/auth/me`);
       // 최소 User 형태로 변환
       const email = resp.email;
       const name = email?.split("@")[0] || "User";
@@ -40,15 +40,36 @@ export class AuthService {
   }
 
   async getGoogleAuthUrl(): Promise<string> {
-    // 백엔드 응답: { auth_url: string } (data 래퍼 없음)
-    const resp = await this.httpClient.post<{ auth_url?: string; message?: string }>(
-      `/api/auth/google`,
-      {
+    try {
+      console.log("Sending request to /auth/google");
+      const resp = await this.httpClient.post<{
+        auth_url?: string;
+        message?: string;
+      }>(`/auth/google`, {
         redirect_uri: window.location.origin + "/login",
-      },
-    );
-    if (resp.auth_url) return resp.auth_url;
-    throw new Error(resp.message || "인증 URL을 받지 못했습니다");
+      });
+
+      console.log("Response received:", resp);
+
+      if (resp.auth_url) return resp.auth_url;
+      throw new Error(resp.message || "인증 URL을 받지 못했습니다");
+    } catch (error) {
+      console.error("Error in getGoogleAuthUrl:", error);
+
+      // Type-safe error handling
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+
+        // ApiError인지 확인
+        if ("status" in error && "data" in error) {
+          const apiError = error as { status: number; data: any };
+          console.error("API Error status:", apiError.status);
+          console.error("API Error data:", apiError.data);
+        }
+      }
+
+      throw new Error("Google 인증 URL을 가져오는데 실패했습니다");
+    }
   }
 
   // 호환성을 위한 별칭 메서드
@@ -58,7 +79,7 @@ export class AuthService {
 
   async logout(shouldRedirect = true): Promise<void> {
     try {
-      await this.httpClient.delete(`/api/auth/logout`);
+      await this.httpClient.delete(`/auth/logout`);
     } catch (error) {
       console.error("로그아웃 중 오류:", error);
     }
@@ -104,10 +125,13 @@ export class AuthService {
 
   async checkAuthStatus(): Promise<boolean> {
     try {
-      const resp = await this.httpClient.get<ApiResponse<User>>(`/api/auth/me`);
+      console.log("Checking auth status...");
+      const resp = await this.httpClient.get<ApiResponse<User>>(`/auth/me`);
+      console.log("Auth me response:", resp);
       if (resp.error) throw new Error(resp.error);
       return true;
     } catch (error) {
+      console.error("Auth check failed:", error);
       this.clearAuthData();
       return false;
     }
@@ -120,8 +144,6 @@ export class AuthService {
       this.clearAuthData();
     }
   }
-
-  // 목(auth) 제거됨
 
   async testJwtExpiry(): Promise<void> {
     try {

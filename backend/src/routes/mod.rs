@@ -30,12 +30,12 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     // API v1 라우터
     let api_v1 = Router::new()
         .route("/health", axum::routing::get(health::health))
-        .nest("/auth", auth::router())
         .nest("/sheets", sheets::router())
         .nest("/database", database::router());
 
     // 메인 라우터
     Router::new()
-        .nest("/api/v1", api_v1)
-        .layer(cors)
+        .nest("/auth", auth::router())      // 인증: /auth/*
+        .nest("/api/v1", api_v1)            // API: /api/v1/*
+        .layer(cors)                        // CORS 미들웨어 적용
 }

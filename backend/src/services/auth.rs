@@ -23,27 +23,77 @@ pub struct AuthService;
 impl AuthService {
     // OAuth state 관리 함수들
     pub fn store_oauth_state(state: &str) {
+        println!("=== STORING OAUTH STATE ===");
+        println!("State to store: {}", state);
+
         let expiry = OffsetDateTime::now_utc().unix_timestamp() + OAUTH_STATE_EXPIRY_SECONDS;
+        println!("State expiry timestamp: {}", expiry);
+        println!("TTL seconds: {}", OAUTH_STATE_EXPIRY_SECONDS);
+
         if let Ok(mut states) = OAUTH_STATES.lock() {
+            let before_count = states.len();
+            println!("States before insert: {}", before_count);
+
             states.insert(state.to_string(), expiry);
+            println!("State inserted successfully");
+
             // 만료된 state들 정리
             let now = OffsetDateTime::now_utc().unix_timestamp();
             states.retain(|_, &mut exp| exp > now);
+
+            let after_count = states.len();
+            println!("States after cleanup: {}", after_count);
+
+            if before_count != after_count - 1 {
+                println!("Cleaned up {} expired states", before_count - (after_count - 1));
+            }
+
+            println!("Current states: {:?}", states.keys().collect::<Vec<_>>());
+        } else {
+            println!("ERROR: Failed to lock OAUTH_STATES mutex");
         }
     }
 
+
     pub fn verify_oauth_state(state: &str) -> bool {
+        println!("=== VERIFYING OAUTH STATE ===");
+        println!("State to verify: {}", state);
+
         let now = OffsetDateTime::now_utc().unix_timestamp();
+        println!("Current timestamp: {}", now);
+
         if let Ok(mut states) = OAUTH_STATES.lock() {
+            println!("Current states in memory: {:?}", states.keys().collect::<Vec<_>>());
+            println!("States count: {}", states.len());
+
             if let Some(&expiry) = states.get(state) {
+                println!("Found state with expiry: {}", expiry);
                 if expiry > now {
-                    states.remove(state); // 사용된 state는 제거
+                    println!("State is valid, removing from memory");
+                    states.remove(state);
+                    println!("State removed successfully");
                     return true;
+                } else {
+                    println!("State expired (expiry: {}, now: {})", expiry, now);
                 }
+            } else {
+                println!("State not found in memory store");
             }
+
             // 만료된 state들 정리
+            let before_count = states.len();
             states.retain(|_, &mut exp| exp > now);
+            let after_count = states.len();
+            if before_count != after_count {
+                println!("Cleaned up {} expired states", before_count - after_count);
+            }
+
+            println!("Final states count: {}", states.len());
+        } else {
+            println!("ERROR: Failed to lock OAUTH_STATES mutex");
         }
+
+        println!("State verification failed");
         false
     }
 
@@ -75,21 +125,38 @@ impl AuthService {
     pub fn create_auth_cookies(jwt_token: &str, frontend_url: &str) -> Vec<HeaderValue> {
         let mut cookies = Vec::new();
 
+        // 로컬/프로덕션 환경에 따라 쿠키 속성 분기
+    let is_localhost = frontend_url.contains("localhost");
+    // localhost에서도 Domain=localhost를 명시적으로 설정해 포트가 다른 프론트/백엔드 모두에서 쿠키를 공유
+    let domain_opt = if is_localhost { Some("localhost") } else { Some(".young-buddha.online") };
+        let same_site = if is_localhost { "Lax" } else { "None" };
+        let secure = if is_localhost { "" } else { "; Secure" };
+
         // JWT 토큰 쿠키
-        let jwt_cookie = format!(
-            "jwt={}; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age={}",
-            jwt_token,
-            if frontend_url.contains("localhost") { "localhost" } else { ".young-buddha.online" },
-            JWT_EXPIRY_SECONDS
-        );
+        let jwt_cookie = {
+            let domain = domain_opt.unwrap();
+            format!(
+                "jwt={}; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age={}",
+                jwt_token,
+                secure,
+                same_site,
+                domain,
+                JWT_EXPIRY_SECONDS
+            )
+        };
         cookies.push(HeaderValue::from_str(&jwt_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         // 인증 상태 쿠키
-        let auth_cookie = format!(
-            "is_authenticated=true; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age={}",
-            if frontend_url.contains("localhost") { "localhost" } else { ".young-buddha.online" },
-            JWT_EXPIRY_SECONDS
-        );
+        let auth_cookie = {
+            let domain = domain_opt.unwrap();
+            format!(
+                "is_authenticated=true; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age={}",
+                secure,
+                same_site,
+                domain,
+                JWT_EXPIRY_SECONDS
+            )
+        };
         cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         cookies
@@ -259,18 +326,43 @@ impl AuthService {
     pub fn logout(frontend_url: &str) -> Vec<HeaderValue> {
         let mut cookies = Vec::new();
 
+    let is_localhost = frontend_url.contains("localhost");
+    let domain_opt = if is_localhost { None } else { Some(".young-buddha.online") };
+        let same_site = if is_localhost { "Lax" } else { "None" };
+        let secure = if is_localhost { "" } else { "; Secure" };
+
         // JWT 토큰 쿠키 삭제
-        let jwt_cookie = format!(
-            "jwt=; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age=0",
-            if frontend_url.contains("localhost") { "localhost" } else { ".young-buddha.online" }
-        );
+        let jwt_cookie = if let Some(domain) = domain_opt {
+            format!(
+                "jwt=; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age=0",
+                secure,
+                same_site,
+                domain
+            )
+        } else {
+            format!(
+                "jwt=; HttpOnly{}; SameSite={}; Path=/; Max-Age=0",
+                secure,
+                same_site
+            )
+        };
         cookies.push(HeaderValue::from_str(&jwt_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         // 인증 상태 쿠키 삭제
-        let auth_cookie = format!(
-            "is_authenticated=; HttpOnly; Secure; SameSite=None; Path=/; Domain={}; Max-Age=0",
-            if frontend_url.contains("localhost") { "localhost" } else { ".young-buddha.online" }
-        );
+        let auth_cookie = if let Some(domain) = domain_opt {
+            format!(
+                "is_authenticated=; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age=0",
+                secure,
+                same_site,
+                domain
+            )
+        } else {
+            format!(
+                "is_authenticated=; HttpOnly{}; SameSite={}; Path=/; Max-Age=0",
+                secure,
+                same_site
+            )
+        };
         cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         cookies

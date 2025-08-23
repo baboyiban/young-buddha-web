@@ -1,5 +1,5 @@
 // Custom error type for API errors
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   data: any;
   constructor(message: string, status: number, data: any) {
@@ -19,14 +19,19 @@ export class HttpClient {
   }
 
   private async handleResponse<T>(res: Response): Promise<T> {
+    console.log(`HTTP ${res.status} ${res.url}`); // ✅ 상태 코드와 URL 로깅
+
     let body: any = undefined;
     try {
       body = await res.json();
-    } catch {
+      console.log("Response body:", body); // ✅ 응답 본문 로깅
+    } catch (e) {
+      console.warn("Failed to parse JSON response:", e); // ✅ JSON 파싱 실패 로깅
       /* ignore */
     }
 
     if (!res.ok) {
+      console.error("HTTP error:", res.status, body); // ✅ 에러 상세 정보 로깅
       const error = new ApiError(
         body?.message || `API error: ${res.status}`,
         res.status,
@@ -52,22 +57,22 @@ export class HttpClient {
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
     // 브라우저 환경에서만 JWT 토큰 확인
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return {};
     }
 
     try {
       // AuthService에서 JWT 토큰 가져오기
-      const { AuthService } = await import('@/lib/auth/service');
+      const { AuthService } = await import("@/lib/auth/service");
       const jwtToken = AuthService.getJwtFromCookie();
 
       if (jwtToken) {
         return {
-          'Authorization': `Bearer ${jwtToken}`,
+          Authorization: `Bearer ${jwtToken}`,
         };
       }
     } catch (error) {
-      console.warn('Failed to get JWT token for auth headers:', error);
+      console.warn("Failed to get JWT token for auth headers:", error);
     }
 
     return {};
@@ -84,8 +89,11 @@ export class HttpClient {
   }
 
   async post<T>(url: string, body: object): Promise<T> {
+    const fullUrl = this.buildUrl(url);
+    console.log("POST request to:", fullUrl); // ✅ 요청 URL 로깅
+
     const headers = await this.getAuthHeaders();
-    const res = await fetch(this.buildUrl(url), {
+    const res = await fetch(fullUrl, {
       method: "POST",
       credentials: "include",
       headers: {
@@ -94,6 +102,7 @@ export class HttpClient {
       },
       body: JSON.stringify(body),
     });
+
     return this.handleResponse<T>(res);
   }
 

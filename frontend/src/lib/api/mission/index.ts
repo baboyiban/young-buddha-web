@@ -62,7 +62,7 @@ export async function fetchMissionData(): Promise<MissionData> {
 
 function processMissionData(rawData: string[]): MissionData {
   return {
-    date: `${normalizeToKoreanDate(rawData[MISSION_INDICES.date]) || ""} ${rawData[MISSION_INDICES.dayOfWeek] || deriveKoreanWeekday(rawData[MISSION_INDICES.date])}`.trim(),
+    date: normalizeToKoreanDate(rawData[MISSION_INDICES.date]) || "",
     dayOfWeek:
       rawData[MISSION_INDICES.dayOfWeek] ||
       deriveKoreanWeekday(rawData[MISSION_INDICES.date]),

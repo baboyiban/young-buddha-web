@@ -35,6 +35,7 @@ backend/
 ```
 
 ## 모듈별 책임(간단)
+
 - `main.rs`: 트래픽을 받기 전 앱 초기화 책임(로깅, dotenv, config load, async DB init, Redis init, 라우터 바인딩). 가능한 비동기 초기화는 `main`에서 수행.
 - `config.rs`: 모든 환경변수 파싱과 검증을 담당. production에서 필요한 시크릿 검증은 여기서 수행.
 - `types.rs` / `state.rs`: 런타임에서 공유되는 `AppState` 구조(HTTP client, DB path, redis client, jwt secret 등)를 보관하지만 초기화(특히 블로킹 작업)은 `db::pool` 같은 모듈로 위임.
@@ -44,6 +45,7 @@ backend/
 - `auth/*`: JWT 생성·검증, Redis 기반 세션 캐시 책임.
 
 ## 서버 시작 순서(권장)
+
 1. dotenv 로드
 2. tracing/로깅 초기화
 3. `AppConfig::from_env()`로 설정 파싱·검증
@@ -53,12 +55,14 @@ backend/
 7. 라우터 빌드 및 바인딩
 
 ## 코딩 규칙(권장)
+
 - DB: rusqlite 사용 시 블로킹 쿼리는 `tokio::task::spawn_blocking`으로 감싼다. 장기적으로 `sqlx`로 마이그레이션 권장.
 - 에러: 공통 에러 타입(한 파일)에 모아 `IntoResponse` 구현으로 HTTP 변환 일원화.
 - 라우트: 핸들러는 얇게 유지(요청 validate -> service 호출 -> map to response).
 - 테스트: DB 종속 테스트는 인메모리 sqlite 또는 테스트 전용 DB 파일을 사용.
 
 ## 우선 적용할 리팩토링(단계별)
+
 1. (완료) env parsing 통합: `config.rs` 생성 및 `AppState`에서 재사용.
 2. (완료) DB init 분리: `db/pool.rs::initialize_db_sync` 추가 및 `AppState::from_env()`에서 위임.
 3. (권장) 비동기 초기화: `main.rs`에서 `db::initialize_db(&app_state.db_path).await`로 변경 — 서버 시작 시 블로킹 제거.
@@ -67,12 +71,14 @@ backend/
 6. (장기) DB 드라이버 전환: `sqlx` 또는 Postgres로 이전 고려.
 
 ## 체크리스트(빠르게 둘러보기)
+
 - [ ] `config.rs`에 모든 env 키 문서화
 - [ ] `db/pool.rs`에 migration hook 추가(refinery/sqlx-migrate)
-- [ ] `/api/health`에 DB/Redis 체크 도입
+- [ ] `/health`에 DB/Redis 체크 도입
 - [ ] CI(Actions)로 `cargo fmt`, `cargo clippy`, `cargo test` 자동화
 
 ## 다음 단계 제안 (제가 바로 할 수 있는 것)
+
 - A: `main.rs`에서 동기 DB init 제거하고 `db::initialize_db(...).await` 호출로 비동기 초기화 적용 (권장)
 - B: `/api/health`에 DB/Redis 체크 추가
 

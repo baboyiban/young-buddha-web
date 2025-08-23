@@ -1,5 +1,5 @@
 use crate::types::{AppState, QueryParams, CommonParams, ApiError};
-use crate::auth_tokens::authenticate_and_get_token;
+use crate::auth_tokens::{authenticate_and_get_token, refresh_user_access_token};
 use crate::routes::sheets_client;
 use crate::routes::sheets_parser;
 use axum::http::{HeaderMap, StatusCode};
@@ -17,7 +17,7 @@ impl SheetsService {
         params: QueryParams,
     ) -> Result<axum::response::Response, ApiError> {
         // 1. 인증 및 토큰 검증
-        let (_email, user_token) = authenticate_and_get_token(&headers, &state).await?;
+    let (email, mut user_token) = authenticate_and_get_token(&headers, &state).await?;
 
         let client = &state.http_client;
 
@@ -29,12 +29,23 @@ impl SheetsService {
             urlencoding::encode(&params.sheet_name)
         );
 
-        let resp = client.get(&url).bearer_auth(&user_token).send().await
+        let mut resp = client.get(&url).bearer_auth(&user_token).send().await
             .map_err(|e| ApiError::bad_gateway("NETWORK_FAILED", format!("네트워크 요청 실패: {}", e)))?;
+        // 401 Unauthorized이면 토큰 새로고침 후 한 번 재시도
+        if resp.status() == StatusCode::UNAUTHORIZED {
+            if let Some(new_token) = refresh_user_access_token(client, &state.db_path, &email).await {
+                user_token = new_token;
+                resp = client.get(&url).bearer_auth(&user_token).send().await
+                    .map_err(|e| ApiError::bad_gateway("NETWORK_FAILED", format!("네트워크 요청 실패: {}", e)))?;
+            }
+        }
 
         if !resp.status().is_success() {
             let status = resp.status();
             let _body = resp.text().await.unwrap_or_default();
+            if status == StatusCode::UNAUTHORIZED {
+                return Err(ApiError::unauthorized("Google 인증이 만료되었습니다. 다시 로그인해주세요."));
+            }
             return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
                 format!("시트 쿼리 실패: {}", status)));
         }
