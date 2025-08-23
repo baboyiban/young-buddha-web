@@ -16,12 +16,17 @@ type AuthState = {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 // 모듈 수준 캐시/중복 요청 방지
-let sharedAuthPromise: Promise<{ user: User | null; isAuth: boolean } | null> | null = null;
+let sharedAuthPromise: Promise<{
+  user: User | null;
+  isAuth: boolean;
+} | null> | null = null;
 let cachedAuth: { user: User | null; isAuth: boolean } | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 30 * 1000; // 30초
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -68,7 +73,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(!!result?.isAuth);
       return result?.isAuth ?? false;
     } catch (error) {
-      console.error("Auth check failed:", error);
       setUser(null);
       setIsAuthenticated(false);
       return false;

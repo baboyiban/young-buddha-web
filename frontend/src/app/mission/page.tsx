@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { MissionData } from "@/types/mission";
 import { fetchMissionData } from "@/lib/api/mission";
@@ -12,18 +12,12 @@ export default function Mission() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    loadMissionData();
-  }, []);
-
-  const loadMissionData = async () => {
+  const loadMissionData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await fetchMissionData();
       setMissionData(data);
     } catch (err: any) {
-      console.error("Error loading mission data:", err);
-
       // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
       if (
         err?.status === 401 ||
@@ -39,7 +33,11 @@ export default function Mission() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    loadMissionData();
+  }, [loadMissionData]);
 
   if (loading) {
     return (

@@ -49,7 +49,6 @@ export async function middleware(request: NextRequest) {
             return NextResponse.next();
           }
         } catch (err) {
-          console.error("Auth validation failed in middleware:", err);
           return NextResponse.next();
         }
       }
@@ -59,15 +58,9 @@ export async function middleware(request: NextRequest) {
 
   // 보호된 페이지 접근 시 인증 확인
   const jwtCookie = request.cookies.get("jwt");
-  console.log(
-    "Middleware - JWT Cookie:",
-    jwtCookie?.value ? "exists" : "not found",
-  );
-  console.log("Middleware - Path:", pathname);
 
   if (!jwtCookie || !jwtCookie.value) {
     // JWT 쿠키가 없으면 로그인 페이지로 리다이렉트
-    console.log("Middleware - Redirecting to login: No JWT cookie");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -76,16 +69,11 @@ export async function middleware(request: NextRequest) {
 
   // 캐시 확인
   const cached = tokenCache.get(token);
-  console.log("Middleware - Token cache:", cached ? "exists" : "not found");
 
   if (cached && now - cached.ts < CACHE_TTL) {
     if (cached.valid) {
-      console.log("Middleware - Using cached valid token");
       return NextResponse.next();
     } else {
-      console.log(
-        "Middleware - Using cached invalid token, redirecting to login",
-      );
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
@@ -104,19 +92,13 @@ export async function middleware(request: NextRequest) {
     });
 
     if (res.ok) {
-      console.log("Middleware - Backend validation successful");
       tokenCache.set(token, { valid: true, ts: now });
       return NextResponse.next();
     } else {
-      console.log(
-        "Middleware - Backend validation failed, status:",
-        res.status,
-      );
       tokenCache.set(token, { valid: false, ts: now });
       return NextResponse.redirect(new URL("/login", request.url));
     }
   } catch (err) {
-    console.error("Auth validation failed in middleware:", err);
     return NextResponse.redirect(new URL("/login", request.url));
   }
 }

@@ -17,27 +17,19 @@
   }
 
   async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
-      println!("=== NEW GOOGLE AUTH REQUEST ===");
-      println!("Client ID: {:?}", state.config.get_google_client_id());
-      println!("Redirect URI: {:?}", state.config.get_google_redirect_uri());
-
       let oauth_state = AuthService::generate_oauth_state();
-      println!("Generated new OAuth state: {}", oauth_state);
 
       AuthService::store_oauth_state(&oauth_state);
-      println!("Stored OAuth state in memory");
 
       let client_id = match state.config.get_google_client_id() {
           Ok(v) => v,
           Err(_) => {
-              println!("ERROR: Missing GOOGLE_CLIENT_ID");
               return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_CLIENT_ID"}))).into_response()
           }
       };
       let redirect_uri = match state.config.get_google_redirect_uri() {
           Ok(v) => v,
           Err(_) => {
-              println!("ERROR: Missing GOOGLE_REDIRECT_URI");
               return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_REDIRECT_URI"}))).into_response()
           }
       };
@@ -49,7 +41,6 @@
           oauth_state
       );
 
-      println!("Generated auth URL: {}", auth_url);
       (axum::http::StatusCode::OK, Json(json!({"auth_url": auth_url}))).into_response()
   }
 
