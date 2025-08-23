@@ -14,15 +14,33 @@ import {
 import { PAYMENT_SHEET } from "@/lib/constants/sheets";
 import { PaymentRequest } from "@/types/payment";
 
-// 헬퍼 함수
-function formatDate(d: string): string {
-  try {
-    const dt = new Date(d);
-    if (isNaN(dt.getTime())) return d;
-    return dt.toLocaleString();
-  } catch (e) {
-    return d;
+// 날짜를 항상 'YYYY-MM-DD'로 정규화
+function toYMD(v: any): string {
+  if (!v) return "";
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // ISO/일반 파싱
+    const dt = new Date(s);
+    if (!isNaN(dt.getTime())) return shortDate(dt);
+    // 예: 8/23/2025, 9:00:00 AM
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) {
+      const y = parseInt(m[3], 10);
+      const mo = parseInt(m[1], 10) - 1;
+      const d = parseInt(m[2], 10);
+      return shortDate(new Date(y, mo, d));
+    }
+    return s;
   }
+  if (v instanceof Date) return shortDate(v);
+  if (typeof v === "number") {
+    // Google Sheets serial number 지원(1899-12-30 기준)
+    const base = Date.UTC(1899, 11, 30);
+    const ms = base + v * 86400000;
+    return shortDate(new Date(ms));
+  }
+  return String(v);
 }
 
 function generateUniqueId(): string {
@@ -33,7 +51,7 @@ function generateUniqueId(): string {
 function normalizeId(id: string): string {
   return String(id)
     .trim()
-    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // 제로폭 문자 제거
+    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
     .normalize("NFKC");
 }
 
@@ -58,7 +76,7 @@ export default function PaymentPage() {
   const [form, setForm] = useState<PaymentRequest>({
     id: "",
     name: "",
-    requestDate: new Date().toISOString(),
+    requestDate: shortDate(new Date()),
     type: "정기",
     absentDate: shortDate(new Date()),
     schedule: "",
@@ -91,7 +109,12 @@ export default function PaymentPage() {
       setLoading(true);
       try {
         const data = await fetchFilteredPayments(user.name);
-        setRequests(data);
+        const normalized = data.map((r: PaymentRequest) => ({
+          ...r,
+          requestDate: toYMD(r.requestDate),
+          absentDate: toYMD(r.absentDate),
+        }));
+        setRequests(normalized);
       } catch (err) {
         setRequests([]);
       } finally {
@@ -129,12 +152,13 @@ export default function PaymentPage() {
     try {
       setSubmitting(true);
 
-      const row = [
-        generateUniqueId(),
+      const newId = generateUniqueId();
+      const newRow = [
+        newId,
         user.name,
         form.type,
-        shortDate(new Date()),
-        form.absentDate,
+        toYMD(form.requestDate),
+        toYMD(form.absentDate),
         form.schedule,
         form.reason,
         "대기",
@@ -143,12 +167,17 @@ export default function PaymentPage() {
       await sheetsCreate(
         PAYMENT_SHEET.spreadsheetId,
         PAYMENT_SHEET.sheetName,
-        `INSERT ${JSON.stringify(row)}`,
+        `INSERT ${JSON.stringify(newRow)}`,
       );
 
       // 신청 후 목록 갱신
       const data = await fetchFilteredPayments(user.name);
-      setRequests(data);
+      const normalized = data.map((r: PaymentRequest) => ({
+        ...r,
+        requestDate: toYMD(r.requestDate),
+        absentDate: toYMD(r.absentDate),
+      }));
+      setRequests(normalized);
 
       // 폼 초기화
       setForm((prev) => ({
@@ -175,8 +204,8 @@ export default function PaymentPage() {
     try {
       setDeletingId(request.id);
 
-      const normalized = normalizeId(request.id);
-      const whereId = escapeSheetQueryString(normalized);
+      const normalizedId = normalizeId(request.id);
+      const whereId = escapeSheetQueryString(normalizedId);
 
       const query = `SELECT * WHERE A = '${whereId}'`;
 
@@ -187,7 +216,7 @@ export default function PaymentPage() {
         "DEBUG[delete] codepoints:",
         Array.from(String(request.id)).map((c) => c.charCodeAt(0))
       );
-      console.log("DEBUG[delete] normalized:", normalized, "len:", normalized.length);
+      console.log("DEBUG[delete] normalizedId:", normalizedId, "len:", normalizedId.length);
       console.log("DEBUG[delete] query:", query);
 
       await sheetsDelete(
@@ -197,7 +226,12 @@ export default function PaymentPage() {
       );
 
       const data = await fetchFilteredPayments(user?.name || "");
-      setRequests(data);
+      const normalizedRows = data.map((r: PaymentRequest) => ({
+        ...r,
+        requestDate: toYMD(r.requestDate),
+        absentDate: toYMD(r.absentDate),
+      }));
+      setRequests(normalizedRows);
     } catch (err) {
       console.error("handleDelete error:", err);
       alert("삭제 중 오류가 발생했습니다.");
@@ -248,8 +282,8 @@ export default function PaymentPage() {
         normalizedId, // A: id는 정규화된 값으로 고정
         original.name, // B
         editForm.type ?? original.type, // C
-        original.requestDate, // D
-        editForm.absentDate ?? original.absentDate, // E
+        toYMD(original.requestDate), // D
+        toYMD(editForm.absentDate ?? original.absentDate), // E
         editForm.schedule ?? original.schedule, // F
         editForm.reason ?? original.reason, // G
         original.approved || "대기", // H
@@ -287,7 +321,12 @@ export default function PaymentPage() {
       }
 
       const data = await fetchFilteredPayments(user?.name || "");
-      setRequests(data);
+      const normalized = data.map((r: PaymentRequest) => ({
+        ...r,
+        requestDate: toYMD(r.requestDate),
+        absentDate: toYMD(r.absentDate),
+      }));
+      setRequests(normalized);
       handleEditCancel();
     } catch (err: any) {
       console.error("handleUpdate error:", err);
@@ -437,7 +476,7 @@ export default function PaymentPage() {
                           )}
                         </td>
 
-                        <td className="">{formatDate(r.requestDate)}</td>
+                        <td className="">{toYMD(r.requestDate)}</td>
                         <td className="">
                           {isEditing ? (
                             <input
