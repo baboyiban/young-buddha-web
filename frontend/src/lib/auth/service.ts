@@ -41,7 +41,6 @@ export class AuthService {
 
   async getGoogleAuthUrl(): Promise<string> {
     try {
-      console.log("Sending request to /auth/google");
       const resp = await this.httpClient.post<{
         auth_url?: string;
         message?: string;
@@ -49,22 +48,14 @@ export class AuthService {
         redirect_uri: window.location.origin + "/login",
       });
 
-      console.log("Response received:", resp);
-
       if (resp.auth_url) return resp.auth_url;
       throw new Error(resp.message || "인증 URL을 받지 못했습니다");
     } catch (error) {
-      console.error("Error in getGoogleAuthUrl:", error);
-
       // Type-safe error handling
       if (error instanceof Error) {
-        console.error("Error message:", error.message);
-
         // ApiError인지 확인
         if ("status" in error && "data" in error) {
           const apiError = error as { status: number; data: any };
-          console.error("API Error status:", apiError.status);
-          console.error("API Error data:", apiError.data);
         }
       }
 
@@ -80,9 +71,7 @@ export class AuthService {
   async logout(shouldRedirect = true): Promise<void> {
     try {
       await this.httpClient.delete(`/auth/logout`);
-    } catch (error) {
-      console.error("로그아웃 중 오류:", error);
-    }
+    } catch (error) {}
     this.clearAuthData();
     if (shouldRedirect && typeof window !== "undefined") {
       window.location.href = "/login";
@@ -125,20 +114,17 @@ export class AuthService {
 
   async checkAuthStatus(): Promise<boolean> {
     try {
-      console.log("Checking auth status...");
       const resp = await this.httpClient.get<ApiResponse<User>>(`/auth/me`);
-      console.log("Auth me response:", resp);
+
       if (resp.error) throw new Error(resp.error);
       return true;
     } catch (error) {
-      console.error("Auth check failed:", error);
       this.clearAuthData();
       return false;
     }
   }
 
   private handleAuthError(error: any): void {
-    console.error("Auth error:", error);
     const status = error?.status || error?.response?.status;
     if (status === 401 || status === 403) {
       this.clearAuthData();

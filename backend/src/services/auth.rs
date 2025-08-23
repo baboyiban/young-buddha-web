@@ -23,61 +23,43 @@ pub struct AuthService;
 impl AuthService {
     // OAuth state 관리 함수들
     pub fn store_oauth_state(state: &str) {
-        println!("=== STORING OAUTH STATE ===");
-        println!("State to store: {}", state);
-
         let expiry = OffsetDateTime::now_utc().unix_timestamp() + OAUTH_STATE_EXPIRY_SECONDS;
-        println!("State expiry timestamp: {}", expiry);
         println!("TTL seconds: {}", OAUTH_STATE_EXPIRY_SECONDS);
 
         if let Ok(mut states) = OAUTH_STATES.lock() {
             let before_count = states.len();
-            println!("States before insert: {}", before_count);
 
             states.insert(state.to_string(), expiry);
-            println!("State inserted successfully");
 
             // 만료된 state들 정리
             let now = OffsetDateTime::now_utc().unix_timestamp();
             states.retain(|_, &mut exp| exp > now);
 
             let after_count = states.len();
-            println!("States after cleanup: {}", after_count);
 
             if before_count != after_count - 1 {
-                println!("Cleaned up {} expired states", before_count - (after_count - 1));
             }
 
-            println!("Current states: {:?}", states.keys().collect::<Vec<_>>());
+
         } else {
-            println!("ERROR: Failed to lock OAUTH_STATES mutex");
         }
     }
 
 
     pub fn verify_oauth_state(state: &str) -> bool {
-        println!("=== VERIFYING OAUTH STATE ===");
-        println!("State to verify: {}", state);
+
 
         let now = OffsetDateTime::now_utc().unix_timestamp();
-        println!("Current timestamp: {}", now);
 
         if let Ok(mut states) = OAUTH_STATES.lock() {
-            println!("Current states in memory: {:?}", states.keys().collect::<Vec<_>>());
-            println!("States count: {}", states.len());
 
             if let Some(&expiry) = states.get(state) {
-                println!("Found state with expiry: {}", expiry);
                 if expiry > now {
-                    println!("State is valid, removing from memory");
                     states.remove(state);
-                    println!("State removed successfully");
                     return true;
                 } else {
-                    println!("State expired (expiry: {}, now: {})", expiry, now);
                 }
             } else {
-                println!("State not found in memory store");
             }
 
             // 만료된 state들 정리
@@ -85,15 +67,12 @@ impl AuthService {
             states.retain(|_, &mut exp| exp > now);
             let after_count = states.len();
             if before_count != after_count {
-                println!("Cleaned up {} expired states", before_count - after_count);
             }
 
-            println!("Final states count: {}", states.len());
+
         } else {
-            println!("ERROR: Failed to lock OAUTH_STATES mutex");
         }
 
-        println!("State verification failed");
         false
     }
 

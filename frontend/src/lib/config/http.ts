@@ -19,19 +19,14 @@ export class HttpClient {
   }
 
   private async handleResponse<T>(res: Response): Promise<T> {
-    console.log(`HTTP ${res.status} ${res.url}`); // ✅ 상태 코드와 URL 로깅
-
     let body: any = undefined;
     try {
       body = await res.json();
-      console.log("Response body:", body); // ✅ 응답 본문 로깅
     } catch (e) {
-      console.warn("Failed to parse JSON response:", e); // ✅ JSON 파싱 실패 로깅
       /* ignore */
     }
 
     if (!res.ok) {
-      console.error("HTTP error:", res.status, body); // ✅ 에러 상세 정보 로깅
       const error = new ApiError(
         body?.message || `API error: ${res.status}`,
         res.status,
@@ -72,7 +67,7 @@ export class HttpClient {
         };
       }
     } catch (error) {
-      console.warn("Failed to get JWT token for auth headers:", error);
+      /* ignore */
     }
 
     return {};
@@ -90,8 +85,6 @@ export class HttpClient {
 
   async post<T>(url: string, body: object): Promise<T> {
     const fullUrl = this.buildUrl(url);
-    console.log("POST request to:", fullUrl); // ✅ 요청 URL 로깅
-
     const headers = await this.getAuthHeaders();
     const res = await fetch(fullUrl, {
       method: "POST",

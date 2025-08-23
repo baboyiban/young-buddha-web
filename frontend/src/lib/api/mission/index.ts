@@ -46,10 +46,6 @@ export async function fetchMissionData(): Promise<MissionData> {
   }
 
   if (rows.length === 0) {
-    console.error("오늘의 미션 데이터를 찾을 수 없습니다.", {
-      todayStr,
-      query,
-    });
     throw new Error("미션 데이터를 불러오는데 실패했습니다.");
   }
 
