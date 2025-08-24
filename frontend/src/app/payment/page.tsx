@@ -403,7 +403,7 @@ export default function PaymentPage() {
         {/* 신청 폼 */}
         <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
           <form onSubmit={handleSubmit} className="flex justify-center">
-            <div className="w-[50rem] flex flex-col gap-[0.5rem]">
+            <div className="w-[60rem] flex flex-col gap-[0.5rem]">
               {/* 결재 유형 */}
               <div className="flex flex-col gap-[0.25rem]">
                 <label className="text-sm" htmlFor="type">
@@ -488,8 +488,8 @@ export default function PaymentPage() {
           {requests.length === 0 ? (
             <div className="text-dark-gray">신청 현황이 없습니다.</div>
           ) : (
-            <div className="table-wrapper w-[50rem]">
-              <table className="max-w-full">
+            <div className="table-wrapper w-[60rem]">
+              <table className="max-w-full text-sm">
                 <thead>
                   <tr>
                     <th className="">이메일</th>
