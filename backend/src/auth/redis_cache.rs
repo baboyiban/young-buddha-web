@@ -79,14 +79,14 @@ pub async fn get_cached_user_profile(email: &str) -> Option<(String, String)> {
                 _ => None,
             })
         }).await {
-            return cached;
+            return Some(cached);
         }
     }
     None
 }
 
 #[allow(dead_code)]
-pub async fn store_user_profile(email: &str, name: &str, role: &str, ttl_seconds: usize) -> Result<(), ()> {
+pub async fn store_user_profile(email: &str, name: &str, role: &str, ttl_seconds: i64) -> Result<(), ()> {
     if let Some(client) = get_client_from_env_or_global() {
         let email_clone = email.to_string();
         let name_clone = name.to_string();
