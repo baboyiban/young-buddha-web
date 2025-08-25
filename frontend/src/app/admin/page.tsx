@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { fetchFilteredPayments, isAdmin } from "@/lib/api/payment";
+import { fetchFilteredPayments } from "@/lib/api/payment";
 import { sheetsUpdate, escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { PAYMENT_SHEET } from "@/lib/constants/sheets";
 import { PaymentRequest } from "@/lib/types/payment";
@@ -17,22 +17,19 @@ export default function AdminPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
 
-  // 관리자 권한 확인
+  // 관리자 권한: 미들웨어에서 이미 차단되지만, 클라이언트에서도 user.roles 참고
   useEffect(() => {
-    const checkAdmin = async () => {
+    const proceed = async () => {
       if (!authLoading && user?.email) {
-        const admin = await isAdmin(user.email);
-        setIsAdminUser(admin);
+        const isAdminRole = Array.isArray(user.roles) && user.roles.includes("ADMIN");
+        setIsAdminUser(!!isAdminRole);
 
-        // 관리자가 아니면 로딩 종료
-        if (!admin) {
+        if (!isAdminRole) {
           setLoading(false);
           return;
         }
 
-        // 관리자면 모든 결재 신청 목록 로딩
         try {
-          // 모든 결재 신청을 조회하기 위해 빈 문자열로 호출
           const data = await fetchFilteredPayments("");
           const normalized = data.map((r: PaymentRequest) => ({
             ...r,
@@ -48,7 +45,7 @@ export default function AdminPage() {
       }
     };
 
-    checkAdmin();
+    proceed();
   }, [user, authLoading]);
 
   // 결재 상태 변경 핸들러
