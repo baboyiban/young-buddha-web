@@ -18,7 +18,7 @@ export default function Header() {
         🪷 청년붓다
       </Link>
       <div className="flex items-center space-x-2">
-        {user && <span className="text-sm text-dark-gray">{user.name}</span>}
+        {user && <span className="text-sm text-gray-50">{user.name}</span>}
         <button onClick={handleLogout} className="red text-sm">
           로그아웃
         </button>

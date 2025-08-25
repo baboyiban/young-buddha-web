@@ -1,11 +1,11 @@
 // hooks/usePaymentOperations.ts
 import { useState } from "react";
-import { ERROR_MESSAGES, PaymentRequest } from "@/lib/types/payment";
+import { PaymentRequest } from "@/lib/types/payment";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { 
-  fetchFilteredPayments, 
-  fetchPaymentsByQuery, 
-  getUserNameByEmail 
+import {
+  fetchFilteredPayments,
+  fetchPaymentsByQuery,
+  getUserNameByEmail,
 } from "@/lib/api/payment";
 import {
   sheetsCreate,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/api/sheets/client";
 import { PAYMENT_SHEET } from "@/lib/constants/sheets";
 import { toYMD, normalizeId, generateUniqueId } from "@/lib/utils/dateUtils";
+import { ERROR_MESSAGES } from "../constants/payment";
 
 export function usePaymentOperations() {
   const { user } = useAuth();
@@ -49,7 +50,7 @@ export function usePaymentOperations() {
       await sheetsCreate(
         PAYMENT_SHEET.spreadsheetId,
         PAYMENT_SHEET.sheetName,
-        `INSERT ${JSON.stringify(newRow)}`
+        `INSERT ${JSON.stringify(newRow)}`,
       );
 
       onSuccess();
@@ -60,7 +61,10 @@ export function usePaymentOperations() {
     }
   };
 
-  const deletePayment = async (request: PaymentRequest, onSuccess: () => void) => {
+  const deletePayment = async (
+    request: PaymentRequest,
+    onSuccess: () => void,
+  ) => {
     if (!window.confirm(ERROR_MESSAGES.DELETE_CONFIRM)) return;
     if (deletingId) return;
 
@@ -75,7 +79,7 @@ export function usePaymentOperations() {
       await sheetsDelete(
         PAYMENT_SHEET.spreadsheetId,
         PAYMENT_SHEET.sheetName,
-        query
+        query,
       );
 
       onSuccess();
@@ -90,7 +94,7 @@ export function usePaymentOperations() {
     original: PaymentRequest,
     editForm: Partial<PaymentRequest>,
     requests: PaymentRequest[],
-    onSuccess: () => void
+    onSuccess: () => void,
   ) => {
     const existsLocally = requests.some((r) => r.id === original.id);
     if (!existsLocally) {
@@ -125,14 +129,14 @@ export function usePaymentOperations() {
         await sheetsUpdate(
           PAYMENT_SHEET.spreadsheetId,
           PAYMENT_SHEET.sheetName,
-          query
+          query,
         );
       } catch (e) {
         const query2 = `UPDATE WHERE A = "${whereId}" VALUES ${JSON.stringify(updatedRow)}`;
         await sheetsUpdate(
           PAYMENT_SHEET.spreadsheetId,
           PAYMENT_SHEET.sheetName,
-          query2
+          query2,
         );
       }
 

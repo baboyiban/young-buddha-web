@@ -8,7 +8,9 @@ interface PaymentTableRowProps {
   editForm: Partial<PaymentRequest>;
   deletingId: string | null;
   updating: boolean;
-  onEditChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onEditChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => void;
   onEditStart: (r: PaymentRequest) => void;
   onEditCancel: () => void;
   onUpdate: (original: PaymentRequest) => void;
@@ -38,7 +40,7 @@ export default function PaymentTableRow({
             name="type"
             value={editForm.type ?? request.type}
             onChange={onEditChange}
-            className="text-sm"
+            className="small"
           >
             {PAYMENT_TYPES.map(({ value, label }) => (
               <option key={value} value={value}>
@@ -59,7 +61,7 @@ export default function PaymentTableRow({
             name="absentDate"
             value={editForm.absentDate ?? request.absentDate}
             onChange={onEditChange}
-            className="text-sm"
+            className="small"
           />
         ) : (
           request.absentDate
@@ -73,7 +75,7 @@ export default function PaymentTableRow({
             name="schedule"
             value={editForm.schedule ?? request.schedule}
             onChange={onEditChange}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
+            className="small"
           />
         ) : (
           request.schedule || "-"
@@ -87,7 +89,7 @@ export default function PaymentTableRow({
             name="reason"
             value={editForm.reason ?? request.reason}
             onChange={onEditChange}
-            className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+            className="small"
           />
         ) : (
           request.reason || "-"
@@ -101,14 +103,14 @@ export default function PaymentTableRow({
           <>
             <button
               onClick={() => onUpdate(request)}
-              className="text-sm purple"
+              className="purple small"
               disabled={updating}
             >
               {updating ? "저장 중..." : "저장"}
             </button>
             <button
               onClick={onEditCancel}
-              className="text-sm gray"
+              className="gray small"
               disabled={updating}
             >
               취소
@@ -118,14 +120,14 @@ export default function PaymentTableRow({
           <>
             <button
               onClick={() => onEditStart(request)}
-              className="text-sm purple"
+              className="purple small"
               disabled={deletingId === request.id}
             >
               수정
             </button>
             <button
               onClick={() => onDelete(request)}
-              className="text-sm red"
+              className="red small"
               disabled={deletingId === request.id}
             >
               {deletingId === request.id ? "삭제 중..." : "삭제"}

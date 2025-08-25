@@ -1,16 +1,16 @@
-import Link from 'next/link'
+import Link from "next/link";
 
 export default function Footer() {
   return (
     <footer className="*:p-[0.5rem] pb-[48px]">
       <div className="flex gap-[0.5rem] justify-center">
-        <Link href="/privacy" className="text-dark-gray text-sm">
+        <Link href="/privacy" className="text-gray-50 text-sm">
           개인정보처리방침
         </Link>
-        <Link href="/terms" className="text-dark-gray text-sm">
+        <Link href="/terms" className="text-gray-50 text-sm">
           이용약관
         </Link>
       </div>
     </footer>
-  )
+  );
 }

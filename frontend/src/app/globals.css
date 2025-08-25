@@ -1,23 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-gray: #f2f2f2;
-  --color-deep-gray: #bfbfbf;
-  --color-dark-gray: #808080;
-  --color-purple: #e5e5ff;
+  --color-gray-90: #e6e6e6;
+  --color-gray-80: #cccccc;
+  --color-gray-70: #b3b3b3;
+  --color-gray-60: #999999;
+  --color-gray-50: #808080;
+  --color-gray-40: #666666;
+  --color-light-purple: #ccccff;
+  --color-purple: #9999ff;
   --color-deep-purple: #8080ff;
-  --color-dark-purple: #0000ff;
-  --color-red: #ffe5e5;
+  --color-dark-purple: #4747ff;
+  --color-red: #ffcccc;
   --color-deep-red: #ff8080;
-  --color-dark-red: #ff0000;
+  --color-dark-red: #ff4d4d;
 }
 
 body {
-  @apply bg-gray;
+  @apply bg-gray-90;
 }
 
 @media (max-width: 768px) {
-
   /* 스크롤바 자체를 숨기기 */
   ::-webkit-scrollbar {
     display: none;
@@ -40,32 +43,65 @@ button,
 input {
   @apply cursor-pointer;
 }
+select,
+input,
+textarea {
+  @apply bg-gray-90 border border-gray-80 w-[100%];
+}
 
 button,
 select,
 input,
 textarea {
-  @apply rounded-[1rem] px-[0.75rem] py-[0.5rem];
+  @apply rounded-[1rem] px-[1rem] py-[0.5rem] leading-[1];
 }
 
+button.small,
+input.small,
+select.small {
+  @apply px-[0.5rem] py-[0.25rem] text-sm;
+}
+button.border,
+input.border,
+select.border {
+  @apply border border-gray-50;
+}
 button.white {
   @apply bg-white;
 }
+/*button.white:hover {
+  @apply bg-purple;
+}*/
 
 button.gray {
-  @apply bg-deep-gray;
+  @apply bg-gray-80;
 }
+/*button.gray:hover {
+  @apply bg-gray-50;
+}*/
 
 button.purple {
   @apply bg-deep-purple text-white;
 }
+/*button.purple:hover {
+  @apply bg-dark-purple;
+}*/
 
 button.red {
   @apply bg-deep-red text-white;
 }
+/*button.red:hover {
+  @apply bg-dark-red;
+}*/
 
 button.blur-white {
   @apply backdrop-blur-[0.1rem] bg-white/50;
+}
+/*button.blur-white:hover {
+  @apply bg-purple/75;
+}*/
+button:disabled {
+  @apply pointer-events-none opacity-50;
 }
 
 button.blur-blue {
@@ -75,11 +111,8 @@ button.blur-blue {
 button.blur-red {
   @apply backdrop-blur-[0.1rem] bg-dark-red/50 text-white;
 }
-
-select,
-input,
-textarea {
-  @apply bg-gray border border-deep-gray w-[100%];
+button.shadow {
+  @apply shadow-[0px_0px_0.5rem_rgba(0,0,0,0.1)];
 }
 
 select {
@@ -87,7 +120,7 @@ select {
 }
 
 textarea {
-  @apply resize-none text-black placeholder-dark-gray;
+  @apply resize-none text-black placeholder-gray-50;
 }
 
 .table-wrapper {
@@ -95,7 +128,7 @@ textarea {
 }
 
 table {
-  @apply table-auto border-collapse overflow-x-auto border-gray text-center w-full;
+  @apply table-auto border-collapse overflow-x-auto text-center w-full;
 }
 
 table th,
@@ -104,13 +137,19 @@ table td {
 }
 
 table th {
-  @apply bg-deep-gray text-center;
+  @apply bg-gray-80 text-center;
 }
 
 tbody:has(tr:nth-child(odd):last-child) tr:nth-child(odd) {
-  @apply bg-gray;
+  @apply bg-gray-90;
 }
 
 tbody:has(tr:nth-child(even):last-child) tr:nth-child(even) {
-  @apply bg-gray;
+  @apply bg-gray-90;
+}
+
+input,
+select,
+textarea {
+  @apply focus:outline-none focus:border-dark-purple active:border-dark-purple selection:border-dark-purple;
 }
