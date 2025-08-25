@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: young-buddha-backend
     env_file:
-      - backend/.env
+      - backend/.env.prod
     volumes:
       - backend-data:/app/data
     ports:
@@ -24,11 +24,8 @@ services:
     container_name: young-buddha-frontend
     depends_on:
       - backend
-    environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8080
-      - NEXT_PUBLIC_USE_MOCK_AUTH=false
     env_file:
-      - frontend/.env.local
+      - frontend/.env.local.prod
     ports:
       - "3000:3000"
 
