@@ -1,4 +1,4 @@
-import { User } from "@/types/user";
+import { User } from "@/lib/types/user";
 import { HttpClient } from "@/lib/config/http";
 
 type ApiResponse<T> = {

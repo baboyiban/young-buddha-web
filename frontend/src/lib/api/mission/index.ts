@@ -1,6 +1,6 @@
-import { MissionData } from "@/types/mission";
+import { MissionData } from "@/lib/types/mission";
 import { sheetsRead } from "@/lib/api/sheets/client";
-import { SheetsCell, SheetsRow, SheetsData } from "@/types/sheets";
+import { SheetsCell, SheetsRow, SheetsData } from "@/lib/types/sheets";
 
 // 상수 정의
 const SHEET_CONFIG = {

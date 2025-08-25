@@ -1,31 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { fetchFilteredPayments, isAdmin } from "@/lib/api/payment";
 import { sheetsUpdate, escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { PAYMENT_SHEET } from "@/lib/constants/sheets";
-import { PaymentRequest } from "@/types/payment";
-
-// 날짜를 항상 'YYYY-MM-DD'로 정규화
-function toYMD(v: any): string {
-  if (!v) return "";
-  if (typeof v === "string") {
-    const s = v.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    return s;
-  }
-  return String(v);
-}
-
-// 추가: id 정규화 헬퍼
-function normalizeId(id: string): string {
-  return String(id)
-    .trim()
-    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "")
-    .normalize("NFKC");
-}
+import { PaymentRequest } from "@/lib/types/payment";
+import { normalizeId, toYMD } from "@/lib/utils/dateUtils";
 
 export default function AdminPage() {
   // 상태 관리
