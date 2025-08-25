@@ -41,7 +41,7 @@ export default function Mission() {
 
   if (loading) {
     return (
-      <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
+      <div className="bg-gray-90 flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
         <LoadingSpinner />
       </div>
     );
@@ -49,7 +49,7 @@ export default function Mission() {
 
   if (error) {
     return (
-      <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
+      <div className="bg-gray-90 flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
         <div className="text-dark-red">{error}</div>
       </div>
     );
@@ -57,8 +57,8 @@ export default function Mission() {
 
   if (!missionData) {
     return (
-      <div className="bg-gray flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
-        <div className="text-dark-gray">미션 데이터가 없습니다.</div>
+      <div className="bg-gray-90 flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
+        <div className="text-gray-50">미션 데이터가 없습니다.</div>
       </div>
     );
   }

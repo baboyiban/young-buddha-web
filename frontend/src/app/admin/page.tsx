@@ -110,7 +110,7 @@ export default function AdminPage() {
   if (!isAdminUser) {
     return (
       <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
-        <div className="text-dark-gray">관리자만 접근할 수 있습니다.</div>
+        <div className="text-gray-50">관리자만 접근할 수 있습니다.</div>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export default function AdminPage() {
         {/* 페이지 제목 */}
         <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
           <h1 className="text-2xl font-bold">결재 관리</h1>
-          <p className="text-dark-gray">
+          <p className="text-gray-50">
             모든 사용자의 결재 신청을 관리할 수 있습니다.
           </p>
         </div>
@@ -129,7 +129,7 @@ export default function AdminPage() {
         {/* 결재 신청 목록 */}
         <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl flex justify-center">
           {requests.length === 0 ? (
-            <div className="text-dark-gray">결재 신청이 없습니다.</div>
+            <div className="text-gray-50">결재 신청이 없습니다.</div>
           ) : (
             <div className="table-wrapper">
               <table className="max-w-full">

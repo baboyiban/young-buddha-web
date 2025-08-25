@@ -7,7 +7,7 @@ import { fetchPaymentsByQuery } from "@/lib/api/payment";
 import { PaymentRequest } from "@/lib/types/payment";
 import { usePaymentOperations } from "@/lib/hooks/usePaymentOperations";
 import { toYMD, shortDate } from "@/lib/utils/dateUtils";
-import ErrorMessage from "@/components/\bErrorMessage";
+import ErrorMessage from "@/components/ErrorMessage";
 import PaymentForm from "./PaymentForm";
 import PaymentTable from "./PaymentTable";
 
@@ -28,6 +28,10 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<PaymentRequest>>({});
+
+  // 페이지네이션 상태 추가
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // 테스트를 위해 3개로 설정 (나중에 10으로 변경)
 
   const [form, setForm] = useState<PaymentRequest>({
     id: "",
@@ -61,15 +65,20 @@ export default function PaymentPage() {
 
     setLoading(true);
     try {
-      const data = await fetchPaymentsByQuery(`select * where B = '${user.email}' and J = '대기'`);
+      const data = await fetchPaymentsByQuery(
+        `select * where B = '${user.email}' and J = '대기'`,
+      );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
         absentDate: toYMD(r.absentDate),
       }));
       setRequests(normalized);
+
+      // 데이터가 로드되면 첫 페이지로 리셋
+      setCurrentPage(1);
     } catch (err) {
-      console.error('Failed to load payments:', err);
+      console.error("Failed to load payments:", err);
       setRequests([]);
     } finally {
       setLoading(false);
@@ -80,15 +89,28 @@ export default function PaymentPage() {
     loadPayments();
   }, [user, authLoading]);
 
+  // 페이지 변경 핸들러
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // 편집 중이면 편집을 취소
+    if (editingId) {
+      handleEditCancel();
+    }
+  };
+
   const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleEditChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
@@ -97,7 +119,7 @@ export default function PaymentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     try {
       await submitPayment(form, () => {
         loadPayments();
@@ -110,12 +132,19 @@ export default function PaymentPage() {
         }));
       });
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error("Form submission error:", error);
     }
   };
 
   const handleDelete = async (request: PaymentRequest) => {
-    await deletePayment(request, loadPayments);
+    await deletePayment(request, () => {
+      loadPayments();
+      // 현재 페이지에 아이템이 없으면 이전 페이지로 이동
+      const totalPages = Math.ceil((requests.length - 1) / itemsPerPage);
+      if (currentPage > totalPages && totalPages > 0) {
+        setCurrentPage(totalPages);
+      }
+    });
   };
 
   const handleEditStart = (r: PaymentRequest) => {
@@ -169,6 +198,9 @@ export default function PaymentPage() {
           editForm={editForm}
           deletingId={deletingId}
           updating={updating}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
           onEditChange={handleEditChange}
           onEditStart={handleEditStart}
           onEditCancel={handleEditCancel}
