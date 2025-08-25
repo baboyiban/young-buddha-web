@@ -75,7 +75,7 @@ export async function fetchFilteredPayments(
   } else {
     const safeUserEmail = escapeSheetQueryString(userEmail).slice(0, 200);
     // B열(이메일)을 기준으로 검색하고 두 번째 행부터 조회
-    query = `SELECT * WHERE B = '${safeUserEmail}' OFFSET 1`;
+    query = `SELECT * WHERE B = '${safeUserEmail}'`;
   }
 
   const data = (await sheetsRead(
@@ -104,6 +104,53 @@ export async function fetchFilteredPayments(
         userId: cells[2]?.v ?? "",
         name: userName, // 조회한 이름 사용 (중복된 이름 무시)
         type: cells[4]?.v ?? "", // 중복된 이름 컬럼을 건너뛰고 다음 컬럼부터 사용
+        requestDate: cells[5]?.v ?? "",
+        absentDate: cells[6]?.v ?? "",
+        schedule: cells[7]?.v ?? "",
+        reason: cells[8]?.v ?? "",
+        approved: cells[9]?.v ?? "",
+      };
+    }),
+  );
+
+  return requestsWithNames.filter(
+    (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
+  );
+}
+
+export async function fetchPaymentsByQuery(
+  query: string,
+): Promise<PaymentRequest[]> {
+  if (typeof query !== "string" || !query.trim()) {
+    throw new Error("유효하지 않은 쿼리입니다.");
+  }
+
+  const data = (await sheetsRead(
+    PAYMENT_SHEET.spreadsheetId,
+    PAYMENT_SHEET.sheetName,
+    query,
+  )) as SheetsData;
+
+  const rows = data.table?.rows ?? [];
+
+  // 각 행에 대해 이름 조회를 병렬로 처리
+  const requestsWithNames = await Promise.all(
+    rows.map(async (row: SheetsRow, idx: number): Promise<PaymentRequest> => {
+      const cells = row.c ?? [];
+      const email = cells[1]?.v ?? "";
+      let userName = "";
+
+      // 이메일이 있는 경우에만 이름 조회
+      if (email) {
+        userName = await getUserNameByEmail(email);
+      }
+
+      return {
+        id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
+        email: email,
+        userId: cells[2]?.v ?? "",
+        name: userName, // 조회한 이름 사용
+        type: cells[4]?.v ?? "",
         requestDate: cells[5]?.v ?? "",
         absentDate: cells[6]?.v ?? "",
         schedule: cells[7]?.v ?? "",
