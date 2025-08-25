@@ -322,7 +322,7 @@ impl AuthService {
             .ok_or_else(|| ApiError::unauthorized("로그인이 필요합니다."))?;
 
         let (name_opt, role_opt) = Self::resolve_user_profile_from_sheet(state.clone(), &email).await;
-        let name = name_opt.unwrap_or_else(|| "Unknown User".to_string());
+        let name = name_opt.unwrap_or_else(|| email.split('@').next().unwrap_or("user").to_string());
         let role = role_opt.unwrap_or_else(|| "USER".to_string());
 
         Ok(json!({
@@ -423,7 +423,11 @@ impl AuthService {
         );
 
         let client = &state.http_client;
-        let resp = match client.get(&url).send().await {
+        // Prefer authenticated request using user's Google access token if available
+        let maybe_access = crate::auth_tokens::get_valid_user_token(client, &state.db_path, email).await;
+        let req = client.get(&url);
+        let req = if let Some(token) = maybe_access.clone() { req.bearer_auth(token) } else { req };
+        let resp = match req.send().await {
             Ok(r) => r,
             Err(_) => return (None, None),
         };
