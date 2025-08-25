@@ -55,6 +55,17 @@ export class HttpClient {
     return {};
   }
 
+  private getCsrfHeader(): Record<string, string> {
+    if (typeof document === "undefined") return {};
+    const match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+    if (!match) return {};
+    try {
+      const token = decodeURIComponent(match[1]);
+      if (token) return { "X-CSRF-Token": token };
+    } catch (_) {}
+    return {};
+  }
+
   async get<T>(url: string): Promise<T> {
     const headers = await this.getAuthHeaders();
     const res = await fetch(this.buildUrl(url), {
@@ -68,11 +79,13 @@ export class HttpClient {
   async post<T>(url: string, body: object): Promise<T> {
     const fullUrl = this.buildUrl(url);
     const headers = await this.getAuthHeaders();
+    const csrf = this.getCsrfHeader();
     const res = await fetch(fullUrl, {
       method: "POST",
       credentials: "include",
       headers: {
         ...headers,
+        ...csrf,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -83,11 +96,13 @@ export class HttpClient {
 
   async put<T>(url: string, body: object): Promise<T> {
     const headers = await this.getAuthHeaders();
+    const csrf = this.getCsrfHeader();
     const res = await fetch(this.buildUrl(url), {
       method: "PUT",
       credentials: "include",
       headers: {
         ...headers,
+        ...csrf,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -97,11 +112,13 @@ export class HttpClient {
 
   async delete<T>(url: string): Promise<T> {
     const headers = await this.getAuthHeaders();
+    const csrf = this.getCsrfHeader();
     const res = await fetch(this.buildUrl(url), {
       method: "DELETE",
       credentials: "include",
       headers: {
         ...headers,
+        ...csrf,
         "Content-Type": "application/json",
       },
     });
