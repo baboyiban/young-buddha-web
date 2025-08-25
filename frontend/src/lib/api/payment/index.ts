@@ -65,6 +65,7 @@ export async function fetchFilteredPayments(
   page: number = 1,
   limit: number = 10,
   statusFilter: string = "전체",
+  sortOrder: string = "desc", // desc: 최신순, asc: 오래된순
 ): Promise<{ data: PaymentRequest[]; totalCount: number }> {
   if (typeof userEmail !== "string") {
     throw new Error("유효하지 않은 사용자 이메일입니다.");
@@ -78,10 +79,10 @@ export async function fetchFilteredPayments(
     // Google Sheets는 헤더 행을 자동으로 처리하므로 OFFSET 1은 두 번째 데이터 행부터 시작
     const offset = (page - 1) * limit;
     if (statusFilter === "전체") {
-      query = `select * limit ${limit} offset ${offset + 1}`;
+      query = `select * order by F ${sortOrder} limit ${limit} offset ${offset + 1}`;
     } else {
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
-      query = `select * where J = '${safeStatus}' limit ${limit} offset ${offset}`;
+      query = `select * where J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     }
     console.log("🔍 [ADMIN QUERY]", {
       userEmail,
@@ -96,10 +97,10 @@ export async function fetchFilteredPayments(
     // B열(이메일)을 기준으로 검색 (페이지네이션 및 필터링 적용)
     const offset = (page - 1) * limit;
     if (statusFilter === "전체") {
-      query = `select * where B = '${safeUserEmail}' limit ${limit} offset ${offset}`;
+      query = `select * where B = '${safeUserEmail}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     } else {
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
-      query = `select * where B = '${safeUserEmail}' and J = '${safeStatus}' limit ${limit} offset ${offset}`;
+      query = `select * where B = '${safeUserEmail}' and J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     }
     console.log("🔍 [USER QUERY]", {
       userEmail,
