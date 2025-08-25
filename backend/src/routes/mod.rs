@@ -33,8 +33,7 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     // API v1 라우터
     let api_v1 = Router::new()
         .route("/health", axum::routing::get(health::health))
-        .nest("/sheets", sheets::router())
-        .nest("/database", database::router());
+        .nest("/sheets", sheets::router());
 
     // 메인 라우터
     Router::new()

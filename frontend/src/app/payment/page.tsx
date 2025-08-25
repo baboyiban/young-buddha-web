@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { fetchPaymentsByQuery } from "@/lib/api/payment";
+import { escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { PaymentRequest } from "@/lib/types/payment";
 import { usePaymentOperations } from "@/lib/hooks/usePaymentOperations";
 import { toYMD, shortDate } from "@/lib/utils/dateUtils";
@@ -65,8 +66,9 @@ export default function PaymentPage() {
 
     setLoading(true);
     try {
+      const safeEmail = escapeSheetQueryString(user.email);
       const data = await fetchPaymentsByQuery(
-        `select * where B = '${user.email}' and J = '대기'`,
+        `SELECT * WHERE B = '${safeEmail}' AND J = '대기'`,
       );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
