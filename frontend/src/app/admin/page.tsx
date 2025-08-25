@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Pagination from "@/components/Pagination";
@@ -22,49 +22,156 @@ export default function AdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // 필터링 상태
+  const [statusFilter, setStatusFilter] = useState<string>("전체");
+
+  // 다중 선택 상태
+  const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
+  const [isAllSelected, setIsAllSelected] = useState(false);
+
+  // 데이터 로드 함수
+  const loadPayments = useCallback(async () => {
+    if (!authLoading && user?.email) {
+      const isAdminRole =
+        Array.isArray(user.roles) && user.roles.includes("ADMIN");
+      setIsAdminUser(!!isAdminRole);
+
+      if (!isAdminRole) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const data = await fetchFilteredPayments("", true);
+        const normalized = data.map((r: PaymentRequest) => ({
+          ...r,
+          requestDate: toYMD(r.requestDate),
+          absentDate: toYMD(r.absentDate),
+        }));
+        setRequests(normalized);
+      } catch (err) {
+        console.error("결재 데이터 로드 실패:", err);
+        setRequests([]);
+        // 401 에러인 경우 로그인 페이지로 리다이렉트
+        if (err instanceof Error && err.message.includes("401")) {
+          alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+          window.location.href = "/login";
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [authLoading, user]);
+
   // 관리자 권한: 미들웨어에서 이미 차단되지만, 클라이언트에서도 user.roles 참고
   useEffect(() => {
     const proceed = async () => {
-      if (!authLoading && user?.email) {
-        const isAdminRole =
-          Array.isArray(user.roles) && user.roles.includes("ADMIN");
-        setIsAdminUser(!!isAdminRole);
-
-        if (!isAdminRole) {
-          setLoading(false);
-          return;
-        }
-
-        try {
-          const data = await fetchFilteredPayments("");
-          const normalized = data.map((r: PaymentRequest) => ({
-            ...r,
-            requestDate: toYMD(r.requestDate),
-            absentDate: toYMD(r.absentDate),
-          }));
-          setRequests(normalized);
-        } catch (err) {
-          setRequests([]);
-        } finally {
-          setLoading(false);
-        }
-      }
+      await loadPayments();
     };
 
     proceed();
-  }, [user, authLoading]);
+  }, [user, authLoading, loadPayments]);
+
+  // 필터링된 데이터 계산
+  const filteredRequests = requests.filter(
+    (request) => statusFilter === "전체" || request.approved === statusFilter,
+  );
 
   // 현재 페이지에 표시할 데이터 계산
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentPageRequests = requests.slice(startIndex, endIndex);
+  const currentPageRequests = filteredRequests.slice(startIndex, endIndex);
 
   // 총 페이지 수 계산
-  const totalPages = Math.ceil(requests.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage) || 1;
 
   // 페이지 변경 핸들러
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    setSelectedRequests([]);
+    setIsAllSelected(false);
+  };
+
+  // 개별 선택 토글
+  const toggleSelection = (id: string) => {
+    setSelectedRequests((prev) =>
+      prev.includes(id)
+        ? prev.filter((selectedId) => selectedId !== id)
+        : [...prev, id],
+    );
+  };
+
+  // 전체 선택 토글
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRequests([]);
+    } else {
+      setSelectedRequests(currentPageRequests.map((r) => r.id));
+    }
+    setIsAllSelected(!isAllSelected);
+  };
+
+  // 배치 승인 처리
+  const handleBatchApprove = async (status: string) => {
+    if (selectedRequests.length === 0) return;
+
+    try {
+      setUpdatingId("batch"); // 배치 처리 중임을 표시
+
+      // 선택된 모든 요청 처리
+      for (const id of selectedRequests) {
+        const request = requests.find((r) => r.id === id);
+        if (request) {
+          const normalizedId = normalizeId(request.id);
+          const whereId = escapeSheetQueryString(normalizedId);
+
+          const updatedRow = [
+            normalizedId,
+            request.email,
+            request.userId,
+            request.name,
+            request.type,
+            toYMD(request.requestDate),
+            toYMD(request.absentDate),
+            request.schedule,
+            request.reason,
+            status,
+          ];
+
+          const query = `UPDATE WHERE A = '${whereId}' VALUES ${JSON.stringify(updatedRow)}`;
+          await sheetsUpdate(
+            PAYMENT_SHEET.spreadsheetId,
+            PAYMENT_SHEET.sheetName,
+            query,
+          );
+        }
+      }
+
+      // 목록 갱신
+      const data = await fetchFilteredPayments("", true);
+      const normalized = data.map((r: PaymentRequest) => ({
+        ...r,
+        requestDate: toYMD(r.requestDate),
+        absentDate: toYMD(r.absentDate),
+      }));
+      setRequests(normalized);
+
+      // 선택 초기화
+      setSelectedRequests([]);
+      setIsAllSelected(false);
+
+      alert(`${selectedRequests.length}개 항목이 ${status} 처리되었습니다.`);
+    } catch (err) {
+      console.error("batch approve error:", err);
+      alert("배치 처리 중 오류가 발생했습니다.");
+      // 401 에러인 경우 로그인 페이지로 리다이렉트
+      if (err instanceof Error && err.message.includes("401")) {
+        alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+        window.location.href = "/login";
+      }
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   // 결재 상태 변경 핸들러
@@ -99,7 +206,7 @@ export default function AdminPage() {
       );
 
       // 목록 갱신
-      const data = await fetchFilteredPayments("");
+      const data = await fetchFilteredPayments("", true);
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
@@ -115,6 +222,11 @@ export default function AdminPage() {
     } catch (err) {
       console.error("handleApprove error:", err);
       alert("결재 상태 변경 중 오류가 발생했습니다.");
+      // 401 에러인 경우 로그인 페이지로 리다이렉트
+      if (err instanceof Error && err.message.includes("401")) {
+        alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+        window.location.href = "/login";
+      }
     } finally {
       setUpdatingId(null);
     }
@@ -141,14 +253,79 @@ export default function AdminPage() {
     <div className="flex flex-col gap-[0.5rem]">
       {/* 결재 신청 목록 */}
       <div className="mt-[0] m-[0.5rem] p-[1rem] bg-white rounded-xl flex flex-col space-y-[0.5rem] items-center">
-        {requests.length === 0 ? (
-          <div className="text-gray-50">결재 신청이 없습니다.</div>
+        {/* 필터 선택 UI */}
+        <div className="flex gap-[0.5rem] mb-[1rem] self-start">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
+          >
+            <option value="전체">전체 상태</option>
+            <option value="대기">대기 중</option>
+            <option value="승인">승인됨</option>
+            <option value="반려">반려됨</option>
+          </select>
+
+          {/* 새로고침 버튼 */}
+          <button
+            onClick={loadPayments}
+            className="px-[0.5rem] py-[0.25rem] border rounded text-sm gray"
+            disabled={loading}
+          >
+            {loading ? "새로고침 중..." : "새로고침"}
+          </button>
+
+          {/* 배치 처리 버튼들 */}
+          {selectedRequests.length > 0 && (
+            <div className="flex gap-[0.25rem]">
+              <button
+                onClick={() => handleBatchApprove("승인")}
+                className="text-sm purple"
+                disabled={updatingId === "batch"}
+              >
+                {updatingId === "batch"
+                  ? "처리 중..."
+                  : `선택 ${selectedRequests.length}개 승인`}
+              </button>
+              <button
+                onClick={() => handleBatchApprove("반려")}
+                className="text-sm red"
+                disabled={updatingId === "batch"}
+              >
+                {updatingId === "batch"
+                  ? "처리 중..."
+                  : `선택 ${selectedRequests.length}개 반려`}
+              </button>
+            </div>
+          )}
+
+          <div className="text-sm text-gray-50 self-center">
+            총 {filteredRequests.length}개 항목
+            {selectedRequests.length > 0 &&
+              ` (${selectedRequests.length}개 선택)`}
+          </div>
+        </div>
+
+        {filteredRequests.length === 0 ? (
+          <div className="text-gray-50">
+            {statusFilter === "전체"
+              ? "결재 신청이 없습니다."
+              : `'${statusFilter}' 상태의 결재 신청이 없습니다.`}
+          </div>
         ) : (
           <>
             <div className="table-wrapper w-[60rem] max-w-full">
               <table className="w-full small">
                 <thead>
                   <tr>
+                    <th className="">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={toggleSelectAll}
+                        className="w-[1rem] h-[1rem]"
+                      />
+                    </th>
                     <th className="">이메일</th>
                     <th className="">아이디</th>
                     <th className="">이름</th>
@@ -163,7 +340,20 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {currentPageRequests.map((r) => (
-                    <tr key={r.id} className="">
+                    <tr
+                      key={r.id}
+                      className={
+                        selectedRequests.includes(r.id) ? "bg-blue-50" : ""
+                      }
+                    >
+                      <td className="text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedRequests.includes(r.id)}
+                          onChange={() => toggleSelection(r.id)}
+                          className="w-[1rem] h-[1rem]"
+                        />
+                      </td>
                       <td className="">{r.email}</td>
                       <td className="">{r.userId}</td>
                       <td className="">{r.name}</td>
@@ -221,7 +411,7 @@ export default function AdminPage() {
               totalPages={totalPages}
               onPageChange={handlePageChange}
               itemsPerPage={itemsPerPage}
-              totalItems={requests.length}
+              totalItems={filteredRequests.length}
             />
           </>
         )}

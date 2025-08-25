@@ -61,6 +61,7 @@ export async function isAdmin(email: string): Promise<boolean> {
 
 export async function fetchFilteredPayments(
   userEmail: string,
+  skipNameLookup: boolean = false,
 ): Promise<PaymentRequest[]> {
   if (typeof userEmail !== "string") {
     throw new Error("유효하지 않은 사용자 이메일입니다.");
@@ -86,7 +87,32 @@ export async function fetchFilteredPayments(
 
   const rows = data.table?.rows ?? [];
 
-  // 각 행에 대해 이름 조회를 병렬로 처리
+  // 이름 조회 생략 모드 (관리자 페이지용)
+  if (skipNameLookup) {
+    return rows
+      .map((row: SheetsRow, idx: number): PaymentRequest => {
+        const cells = row.c ?? [];
+        const email = cells[1]?.v ?? "";
+
+        return {
+          id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
+          email: email,
+          userId: cells[2]?.v ?? "",
+          name: cells[3]?.v ?? email.split("@")[0], // 시트에 있는 이름 사용
+          type: cells[4]?.v ?? "",
+          requestDate: cells[5]?.v ?? "",
+          absentDate: cells[6]?.v ?? "",
+          schedule: cells[7]?.v ?? "",
+          reason: cells[8]?.v ?? "",
+          approved: cells[9]?.v ?? "",
+        };
+      })
+      .filter(
+        (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
+      );
+  }
+
+  // 기존 방식 (개인 페이지용)
   const requestsWithNames = await Promise.all(
     rows.map(async (row: SheetsRow, idx: number): Promise<PaymentRequest> => {
       const cells = row.c ?? [];
@@ -120,6 +146,7 @@ export async function fetchFilteredPayments(
 
 export async function fetchPaymentsByQuery(
   query: string,
+  skipNameLookup: boolean = false,
 ): Promise<PaymentRequest[]> {
   if (typeof query !== "string" || !query.trim()) {
     throw new Error("유효하지 않은 쿼리입니다.");
@@ -133,7 +160,32 @@ export async function fetchPaymentsByQuery(
 
   const rows = data.table?.rows ?? [];
 
-  // 각 행에 대해 이름 조회를 병렬로 처리
+  // 이름 조회 생략 모드 (관리자 페이지용)
+  if (skipNameLookup) {
+    return rows
+      .map((row: SheetsRow, idx: number): PaymentRequest => {
+        const cells = row.c ?? [];
+        const email = cells[1]?.v ?? "";
+
+        return {
+          id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
+          email: email,
+          userId: cells[2]?.v ?? "",
+          name: cells[3]?.v ?? email.split("@")[0], // 시트에 있는 이름 사용
+          type: cells[4]?.v ?? "",
+          requestDate: cells[5]?.v ?? "",
+          absentDate: cells[6]?.v ?? "",
+          schedule: cells[7]?.v ?? "",
+          reason: cells[8]?.v ?? "",
+          approved: cells[9]?.v ?? "",
+        };
+      })
+      .filter(
+        (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
+      );
+  }
+
+  // 기존 방식 (개인 페이지용)
   const requestsWithNames = await Promise.all(
     rows.map(async (row: SheetsRow, idx: number): Promise<PaymentRequest> => {
       const cells = row.c ?? [];
