@@ -20,6 +20,7 @@ export default function AdminPage() {
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
 
   // 필터링 상태
@@ -42,16 +43,24 @@ export default function AdminPage() {
       }
 
       try {
-        const data = await fetchFilteredPayments("", true);
+        const { data, totalCount } = await fetchFilteredPayments(
+          "",
+          true,
+          currentPage,
+          itemsPerPage,
+          statusFilter,
+        );
         const normalized = data.map((r: PaymentRequest) => ({
           ...r,
           requestDate: toYMD(r.requestDate),
           absentDate: toYMD(r.absentDate),
         }));
         setRequests(normalized);
+        setTotalItems(totalCount);
       } catch (err) {
         console.error("결재 데이터 로드 실패:", err);
         setRequests([]);
+        setTotalItems(0);
         // 401 에러인 경우 로그인 페이지로 리다이렉트
         if (err instanceof Error && err.message.includes("401")) {
           alert("인증이 만료되었습니다. 다시 로그인해주세요.");
@@ -61,7 +70,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, currentPage, statusFilter]);
 
   // 관리자 권한: 미들웨어에서 이미 차단되지만, 클라이언트에서도 user.roles 참고
   useEffect(() => {
@@ -72,24 +81,28 @@ export default function AdminPage() {
     proceed();
   }, [user, authLoading, loadPayments]);
 
-  // 필터링된 데이터 계산
-  const filteredRequests = requests.filter(
-    (request) => statusFilter === "전체" || request.approved === statusFilter,
-  );
-
-  // 현재 페이지에 표시할 데이터 계산
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPageRequests = filteredRequests.slice(startIndex, endIndex);
-
   // 총 페이지 수 계산
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+  // 현재 페이지에 표시할 데이터
+  const currentPageRequests = requests;
 
   // 페이지 변경 핸들러
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setSelectedRequests([]);
     setIsAllSelected(false);
+    // 페이지 변경 시 데이터 다시 로드
+    setLoading(true);
+  };
+
+  // 필터 변경 핸들러
+  const handleFilterChange = (filter: string) => {
+    setStatusFilter(filter);
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로 이동
+    setSelectedRequests([]);
+    setIsAllSelected(false);
+    setLoading(true); // 데이터 다시 로드
   };
 
   // 개별 선택 토글
@@ -148,13 +161,20 @@ export default function AdminPage() {
       }
 
       // 목록 갱신
-      const data = await fetchFilteredPayments("", true);
+      const { data, totalCount } = await fetchFilteredPayments(
+        "",
+        true,
+        currentPage,
+        itemsPerPage,
+        statusFilter,
+      );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
         absentDate: toYMD(r.absentDate),
       }));
       setRequests(normalized);
+      setTotalItems(totalCount);
 
       // 선택 초기화
       setSelectedRequests([]);
@@ -206,16 +226,23 @@ export default function AdminPage() {
       );
 
       // 목록 갱신
-      const data = await fetchFilteredPayments("", true);
+      const { data, totalCount } = await fetchFilteredPayments(
+        "",
+        true,
+        currentPage,
+        itemsPerPage,
+        statusFilter,
+      );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
         absentDate: toYMD(r.absentDate),
       }));
       setRequests(normalized);
+      setTotalItems(totalCount);
 
       // 현재 페이지에 아이템이 없으면 이전 페이지로 이동
-      const newTotalPages = Math.ceil(normalized.length / itemsPerPage);
+      const newTotalPages = Math.ceil(totalCount / itemsPerPage);
       if (currentPage > newTotalPages && newTotalPages > 0) {
         setCurrentPage(newTotalPages);
       }
@@ -257,7 +284,7 @@ export default function AdminPage() {
         <div className="flex gap-[0.5rem] mb-[1rem] self-start">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => handleFilterChange(e.target.value)}
             className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
           >
             <option value="전체">전체 상태</option>
@@ -300,13 +327,13 @@ export default function AdminPage() {
           )}
 
           <div className="text-sm text-gray-50 self-center">
-            총 {filteredRequests.length}개 항목
+            총 {totalItems}개 항목
             {selectedRequests.length > 0 &&
               ` (${selectedRequests.length}개 선택)`}
           </div>
         </div>
 
-        {filteredRequests.length === 0 ? (
+        {requests.length === 0 ? (
           <div className="text-gray-50">
             {statusFilter === "전체"
               ? "결재 신청이 없습니다."
@@ -411,7 +438,7 @@ export default function AdminPage() {
               totalPages={totalPages}
               onPageChange={handlePageChange}
               itemsPerPage={itemsPerPage}
-              totalItems={filteredRequests.length}
+              totalItems={totalItems}
             />
           </>
         )}
