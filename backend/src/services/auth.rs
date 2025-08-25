@@ -138,6 +138,25 @@ impl AuthService {
         };
         cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
+        // CSRF 토큰 쿠키 (Double Submit Cookie) - HttpOnly 아님
+        let csrf_token: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(48)
+            .map(char::from)
+            .collect();
+        let csrf_cookie = {
+            let domain = domain_opt.unwrap();
+            format!(
+                "csrf_token={}; SameSite={}; Path=/; Domain={}; Max-Age={}{}",
+                csrf_token,
+                same_site,
+                domain,
+                JWT_EXPIRY_SECONDS,
+                secure
+            )
+        };
+        cookies.push(HeaderValue::from_str(&csrf_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
+
         cookies
     }
 
@@ -343,6 +362,23 @@ impl AuthService {
             )
         };
         cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
+
+        // CSRF 토큰 쿠키 삭제
+        let csrf_cookie = if let Some(domain) = domain_opt {
+            format!(
+                "csrf_token=; SameSite={}; Path=/; Domain={}; Max-Age=0{}",
+                same_site,
+                domain,
+                secure
+            )
+        } else {
+            format!(
+                "csrf_token=; SameSite={}; Path=/; Max-Age=0{}",
+                same_site,
+                secure
+            )
+        };
+        cookies.push(HeaderValue::from_str(&csrf_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         cookies
     }
