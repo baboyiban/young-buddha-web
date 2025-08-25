@@ -89,13 +89,22 @@ export async function middleware(request: NextRequest) {
       },
     });
 
-    if (res.ok) {
-      tokenCache.set(token, { valid: true, ts: now });
-      return NextResponse.next();
-    } else {
+    if (!res.ok) {
       tokenCache.set(token, { valid: false, ts: now });
       return NextResponse.redirect(new URL("/login", request.url));
     }
+
+    const me = await res.json();
+    tokenCache.set(token, { valid: true, ts: now });
+
+    // 관리자 보호 경로 검사
+    if (pathname.startsWith("/admin")) {
+      if (!me?.role || me.role !== "ADMIN") {
+        return NextResponse.redirect(new URL("/unauthorized", request.url));
+      }
+    }
+
+    return NextResponse.next();
   } catch (err) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

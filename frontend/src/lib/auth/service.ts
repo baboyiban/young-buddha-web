@@ -19,18 +19,21 @@ export class AuthService {
 
   async getCurrentUser(): Promise<User> {
     try {
-      // 백엔드 응답: { authenticated: boolean, email: string }
+      // 백엔드 응답: { authenticated, email, name, role }
       const resp = await this.httpClient.get<{
         authenticated: boolean;
         email: string;
+        name?: string;
+        role?: string;
       }>(`/auth/me`);
-      // 최소 User 형태로 변환
       const email = resp.email;
-      const name = email?.split("@")[0] || "User";
+      const name = resp.name || email?.split("@")[0] || "User";
+      const role = resp.role;
       const user: User = {
         id: email,
         email,
         name,
+        roles: role ? [role] : undefined,
       };
       return user;
     } catch (error: any) {
@@ -114,9 +117,8 @@ export class AuthService {
 
   async checkAuthStatus(): Promise<boolean> {
     try {
-      const resp = await this.httpClient.get<ApiResponse<User>>(`/auth/me`);
-
-      if (resp.error) throw new Error(resp.error);
+      const resp = await this.httpClient.get<{ authenticated: boolean }>(`/auth/me`);
+      if (!resp.authenticated) throw new Error("unauthenticated");
       return true;
     } catch (error) {
       this.clearAuthData();

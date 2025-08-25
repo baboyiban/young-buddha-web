@@ -61,3 +61,49 @@ pub async fn store_valid_jwt(token: &str, cached_obj: serde_json::Value) -> Resu
     }
     Ok(())
 }
+
+// ============ User profile cache (email -> {name, role}) ============
+
+#[allow(dead_code)]
+pub async fn get_cached_user_profile(email: &str) -> Option<(String, String)> {
+    if let Some(client) = get_client_from_env_or_global() {
+        let email_clone = email.to_string();
+        let client_move = client.clone();
+        if let Ok(Ok(Some(cached))) = tokio::task::spawn_blocking(move || -> Result<Option<(String, String)>, redis::RedisError> {
+            let mut conn = client_move.get_connection()?;
+            let key = format!("auth:user:{}", email_clone);
+            let name: Option<String> = conn.hget(&key, "name").ok();
+            let role: Option<String> = conn.hget(&key, "role").ok();
+            Ok(match (name, role) {
+                (Some(n), Some(r)) => Some((n, r)),
+                _ => None,
+            })
+        }).await {
+            return cached;
+        }
+    }
+    None
+}
+
+#[allow(dead_code)]
+pub async fn store_user_profile(email: &str, name: &str, role: &str, ttl_seconds: usize) -> Result<(), ()> {
+    if let Some(client) = get_client_from_env_or_global() {
+        let email_clone = email.to_string();
+        let name_clone = name.to_string();
+        let role_clone = role.to_string();
+        let client_move = client.clone();
+        let _ = tokio::task::spawn_blocking(move || -> Result<(), redis::RedisError> {
+            let mut conn = client_move.get_connection()?;
+            let key = format!("auth:user:{}", email_clone);
+            let _: () = redis::pipe()
+                .hset(&key, "name", name_clone)
+                .ignore()
+                .hset(&key, "role", role_clone)
+                .ignore()
+                .expire(&key, ttl_seconds)
+                .query(&mut conn)?;
+            Ok(())
+        }).await;
+    }
+    Ok(())
+}

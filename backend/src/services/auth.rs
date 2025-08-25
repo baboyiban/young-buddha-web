@@ -244,7 +244,7 @@ impl AuthService {
             .map_err(|e| ApiError::internal_error(format!("사용자 정보 파싱 실패: {}", e)))?;
 
         let email = user_info.email.unwrap_or_else(|| "unknown@example.com".to_string());
-        let name = user_info.name.unwrap_or_else(|| "Unknown User".to_string());
+        let mut name = user_info.name.unwrap_or_else(|| "Unknown User".to_string());
 
         // Persist Google tokens for this user (UPSERT)
         // Calculate absolute expiry timestamp
@@ -292,7 +292,12 @@ impl AuthService {
         let jwt_secret = state.jwt_secret.as_ref()
             .ok_or_else(|| ApiError::internal_error("JWT_SECRET not configured"))?;
 
-        let jwt_token = Self::create_jwt_token(&name, &email, "user", jwt_secret)?;
+        // Resolve role/name from user sheet (with cache). Default role is USER.
+        let (resolved_name, resolved_role) = Self::resolve_user_profile_from_sheet(state.clone(), &email).await;
+        if let Some(n) = resolved_name { name = n; }
+        let role_for_jwt = resolved_role.unwrap_or_else(|| "USER".to_string());
+
+        let jwt_token = Self::create_jwt_token(&name, &email, &role_for_jwt, jwt_secret)?;
 
         // create cookies
         let cookies = Self::create_auth_cookies(&jwt_token, &state.frontend_url);
@@ -301,7 +306,8 @@ impl AuthService {
             "success": true,
             "user": {
                 "name": name,
-                "email": email
+                "email": email,
+                "role": role_for_jwt
             }
         });
 
@@ -315,9 +321,15 @@ impl AuthService {
         let email = get_email_from_jwt_cookie(&headers, state.jwt_secret.as_deref())
             .ok_or_else(|| ApiError::unauthorized("로그인이 필요합니다."))?;
 
+        let (name_opt, role_opt) = Self::resolve_user_profile_from_sheet(state.clone(), &email).await;
+        let name = name_opt.unwrap_or_else(|| "Unknown User".to_string());
+        let role = role_opt.unwrap_or_else(|| "USER".to_string());
+
         Ok(json!({
             "authenticated": true,
-            "email": email
+            "email": email,
+            "name": name,
+            "role": role
         }))
     }
 
@@ -381,5 +393,60 @@ impl AuthService {
         cookies.push(HeaderValue::from_str(&csrf_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         cookies
+    }
+}
+
+impl AuthService {
+    async fn resolve_user_profile_from_sheet(state: Arc<AppState>, email: &str) -> (Option<String>, Option<String>) {
+        // Try Redis cache first
+        if let Some((cached_name, cached_role)) = crate::auth::redis_cache::get_cached_user_profile(email).await {
+            return (Some(cached_name), Some(cached_role));
+        }
+
+        // If sheet location is not configured, fallback to none
+        let spreadsheet_id = match state.config.get_user_sheet_spreadsheet_id() {
+            Ok(v) => v,
+            Err(_) => return (None, None),
+        };
+        let sheet_name = match state.config.get_user_sheet_name() {
+            Ok(v) => v,
+            Err(_) => return (None, None),
+        };
+
+        // Build Visualization API URL: SELECT B,C WHERE A = '{email}'
+        let query = format!("SELECT B,C WHERE A = '{}'", email.replace("'", "''"));
+        let url = format!(
+            "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
+            spreadsheet_id,
+            urlencoding::encode(&query),
+            urlencoding::encode(&sheet_name)
+        );
+
+        let client = &state.http_client;
+        let resp = match client.get(&url).send().await {
+            Ok(r) => r,
+            Err(_) => return (None, None),
+        };
+        if !resp.status().is_success() {
+            return (None, None);
+        }
+        let text = match resp.text().await { Ok(t) => t, Err(_) => return (None, None) };
+        // Minimal GViz JSON parse: find rows[0].c[0].v (name), rows[0].c[1].v (role)
+        let parsed: serde_json::Value = match crate::routes::sheets_parser::parse_gviz_json(&text) { Ok(v) => v, Err(_) => return (None, None) };
+        let rows = parsed.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array());
+        if let Some(rows) = rows {
+            if let Some(row0) = rows.get(0) {
+                let cells = row0.get("c").and_then(|c| c.as_array());
+                if let Some(cells) = cells {
+                    let name = cells.get(0).and_then(|c| c.get("v")).and_then(|v| v.as_str()).map(|s| s.to_string());
+                    let role = cells.get(1).and_then(|c| c.get("v")).and_then(|v| v.as_str()).map(|s| s.to_string());
+                    if let (Some(ref n), Some(ref r)) = (&name, &role) {
+                        let _ = crate::auth::redis_cache::store_user_profile(email, n, r, 1800).await;
+                    }
+                    return (name, role);
+                }
+            }
+        }
+        (None, None)
     }
 }

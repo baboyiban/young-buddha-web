@@ -12,6 +12,9 @@ pub struct AppConfig {
     pub google_redirect_uri: Option<String>,
     pub db_path: String,
     pub frontend_url: String,
+    // User sheet location for role/name lookup
+    pub user_sheet_spreadsheet_id: Option<String>,
+    pub user_sheet_name: Option<String>,
 }
 
 impl AppConfig {
@@ -49,6 +52,8 @@ impl AppConfig {
             google_redirect_uri,
             db_path,
             frontend_url,
+            user_sheet_spreadsheet_id: env::var("USER_SHEET_SPREADSHEET_ID").ok(),
+            user_sheet_name: env::var("USER_SHEET_NAME").ok(),
         }
     }
 
@@ -91,5 +96,17 @@ impl AppConfig {
     pub fn get_google_redirect_uri(&self) -> Result<String, String> {
         self.google_redirect_uri.clone()
             .ok_or_else(|| "GOOGLE_REDIRECT_URI not configured".into())
+    }
+
+    pub fn get_user_sheet_spreadsheet_id(&self) -> Result<String, String> {
+        self.user_sheet_spreadsheet_id
+            .clone()
+            .ok_or_else(|| "USER_SHEET_SPREADSHEET_ID not configured".into())
+    }
+
+    pub fn get_user_sheet_name(&self) -> Result<String, String> {
+        self.user_sheet_name
+            .clone()
+            .ok_or_else(|| "USER_SHEET_NAME not configured".into())
     }
 }
