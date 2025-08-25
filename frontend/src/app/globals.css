@@ -130,6 +130,9 @@ textarea {
 table {
   @apply table-auto border-collapse overflow-x-auto text-center w-full;
 }
+table.small {
+  @apply text-sm;
+}
 
 table th,
 table td {
