@@ -26,7 +26,7 @@ export default function PaymentForm({
   };
 
   return (
-    <div className="mx-[0.5rem] p-[1rem] bg-white rounded-xl">
+    <div className="mx-[0.5rem] p-[1rem] bg-white rounded-[1rem]">
       <form onSubmit={handleSubmit} className="flex justify-center">
         <div className="w-[60rem] flex flex-col gap-[0.5rem]">
           <div className="flex flex-col gap-[0.25rem]">

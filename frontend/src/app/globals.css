@@ -66,6 +66,10 @@ input.border,
 select.border {
   @apply border border-gray-50;
 }
+
+button {
+  @apply whitespace-nowrap;
+}
 button.white {
   @apply bg-white;
 }
@@ -124,7 +128,7 @@ textarea {
 }
 
 .table-wrapper {
-  @apply overflow-x-auto rounded-xl;
+  @apply overflow-x-auto rounded-[1rem];
 }
 
 table {

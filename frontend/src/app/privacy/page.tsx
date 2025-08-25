@@ -1,6 +1,6 @@
 export default function PrivacyPage() {
   return (
-    <div className="mx-[0.5rem] bg-white p-[1rem] rounded-xl min-h-[calc(100svh-52px-0.5rem)]">
+    <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem)]">
       <div className="flex flex-col gap-[0.5rem]">
         <p>
           청년붓다 웹사이트는 Google 계정을 통한 로그인만 지원하며, 별도의
@@ -13,5 +13,5 @@ export default function PrivacyPage() {
         <p className="font-semibold">문의: chl11wq12@gmail.com</p>
       </div>
     </div>
-  )
+  );
 }

@@ -56,7 +56,7 @@ export default function PaymentTable({
 
   if (requests.length === 0) {
     return (
-      <div className="mx-[0.5rem] bg-white rounded-xl">
+      <div className="mx-[0.5rem] bg-white rounded-[1rem]">
         <div className="p-[1rem] flex justify-center">
           <div className="text-gray-50">신청 현황이 없습니다.</div>
         </div>
@@ -65,7 +65,7 @@ export default function PaymentTable({
   }
 
   return (
-    <div className="mx-[0.5rem] bg-white rounded-xl">
+    <div className="mx-[0.5rem] bg-white rounded-[1rem]">
       <div className="p-[1rem] flex flex-col space-y-[0.5rem] items-center">
         <div className="table-wrapper w-[60rem] max-w-full">
           <table className="max-w-full text-sm">
