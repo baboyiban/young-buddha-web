@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import LoadingButton from "@/components/LoadingButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { fetchFilteredPayments, getUserNameByEmail } from "@/lib/api/payment";
+import { fetchFilteredPayments, fetchPaymentsByQuery, getUserNameByEmail } from "@/lib/api/payment";
 import {
   sheetsCreate,
   sheetsDelete,
@@ -112,7 +112,7 @@ export default function PaymentPage() {
 
       setLoading(true);
       try {
-        const data = await fetchFilteredPayments(user.email);
+        const data = await fetchPaymentsByQuery(`select * where B = '${user.email}' and J = '대기'`);
         const normalized = data.map((r: PaymentRequest) => ({
           ...r,
           requestDate: toYMD(r.requestDate),
@@ -183,7 +183,7 @@ export default function PaymentPage() {
       );
 
       // 신청 후 목록 갱신
-      const data = await fetchFilteredPayments(user.email);
+      const data = await fetchPaymentsByQuery(`select * where B = '${user.email}' and J = '대기'`);
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
         requestDate: toYMD(r.requestDate),
