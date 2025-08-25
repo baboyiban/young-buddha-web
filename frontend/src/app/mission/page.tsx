@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { MissionData } from "@/types/mission";
+import { MissionData } from "@/lib/types/mission";
 import { fetchMissionData } from "@/lib/api/mission";
 import LoadingSpinner from "@/components/LoadingSpinner";
 

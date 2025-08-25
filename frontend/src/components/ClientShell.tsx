@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import AppLayout from '@/components/AppLayout'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthProvider } from '@/lib/context/AuthContext'
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

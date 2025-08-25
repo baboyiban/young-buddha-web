@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useAuthContext } from "@/context/AuthContext";
+import { useAuthContext } from "@/lib/context/AuthContext";
 
 export function useAuth() {
   const ctx = useAuthContext();

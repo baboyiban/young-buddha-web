@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { authService } from "@/lib/auth/service";
-import { User } from "@/types/user";
+import { User } from "@/lib/types/user";
 
 type AuthState = {
   user: User | null;

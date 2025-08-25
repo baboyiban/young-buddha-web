@@ -1,7 +1,7 @@
-import { PaymentRequest } from "@/types/payment";
+import { PaymentRequest } from "@/lib/types/payment";
 import { PAYMENT_SHEET, USER_SHEET } from "@/lib/constants/sheets";
 import { sheetsRead, escapeSheetQueryString } from "@/lib/api/sheets/client";
-import { SheetsData, SheetsRow } from "@/types/sheets";
+import { SheetsData, SheetsRow } from "@/lib/types/sheets";
 
 // 이메일로 사용자 이름을 조회하는 함수
 export async function getUserNameByEmail(email: string): Promise<string> {
