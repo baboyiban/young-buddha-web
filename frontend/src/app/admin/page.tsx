@@ -279,13 +279,13 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col gap-[0.5rem]">
       {/* 결재 신청 목록 */}
-      <div className="mt-[0] m-[0.5rem] p-[1rem] bg-white rounded-xl flex flex-col space-y-[0.5rem] items-center">
+      <div className="mt-[0] m-[0.5rem] p-[1rem] bg-white rounded-xl flex flex-col space-y-[0.5rem]">
         {/* 필터 선택 UI */}
-        <div className="flex gap-[0.5rem] mb-[1rem] self-start">
+        <div className="grid grid-flow-col auto-cols-min gap-[0.25rem] mb-[0.5rem] overflow-x-auto rounded-[1rem]">
           <select
             value={statusFilter}
             onChange={(e) => handleFilterChange(e.target.value)}
-            className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
+            className="min-w-max"
           >
             <option value="전체">전체 상태</option>
             <option value="대기">대기 중</option>
@@ -294,11 +294,7 @@ export default function AdminPage() {
           </select>
 
           {/* 새로고침 버튼 */}
-          <button
-            onClick={loadPayments}
-            className="px-[0.5rem] py-[0.25rem] border rounded text-sm gray"
-            disabled={loading}
-          >
+          <button onClick={loadPayments} className="gray" disabled={loading}>
             {loading ? "새로고침 중..." : "새로고침"}
           </button>
 
@@ -325,12 +321,6 @@ export default function AdminPage() {
               </button>
             </div>
           )}
-
-          <div className="text-sm text-gray-50 self-center">
-            총 {totalItems}개 항목
-            {selectedRequests.length > 0 &&
-              ` (${selectedRequests.length}개 선택)`}
-          </div>
         </div>
 
         {requests.length === 0 ? (
@@ -340,8 +330,8 @@ export default function AdminPage() {
               : `'${statusFilter}' 상태의 결재 신청이 없습니다.`}
           </div>
         ) : (
-          <>
-            <div className="table-wrapper w-[60rem] max-w-full">
+          <div className="flex flex-col items-center">
+            <div className="table-wrapper w-fit max-w-full mb-[0.5rem]">
               <table className="w-full small">
                 <thead>
                   <tr>
@@ -350,7 +340,7 @@ export default function AdminPage() {
                         type="checkbox"
                         checked={isAllSelected}
                         onChange={toggleSelectAll}
-                        className="w-[1rem] h-[1rem]"
+                        className="w-[0.75rem] h-[0.75rem]"
                       />
                     </th>
                     <th className="">이메일</th>
@@ -373,12 +363,12 @@ export default function AdminPage() {
                         selectedRequests.includes(r.id) ? "bg-blue-50" : ""
                       }
                     >
-                      <td className="text-center">
+                      <td className="">
                         <input
                           type="checkbox"
                           checked={selectedRequests.includes(r.id)}
                           onChange={() => toggleSelection(r.id)}
-                          className="w-[1rem] h-[1rem]"
+                          className="w-[0.75rem] h-[0.75rem]"
                         />
                       </td>
                       <td className="">{r.email}</td>
@@ -440,7 +430,7 @@ export default function AdminPage() {
               itemsPerPage={itemsPerPage}
               totalItems={totalItems}
             />
-          </>
+          </div>
         )}
       </div>
     </div>

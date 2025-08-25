@@ -1,35 +1,39 @@
 interface LoadingSpinnerProps {
-  message?: string
-  size?: 'xs' | 'sm' | 'md' | 'lg'
-  color?: 'purple' | 'white' | 'current'
-  showMessage?: boolean
-  className?: string
+  message?: string;
+  size?: "xs" | "sm" | "md" | "lg";
+  color?: "purple" | "white" | "current";
+  showMessage?: boolean;
+  className?: string;
 }
 
 export default function LoadingSpinner({
   message = "",
-  size = 'md',
-  color = 'purple',
+  size = "md",
+  color = "purple",
   showMessage = true,
-  className = ''
+  className = "",
 }: LoadingSpinnerProps) {
   const sizeClasses = {
-    xs: 'size-[0.75rem] border-[0.125rem]',
-    sm: 'size-[1rem] border-[0.125rem]',
-    md: 'size-[2rem] border-[0.25rem]',
-    lg: 'size-[3rem] border-[0.375rem]'
-  }
+    xs: "size-[0.75rem] border-[0.125rem]",
+    sm: "size-[1rem] border-[0.125rem]",
+    md: "size-[2rem] border-[0.25rem]",
+    lg: "size-[3rem] border-[0.375rem]",
+  };
 
   const colorClasses = {
-    purple: 'border-deep-purple border-t-transparent',
-    white: 'border-white border-t-transparent',
-    current: 'border-current border-t-transparent'
-  }
+    purple: "border-deep-purple border-t-transparent",
+    white: "border-white border-t-transparent",
+    current: "border-current border-t-transparent",
+  };
 
   return (
-    <div className={`flex items-center justify-center gap-[0.5rem] ${className}`}>
-      <div className={`${sizeClasses[size]} ${colorClasses[color]} animate-spin rounded-full`}></div>
+    <div
+      className={`flex items-center justify-center gap-[0.5rem] ${className}`}
+    >
+      <div
+        className={`${sizeClasses[size]} ${colorClasses[color]} animate-spin rounded-full`}
+      ></div>
       {showMessage && <span>{message}</span>}
     </div>
-  )
+  );
 }

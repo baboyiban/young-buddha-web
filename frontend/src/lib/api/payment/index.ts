@@ -81,7 +81,7 @@ export async function fetchFilteredPayments(
       query = `select * limit ${limit} offset ${offset + 1}`;
     } else {
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
-      query = `select * where J = '${safeStatus}' limit ${limit} offset ${offset + 1}`;
+      query = `select * where J = '${safeStatus}' limit ${limit} offset ${offset}`;
     }
     console.log("🔍 [ADMIN QUERY]", {
       userEmail,
