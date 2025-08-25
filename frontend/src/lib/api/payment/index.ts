@@ -56,7 +56,7 @@ export async function getUserRoleByEmail(email: string): Promise<string> {
 // 관리자 권한 확인 함수
 export async function isAdmin(email: string): Promise<boolean> {
   const role = await getUserRoleByEmail(email);
-  return role === "관리자";
+  return role === "ADMIN";
 }
 
 export async function fetchFilteredPayments(
