@@ -51,25 +51,7 @@ export class HttpClient {
   }
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
-    // 브라우저 환경에서만 JWT 토큰 확인
-    if (typeof window === "undefined") {
-      return {};
-    }
-
-    try {
-      // AuthService에서 JWT 토큰 가져오기
-      const { AuthService } = await import("@/lib/auth/service");
-      const jwtToken = AuthService.getJwtFromCookie();
-
-      if (jwtToken) {
-        return {
-          Authorization: `Bearer ${jwtToken}`,
-        };
-      }
-    } catch (error) {
-      /* ignore */
-    }
-
+    // HttpOnly 쿠키만 사용 → 명시적 Authorization 헤더 제거
     return {};
   }
 

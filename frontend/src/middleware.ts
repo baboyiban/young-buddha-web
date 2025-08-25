@@ -37,7 +37,6 @@ export async function middleware(request: NextRequest) {
             method: "GET",
             headers: {
               cookie: `jwt=${token}`,
-              Authorization: `Bearer ${token}`,
             },
           });
 
@@ -87,7 +86,6 @@ export async function middleware(request: NextRequest) {
       method: "GET",
       headers: {
         cookie: `jwt=${token}`,
-        Authorization: `Bearer ${token}`,
       },
     });
 

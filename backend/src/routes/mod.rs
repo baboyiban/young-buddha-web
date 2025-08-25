@@ -22,7 +22,6 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
         .allow_headers([
             axum::http::header::CONTENT_TYPE,
-            axum::http::header::AUTHORIZATION,
             axum::http::header::ACCEPT,
         ])
         .allow_credentials(true);
