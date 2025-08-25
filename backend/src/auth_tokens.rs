@@ -27,21 +27,8 @@ pub async fn authenticate_and_get_token(
 // Note: keep implementation local to sheets module originally; expose a wrapper here for reuse
 pub fn get_email_from_jwt_cookie(headers: &HeaderMap, jwt_secret: Option<&str>) -> Option<String> {
     let jwt_secret = jwt_secret?;
-    
-    // 1. 먼저 Authorization 헤더에서 Bearer 토큰 확인
-    if let Some(auth_header) = headers.get("authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str.starts_with("Bearer ") {
-                let jwt_token = auth_str[7..].trim().to_string();
-                if let Some(email) = decode_jwt_token(&jwt_token, jwt_secret) {
-                    tracing::debug!("JWT validation successful from Authorization header");
-                    return Some(email);
-                }
-            }
-        }
-    }
-    
-    // 2. Authorization 헤더가 없거나 유효하지 않으면 쿠키에서 확인
+
+    // Authorization 헤더는 더 이상 지원하지 않음. HttpOnly 쿠키만 사용
     let cookie_header = headers.get("cookie")?;
     let cookie_str = cookie_header.to_str().ok()?;
 

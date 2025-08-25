@@ -53,7 +53,7 @@ button,
 select,
 input,
 textarea {
-  @apply rounded-[1rem] px-[1rem] py-[0.5rem] leading-[1];
+  @apply rounded-[1rem] px-[1rem] py-[0.5rem];
 }
 
 button.small,
