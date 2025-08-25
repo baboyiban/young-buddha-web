@@ -6,7 +6,7 @@ const tokenCache = new Map<string, { valid: boolean; ts: number }>();
 const CACHE_TTL = 30 * 60 * 1000; // 30분
 
 // 공개 페이지 목록 (인증 불필요)
-const PUBLIC_PATHS = ["/login", "/privacy", "/terms"];
+const PUBLIC_PATHS = ["/login", "/privacy", "/terms", "/unauthorized"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
