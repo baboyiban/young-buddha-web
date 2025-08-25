@@ -28,10 +28,19 @@ impl SheetsService {
         let client = &state.http_client;
 
         // 2. Visualization API 쿼리 실행
+        // 페이지네이션 적용
+        let mut final_query = params.query.clone();
+        if let Some(limit) = params.limit {
+            final_query = format!("{} LIMIT {}", final_query, limit);
+        }
+        if let Some(offset) = params.offset {
+            final_query = format!("{} OFFSET {}", final_query, offset);
+        }
+
         let url = format!(
             "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
             params.spreadsheet_id,
-            urlencoding::encode(&params.query),
+            urlencoding::encode(&final_query),
             urlencoding::encode(&params.sheet_name)
         );
         println!("   🌐 Google Sheets URL: {}", url);
@@ -68,20 +77,20 @@ impl SheetsService {
             if status == StatusCode::UNAUTHORIZED {
                 return Err(ApiError::unauthorized("Google 인증이 만료되었습니다. 다시 로그인해주세요."));
             }
-            return Err(ApiError::bad_gateway("SHEETS_API_FAILED", 
+            return Err(ApiError::bad_gateway("SHEETS_API_FAILED",
                 format!("시트 쿼리 실패: {}", status)));
         }
-        
+
         let text = resp.text().await.unwrap_or_default();
         println!("   📄 Google Sheets 응답 길이: {} bytes", text.len());
         println!("   📄 응답 시작 부분: {}", &text.chars().take(200).collect::<String>());
-        
+
         let result = sheets_parser::parse_gviz_json(&text)
             .map_err(|e| {
                 println!("   ❌ JSON 파싱 오류: {:?}", e);
                 e
             })?;
-            
+
         println!("   ✅ 쿼리 성공, 결과 반환");
         Ok((StatusCode::OK, Json(result)).into_response())
     }
@@ -192,7 +201,7 @@ impl SheetsService {
             if let Some(values_start) = query.to_ascii_uppercase().find("VALUES") {
                 let values_part = &query[values_start + 6..];
                 let values_part = values_part.trim().trim_matches('(').trim_matches(')');
-                
+
                 let values: Vec<Value> = values_part
                     .split(',')
                     .map(|v| {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { fetchPaymentsByQuery } from "@/lib/api/payment";
@@ -58,7 +58,7 @@ export default function PaymentPage() {
     }
   }, [authLoading, user]);
 
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     if (authLoading || !user?.email) {
       setLoading(false);
       return;
@@ -67,8 +67,11 @@ export default function PaymentPage() {
     setLoading(true);
     try {
       const safeEmail = escapeSheetQueryString(user.email);
-      const data = await fetchPaymentsByQuery(
-        `SELECT * WHERE B = '${safeEmail}' AND J = '대기'`,
+      const { data } = await fetchPaymentsByQuery(
+        `select * where B = '${safeEmail}' and J = '대기'`,
+        false,
+        1,
+        10,
       );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
@@ -85,11 +88,11 @@ export default function PaymentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authLoading, user]);
 
   useEffect(() => {
     loadPayments();
-  }, [user, authLoading]);
+  }, [user, authLoading, loadPayments]);
 
   // 페이지 변경 핸들러
   const handlePageChange = (page: number) => {
