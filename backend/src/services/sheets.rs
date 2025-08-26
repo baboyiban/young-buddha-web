@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 pub struct SheetsService;
 
+#[allow(dead_code)]
 impl SheetsService {
     pub async fn query_sheet(
         state: Arc<AppState>,

@@ -1,34 +1,98 @@
+version: "3.8"
+
 services:
   backend:
     platform: linux/amd64
-    image: chl11wq12/young-buddha-backend:v0.1.0
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        - RUSTFLAGS=-C target-cpu=native
     container_name: young-buddha-backend
     env_file:
-      - backend/.env.prod
+      - backend/.env
+    environment:
+      - NODE_ENV=production
+      - RUST_LOG=info
     volumes:
       - backend-data:/app/data
+      - ./backend/data.db:/app/data/data.db:rw
     ports:
       - "8080:8080"
+    networks:
+      - young-buddha-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     platform: linux/amd64
-    image: chl11wq12/young-buddha-frontend:v0.1.0
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        BACKEND_ORIGIN: http://backend:8080
+        - NEXT_PUBLIC_API_URL=http://backend:8080
     container_name: young-buddha-frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     env_file:
-      - frontend/.env.local.prod
+      - frontend/.env.local
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8080
+      - BACKEND_ORIGIN=http://backend:8080
     ports:
       - "3000:3000"
+    networks:
+      - young-buddha-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   backend-data:
     driver: local
+    driver_opts:
+      type: none
+      device: ./backend/data
+      o: bind
+
+networks:
+  young-buddha-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    tag: "{{.Name}}"
