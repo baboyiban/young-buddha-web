@@ -10,7 +10,6 @@ RUN npm ci --only=production
 
 # Copy source code
 COPY . .
-COPY .env.local.production .env.local
 
 # Build the application
 RUN npm run build
