@@ -6,8 +6,10 @@ use axum::Json;
 use serde_json::json;
 use std::sync::Arc;
 
+#[allow(dead_code)]
 pub struct DatabaseService;
 
+#[allow(dead_code)]
 impl DatabaseService {
     pub async fn create_request(
         state: Arc<AppState>,
@@ -181,4 +183,4 @@ impl DatabaseService {
             }
         }
     }
-} 
+}

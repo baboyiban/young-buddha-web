@@ -1,32 +1,47 @@
 # syntax=docker/dockerfile:1.7
 
-# --- Builder ---
-FROM node:24-bullseye AS deps
+# --- Builder stage ---
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json* bun.lock* pnpm-lock.yaml* yarn.lock* ./
-RUN npm ci || npm i
 
-FROM deps AS builder
-WORKDIR /app
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production
+
+# Copy source code
 COPY . .
-# BACKEND_ORIGIN is used by next.config.js during build for rewrites
-ARG BACKEND_ORIGIN=http://backend:8080
-ENV BACKEND_ORIGIN=${BACKEND_ORIGIN}
-## Ensure public directory exists so COPY in runner doesn't fail when absent in repo
-RUN mkdir -p public
+COPY .env.local.production .env.local
+
+# Build the application
 RUN npm run build
 
-# --- Runner ---
-FROM node:24-bullseye-slim AS runner
+# --- Runner stage ---
+FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production \
-    HOSTNAME=0.0.0.0 \
-    PORT=3000
 
-# Use Next.js standalone output for smaller image if available
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+ENV NODE_ENV=production \
+  PORT=3000 \
+  HOSTNAME=0.0.0.0
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+  adduser -S nextjs -u 1001
+
+# Copy necessary files from builder
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Create .next directory if it doesn't exist
+RUN mkdir -p .next && chown nextjs:nodejs .next
+
+# Switch to non-root user
+USER nextjs
 
 EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
 CMD ["node", "server.js"]

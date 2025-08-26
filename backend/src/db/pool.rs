@@ -8,6 +8,7 @@ pub fn open_sqlite_conn<P: AsRef<Path>>(path: P) -> rusqlite::Result<Connection>
 }
 
 /// Get a database connection
+#[allow(dead_code)]
 pub fn get_connection(path: &str) -> rusqlite::Result<Connection> {
     open_sqlite_conn(path)
 }
