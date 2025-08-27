@@ -5,77 +5,15 @@ use axum::http::{HeaderMap, HeaderValue};
 use jsonwebtoken::{encode, EncodingKey, Header as JwtHeader};
 use rand::{distributions::Alphanumeric, Rng};
 use serde_json::json;
-use std::collections::HashMap;
-use std::sync::Mutex;
 use std::sync::Arc;
 use time::OffsetDateTime;
-use once_cell::sync::Lazy;
 
 // JWT 토큰 유효 시간 설정 (초 단위)
 const JWT_EXPIRY_SECONDS: i64 = 60 * 60 * 24 * 7; // 7일
-const OAUTH_STATE_EXPIRY_SECONDS: i64 = 600; // 10분
-
-// OAuth state 임시 저장소 (메모리)
-static OAUTH_STATES: Lazy<Mutex<HashMap<String, i64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub struct AuthService;
 
 impl AuthService {
-    // OAuth state 관리 함수들
-    pub fn store_oauth_state(state: &str) {
-        let expiry = OffsetDateTime::now_utc().unix_timestamp() + OAUTH_STATE_EXPIRY_SECONDS;
-        println!("TTL seconds: {}", OAUTH_STATE_EXPIRY_SECONDS);
-
-        if let Ok(mut states) = OAUTH_STATES.lock() {
-            let before_count = states.len();
-
-            states.insert(state.to_string(), expiry);
-
-            // 만료된 state들 정리
-            let now = OffsetDateTime::now_utc().unix_timestamp();
-            states.retain(|_, &mut exp| exp > now);
-
-            let after_count = states.len();
-
-            if before_count != after_count - 1 {
-            }
-
-
-        } else {
-        }
-    }
-
-
-    pub fn verify_oauth_state(state: &str) -> bool {
-
-
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-
-        if let Ok(mut states) = OAUTH_STATES.lock() {
-
-            if let Some(&expiry) = states.get(state) {
-                if expiry > now {
-                    states.remove(state);
-                    return true;
-                } else {
-                }
-            } else {
-            }
-
-            // 만료된 state들 정리
-            let before_count = states.len();
-            states.retain(|_, &mut exp| exp > now);
-            let after_count = states.len();
-            if before_count != after_count {
-            }
-
-
-        } else {
-        }
-
-        false
-    }
-
     pub fn generate_oauth_state() -> String {
         rand::thread_rng()
             .sample_iter(&Alphanumeric)
@@ -105,15 +43,13 @@ impl AuthService {
         let mut cookies = Vec::new();
 
         // 로컬/프로덕션 환경에 따라 쿠키 속성 분기
-    let is_localhost = frontend_url.contains("localhost");
-    // localhost에서도 Domain=localhost를 명시적으로 설정해 포트가 다른 프론트/백엔드 모두에서 쿠키를 공유
-    let domain_opt = if is_localhost { Some("localhost") } else { Some(".young-buddha.online") };
+        let is_localhost = frontend_url.contains("localhost");
+        let domain_opt = if is_localhost { None } else { Some(".young-buddha.online") };
         let same_site = if is_localhost { "Lax" } else { "None" };
         let secure = if is_localhost { "" } else { "; Secure" };
 
         // JWT 토큰 쿠키
-        let jwt_cookie = {
-            let domain = domain_opt.unwrap();
+        let jwt_cookie = if let Some(domain) = domain_opt {
             format!(
                 "jwt={}; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age={}",
                 jwt_token,
@@ -122,18 +58,32 @@ impl AuthService {
                 domain,
                 JWT_EXPIRY_SECONDS
             )
+        } else {
+            format!(
+                "jwt={}; HttpOnly{}; SameSite={}; Path=/; Max-Age={}",
+                jwt_token,
+                secure,
+                same_site,
+                JWT_EXPIRY_SECONDS
+            )
         };
         cookies.push(HeaderValue::from_str(&jwt_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
 
         // 인증 상태 쿠키
-        let auth_cookie = {
-            let domain = domain_opt.unwrap();
+        let auth_cookie = if let Some(domain) = domain_opt {
             format!(
-                "is_authenticated=true; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age={}",
-                secure,
+                "is_authenticated=true; SameSite={}; Path=/; Domain={}; Max-Age={}{}",
                 same_site,
                 domain,
-                JWT_EXPIRY_SECONDS
+                JWT_EXPIRY_SECONDS,
+                secure
+            )
+        } else {
+            format!(
+                "is_authenticated=true; SameSite={}; Path=/; Max-Age={}{}",
+                same_site,
+                JWT_EXPIRY_SECONDS,
+                secure
             )
         };
         cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
@@ -144,13 +94,20 @@ impl AuthService {
             .take(48)
             .map(char::from)
             .collect();
-        let csrf_cookie = {
-            let domain = domain_opt.unwrap();
+        let csrf_cookie = if let Some(domain) = domain_opt {
             format!(
                 "csrf_token={}; SameSite={}; Path=/; Domain={}; Max-Age={}{}",
                 csrf_token,
                 same_site,
                 domain,
+                JWT_EXPIRY_SECONDS,
+                secure
+            )
+        } else {
+            format!(
+                "csrf_token={}; SameSite={}; Path=/; Max-Age={}{}",
+                csrf_token,
+                same_site,
                 JWT_EXPIRY_SECONDS,
                 secure
             )
@@ -163,18 +120,9 @@ impl AuthService {
     pub async fn handle_google_callback(
         state: Arc<AppState>,
         query: CallbackQuery,
-        headers: HeaderMap,
+        state_from_cookie: Option<String>,
     ) -> Result<(Vec<HeaderValue>, serde_json::Value), ApiError> {
         tracing::info!("OAuth callback received: code={:?}, state={:?}", query.code.is_some(), query.state);
-
-        // 모든 쿠키 로그
-        if let Some(cookie_header) = headers.get("cookie") {
-            if let Ok(cookie_str) = cookie_header.to_str() {
-                tracing::info!("Received cookies: {}", cookie_str);
-            }
-        } else {
-            tracing::warn!("No cookies received in callback");
-        }
 
         // validate query
         let code = query.code.ok_or_else(|| {
@@ -187,10 +135,15 @@ impl AuthService {
             ApiError::bad_request("MISSING_STATE", "Missing state")
         })?;
 
-        // verify oauth_state from memory store
-        if !Self::verify_oauth_state(&state_query) {
-            tracing::error!("Invalid or expired oauth state: {}", state_query);
-            return Err(ApiError::bad_request("INVALID_STATE", "Invalid or expired oauth state"));
+        // verify oauth_state from cookie
+        let state_cookie = state_from_cookie.ok_or_else(|| {
+            tracing::error!("Missing oauth_state cookie");
+            ApiError::bad_request("MISSING_STATE_COOKIE", "Missing state cookie")
+        })?;
+
+        if state_cookie != state_query {
+            tracing::error!("Mismatched oauth state: cookie='{}', query='{}'", state_cookie, state_query);
+            return Err(ApiError::bad_request("INVALID_STATE", "Mismatched oauth state"));
         }
 
         // Get OAuth configuration from app state
@@ -247,7 +200,6 @@ impl AuthService {
         let mut name = user_info.name.unwrap_or_else(|| "Unknown User".to_string());
 
         // Persist Google tokens for this user (UPSERT)
-        // Calculate absolute expiry timestamp
         let expires_in = token_data.expires_in.unwrap_or(3600);
         let expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
 
@@ -259,7 +211,6 @@ impl AuthService {
         // Run blocking SQLite write in blocking thread
         let _ = tokio::task::spawn_blocking(move || {
             if let Ok(db) = rusqlite::Connection::open(&db_path_for_save) {
-                // Create table if not exists (defensive in case init didn't run yet)
                 let _ = db.execute_batch(
                     r#"
                     CREATE TABLE IF NOT EXISTS user_tokens (
@@ -271,7 +222,6 @@ impl AuthService {
                     "#,
                 );
 
-                // Use INSERT OR REPLACE to upsert tokens
                 let _ = db.execute(
                     "INSERT INTO user_tokens (email, access_token, refresh_token, expires_at) VALUES (?1, ?2, ?3, ?4)
                      ON CONFLICT(email) DO UPDATE SET
@@ -336,8 +286,8 @@ impl AuthService {
     pub fn logout(frontend_url: &str) -> Vec<HeaderValue> {
         let mut cookies = Vec::new();
 
-    let is_localhost = frontend_url.contains("localhost");
-    let domain_opt = if is_localhost { None } else { Some(".young-buddha.online") };
+        let is_localhost = frontend_url.contains("localhost");
+        let domain_opt = if is_localhost { None } else { Some(".young-buddha.online") };
         let same_site = if is_localhost { "Lax" } else { "None" };
         let secure = if is_localhost { "" } else { "; Secure" };
 
@@ -361,16 +311,16 @@ impl AuthService {
         // 인증 상태 쿠키 삭제
         let auth_cookie = if let Some(domain) = domain_opt {
             format!(
-                "is_authenticated=; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age=0",
-                secure,
+                "is_authenticated=; SameSite={}; Path=/; Domain={}; Max-Age=0{}",
                 same_site,
-                domain
+                domain,
+                secure
             )
         } else {
             format!(
-                "is_authenticated=; HttpOnly{}; SameSite={}; Path=/; Max-Age=0",
-                secure,
-                same_site
+                "is_authenticated=; SameSite={}; Path=/; Max-Age=0{}",
+                same_site,
+                secure
             )
         };
         cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
@@ -398,12 +348,10 @@ impl AuthService {
 
 impl AuthService {
     async fn resolve_user_profile_from_sheet(state: Arc<AppState>, email: &str) -> (Option<String>, Option<String>) {
-        // Try Redis cache first
         if let Some((cached_name, cached_role)) = crate::auth::redis_cache::get_cached_user_profile(email).await {
             return (Some(cached_name), Some(cached_role));
         }
 
-        // If sheet location is not configured, fallback to none
         let spreadsheet_id = match state.config.get_user_sheet_spreadsheet_id() {
             Ok(v) => v,
             Err(_) => return (None, None),
@@ -413,7 +361,6 @@ impl AuthService {
             Err(_) => return (None, None),
         };
 
-        // Build Visualization API URL: SELECT B,C WHERE A = '{email}'
         let query = format!("SELECT B,C WHERE A = '{}'", email.replace("'", "''"));
         let url = format!(
             "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
@@ -423,7 +370,6 @@ impl AuthService {
         );
 
         let client = &state.http_client;
-        // Prefer authenticated request using user's Google access token if available
         let maybe_access = crate::auth_tokens::get_valid_user_token(client, &state.db_path, email).await;
         let req = client.get(&url);
         let req = if let Some(token) = maybe_access.clone() { req.bearer_auth(token) } else { req };
@@ -435,7 +381,6 @@ impl AuthService {
             return (None, None);
         }
         let text = match resp.text().await { Ok(t) => t, Err(_) => return (None, None) };
-        // Minimal GViz JSON parse: find rows[0].c[0].v (name), rows[0].c[1].v (role)
         let parsed: serde_json::Value = match crate::routes::sheets_parser::parse_gviz_json(&text) { Ok(v) => v, Err(_) => return (None, None) };
         let rows = parsed.get("table").and_then(|t| t.get("rows")).and_then(|r| r.as_array());
         if let Some(rows) = rows {

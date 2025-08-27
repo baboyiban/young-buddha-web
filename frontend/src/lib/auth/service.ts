@@ -43,27 +43,7 @@ export class AuthService {
   }
 
   async getGoogleAuthUrl(): Promise<string> {
-    try {
-      const resp = await this.httpClient.post<{
-        auth_url?: string;
-        message?: string;
-      }>(`/auth/google`, {
-        redirect_uri: window.location.origin + "/login",
-      });
-
-      if (resp.auth_url) return resp.auth_url;
-      throw new Error(resp.message || "인증 URL을 받지 못했습니다");
-    } catch (error) {
-      // Type-safe error handling
-      if (error instanceof Error) {
-        // ApiError인지 확인
-        if ("status" in error && "data" in error) {
-          const apiError = error as { status: number; data: any };
-        }
-      }
-
-      throw new Error("Google 인증 URL을 가져오는데 실패했습니다");
-    }
+    return `${this.baseUrl}/auth/google/login`;
   }
 
   // 호환성을 위한 별칭 메서드
