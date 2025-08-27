@@ -31,8 +31,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    env_file:
-      - frontend/.env.local
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://backend:8080
@@ -40,3 +38,6 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+
+volumes:
+  backend-data:
