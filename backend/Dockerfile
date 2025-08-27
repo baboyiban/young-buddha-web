@@ -40,6 +40,7 @@ WORKDIR /app
 RUN apk add --no-cache \
   ca-certificates \
   tzdata \
+  wget \
   && update-ca-certificates
 
 # Create non-root user
