@@ -53,7 +53,7 @@ export class AuthService {
 
   async logout(shouldRedirect = true): Promise<void> {
     try {
-      await this.httpClient.delete(`/auth/logout`);
+      await this.httpClient.get(`/auth/logout`);
     } catch (error) {}
     this.clearAuthData();
     if (shouldRedirect && typeof window !== "undefined") {
