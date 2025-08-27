@@ -39,6 +39,7 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .nest("/auth", auth::router())      // 인증: /auth/*
         .nest("/api/v1", api_v1)            // API: /api/v1/*
+        .route("/health", axum::routing::get(health::health)) // 루트 헬스 엔드포인트 추가
         .layer(middleware::from_fn(csrf_protect))
         .layer(cors)                        // CORS 미들웨어 적용
         .with_state(state)
