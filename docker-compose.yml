@@ -18,6 +18,11 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/"] # 루트 경로 테스트
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     platform: linux/amd64
