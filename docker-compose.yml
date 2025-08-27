@@ -76,11 +76,6 @@ services:
 
 volumes:
   backend-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./backend/data
-      o: bind
 
 networks:
   young-buddha-network:
