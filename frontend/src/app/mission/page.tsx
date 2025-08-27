@@ -16,6 +16,7 @@ export default function Mission() {
     try {
       setLoading(true);
       const data = await fetchMissionData();
+      console.log("Mission Data:", data);
       setMissionData(data);
     } catch (err: any) {
       // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
