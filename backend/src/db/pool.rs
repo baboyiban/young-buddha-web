@@ -2,9 +2,19 @@ use rusqlite::{Connection, OpenFlags};
 use std::path::Path;
 
 /// Very small helper for opening a sqlite connection. For heavy workloads consider using r2d2 pool
+use std::fs;
+
 pub fn open_sqlite_conn<P: AsRef<Path>>(path: P) -> rusqlite::Result<Connection> {
     let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE;
-    Connection::open_with_flags(path, flags)
+    let db_path = path.as_ref();
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+    }
+    if !db_path.exists() {
+        fs::File::create(&db_path).map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+    }
+
+    Connection::open_with_flags(db_path, flags)
 }
 
 /// Get a database connection

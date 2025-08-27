@@ -9,19 +9,19 @@ const SHEET_CONFIG = {
 } as const;
 
 const MISSION_INDICES = {
-  date: 0,
-  dayOfWeek: 1,
-  morningMeal: [2, 3] as const,
-  morningHelper: [4, 5] as const,
-  morningDishes: [6, 7, 8] as const,
+  date: 0, // A
+  dayOfWeek: 1, // B
+  morningMeal: [2, 3, 4] as const, // C, D, E
+  morningHelper: [5, 6] as const, // F, G
+  morningDishes: [7, 8, 9] as const, // H, I, J
   laundry: {
-    wash: 9,
-    hang: 10,
-    fold: 11,
+    wash: 10, // K
+    hang: 11, // L
+    fold: 12, // M
   },
-  afternoonCushion: [12, 13] as const,
-  eveningMeal: [14, 15, 16] as const,
-  eveningCushion: 17,
+  afternoonCushion: [13, 14] as const, // N, O
+  eveningMeal: [15, 16, 17] as const, // P, Q, R
+  eveningCushion: 18, // S
 } as const;
 
 export async function fetchMissionData(): Promise<MissionData> {
@@ -83,7 +83,10 @@ function getMissionMembers(
   items: string[],
   indices: readonly number[],
 ): string[] {
-  return indices.map((index) => items[index]).filter(Boolean);
+  return indices
+    .flatMap((index) => items[index]?.split(/[,\/]/) ?? [])
+    .map((name) => name.trim())
+    .filter(Boolean);
 }
 
 function getLocalDateYmd(d: Date = new Date()): string {

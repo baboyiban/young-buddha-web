@@ -31,7 +31,7 @@ impl AppConfig {
         let google_client_secret = env::var("GOOGLE_CLIENT_SECRET").ok();
         let google_redirect_uri = env::var("GOOGLE_REDIRECT_URI").ok();
         
-        let db_path = env::var("DB_PATH").unwrap_or_else(|_| "./data.db".into());
+        let db_path = env::var("DB_PATH").unwrap_or_else(|_| "./data/data.db".into());
         
         let is_production = Self::is_production_env(&node_env);
         let frontend_url = env::var("FRONTEND_URL").unwrap_or_else(|_| {

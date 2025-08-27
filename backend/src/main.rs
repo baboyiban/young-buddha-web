@@ -43,6 +43,7 @@ async fn main() {
     }
 
     // Initialize database schema
+    tracing::info!(db_path = %app_state.db_path, "initializing database");
     if let Err(e) = crate::db::pool::initialize_db(&app_state.db_path).await {
         tracing::error!(error = %e, "failed to initialize database");
         std::process::exit(1);

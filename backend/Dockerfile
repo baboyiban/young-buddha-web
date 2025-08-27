@@ -57,7 +57,7 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appuser /app/young-buddha-backend /app/young-buddha-backend
 
 # 데이터 디렉터리 생성 및 권한 설정
-RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+RUN mkdir -p /app/data && chmod -R 775 /app/data && chown -R appuser:appuser /app/data
 
 # 애플리케이션 실행
 USER appuser
