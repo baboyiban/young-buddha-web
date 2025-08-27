@@ -15,7 +15,6 @@ services:
       - RUST_LOG=info
     volumes:
       - backend-data:/app/data
-      - ./backend/data.db:/app/data/data.db:rw
     ports:
       - "8080:8080"
     networks:
