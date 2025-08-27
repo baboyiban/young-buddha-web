@@ -2,7 +2,7 @@ use crate::services::auth::AuthService;
 use crate::types::{ApiError, AppState, CallbackQuery};
 use axum::{
     extract::{Query, State},
-    http::{header, HeaderMap},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Redirect},
     routing::get,
     Json, Router,
@@ -46,7 +46,7 @@ async fn google_login(
         .config
         .get_google_redirect_uri()
         .map_err(|e| ApiError::internal_error(e.to_string()))?;
-    let scope = "openid email profile";
+    let scope = "openid email profile https://www.googleapis.com/auth/spreadsheets";
 
     let auth_url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth?{}",
@@ -56,6 +56,8 @@ async fn google_login(
             ("response_type", "code"),
             ("scope", scope),
             ("state", &state_str),
+            ("access_type", "offline"),
+            ("prompt", "consent"),
         ])
         .unwrap()
     );
@@ -104,10 +106,7 @@ async fn logout(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     for cookie in cookie_headers {
         headers.append(header::SET_COOKIE, cookie);
     }
-    (
-        headers,
-        Redirect::to(&format!("{}/login", &state.frontend_url)),
-    )
+    (headers, StatusCode::OK)
 }
 
 #[axum::debug_handler]

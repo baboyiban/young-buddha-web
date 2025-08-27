@@ -29,11 +29,7 @@ export default function AuthGuard({ children, fallback }: AuthGuardProps) {
   }
 
   if (!isAuthenticated) {
-    return fallback || (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner message="로그인이 필요합니다..." showMessage={true} />
-      </div>
-    )
+    return null;
   }
 
   return <>{children}</>
