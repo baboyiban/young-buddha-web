@@ -41,6 +41,7 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .nest("/api/v1", api_v1)            // API: /api/v1/*
         .layer(middleware::from_fn(csrf_protect))
         .layer(cors)                        // CORS 미들웨어 적용
+        .with_state(state)
 }
 
 // CSRF 보호 미들웨어 (Double Submit Cookie)

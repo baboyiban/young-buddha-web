@@ -1,96 +1,120 @@
-  use axum::{Router, routing::{get, post, delete}, response::{IntoResponse, Response}, Json, extract::State};
-  use serde_json::json;
-  use crate::types::AppState;
-  use crate::types::{CallbackQuery};
-  use crate::services::AuthService;
-  use std::sync::Arc;
-  use axum::http::{HeaderMap, header::SET_COOKIE};
-  use axum::extract::Query;
+use crate::services::auth::AuthService;
+use crate::types::{ApiError, AppState, CallbackQuery};
+use axum::{
+    extract::{Query, State},
+    http::{header, HeaderMap},
+    response::{IntoResponse, Redirect},
+    routing::get,
+    Json, Router,
+};
+use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
+use serde_json::Value;
+use std::sync::Arc;
+use time;
 
-  pub fn router() -> Router<Arc<AppState>> {
-      Router::new()
-          .route("/google", post(google_auth))
-          .route("/google", get(google_auth_get))
-          .route("/google/callback", get(google_callback))
-          .route("/me", get(me))
-          .route("/logout", delete(logout))
-  }
+pub fn router() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/google/login", get(google_login))
+        .route("/google/callback", get(google_callback))
+        .route("/logout", get(logout))
+        .route("/me", get(get_current_user))
+}
 
-  async fn google_auth(State(state): State<Arc<AppState>>) -> Response {
-      let oauth_state = AuthService::generate_oauth_state();
+#[axum::debug_handler]
+async fn google_login(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> Result<(CookieJar, Redirect), ApiError> {
+    let state_str = AuthService::generate_oauth_state();
 
-      AuthService::store_oauth_state(&oauth_state);
+    // State를 암호화된 쿠키에 저장합니다.
+    // TODO: 프로덕션 환경에서는 secure(true)와 SameSite::None을 사용해야 합니다.
+    let is_prod = !state.frontend_url.contains("localhost");
+    let cookie = Cookie::build(("oauth_state", state_str.clone()))
+        .path("/")
+        .http_only(true)
+        .same_site(if is_prod { SameSite::None } else { SameSite::Lax })
+        .secure(is_prod)
+        .max_age(time::Duration::minutes(10)) // 10분 유효시간
+        .build();
 
-      let client_id = match state.config.get_google_client_id() {
-          Ok(v) => v,
-          Err(_) => {
-              return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_CLIENT_ID"}))).into_response()
-          }
-      };
-      let redirect_uri = match state.config.get_google_redirect_uri() {
-          Ok(v) => v,
-          Err(_) => {
-              return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error":true,"message":"Missing GOOGLE_REDIRECT_URI"}))).into_response()
-          }
-      };
+    let client_id = state
+        .config
+        .get_google_client_id()
+        .map_err(|e| ApiError::internal_error(e.to_string()))?;
+    let redirect_uri = state
+        .config
+        .get_google_redirect_uri()
+        .map_err(|e| ApiError::internal_error(e.to_string()))?;
+    let scope = "openid email profile";
 
-      let auth_url = format!(
-          "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=openid%20email%20profile&state={}",
-          client_id,
-          urlencoding::encode(&redirect_uri),
-          oauth_state
-      );
+    let auth_url = format!(
+        "https://accounts.google.com/o/oauth2/v2/auth?{}",
+        serde_urlencoded::to_string([
+            ("client_id", client_id.as_str()),
+            ("redirect_uri", redirect_uri.as_str()),
+            ("response_type", "code"),
+            ("scope", scope),
+            ("state", &state_str),
+        ])
+        .unwrap()
+    );
 
-      (axum::http::StatusCode::OK, Json(json!({"auth_url": auth_url}))).into_response()
-  }
+    Ok((jar.add(cookie), Redirect::to(&auth_url)))
+}
 
+#[axum::debug_handler]
+async fn google_callback(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<CallbackQuery>,
+    jar: CookieJar,
+) -> (CookieJar, Redirect) {
+    // 쿠키에서 state 값 가져오기
+    let state_from_cookie = jar.get("oauth_state").map(|c| c.value().to_string());
 
-  async fn google_auth_get(State(state): State<Arc<AppState>>) -> Response {
-      google_auth(State(state)).await
-  }
+    // oauth_state 쿠키는 이제 필요 없으므로 미리 제거합니다.
+    let jar = jar.remove(Cookie::build("oauth_state").path("/"));
 
-  async fn google_callback(
-      State(state): State<Arc<AppState>>,
-      Query(q): Query<CallbackQuery>,
-      headers: HeaderMap
-  ) -> Response {
-      match AuthService::handle_google_callback(state.clone(), q, headers).await {
-          Ok((cookies, _response_data)) => {
-              // 로그인 성공 시 프론트엔드 홈페이지로 리다이렉트
-              let redirect_url = format!("{}/?login=success", state.frontend_url);
-              let mut response = axum::response::Redirect::to(&redirect_url).into_response();
-              let response_headers = response.headers_mut();
+    // 콜백 받은 state와 쿠키의 state를 서비스로 넘겨 검증
+    match AuthService::handle_google_callback(state.clone(), query, state_from_cookie).await {
+        Ok((auth_cookies, _user_data)) => {
+            let mut new_jar = jar;
+            // AuthService에서 생성한 인증 관련 쿠키들을 jar에 추가
+            for cookie_header in auth_cookies {
+                if let Ok(cookie_str) = cookie_header.to_str() {
+                    if let Ok(cookie) = Cookie::parse_encoded(cookie_str) {
+                        new_jar = new_jar.add(cookie.into_owned());
+                    }
+                }
+            }
+            (new_jar, Redirect::to(&state.frontend_url))
+        }
+        Err(e) => {
+            tracing::error!("Login failed: {:?}", e);
+            let redirect_url = format!("{}/login?login=error", &state.frontend_url);
+            (jar, Redirect::to(&redirect_url))
+        }
+    }
+}
 
-              // 쿠키 설정
-              for cookie in cookies {
-                  response_headers.append(SET_COOKIE, cookie);
-              }
+#[axum::debug_handler]
+async fn logout(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let cookie_headers = AuthService::logout(&state.frontend_url);
+    let mut headers = HeaderMap::new();
+    for cookie in cookie_headers {
+        headers.append(header::SET_COOKIE, cookie);
+    }
+    (
+        headers,
+        Redirect::to(&format!("{}/login", &state.frontend_url)),
+    )
+}
 
-              response
-          }
-          Err(_err) => {
-              // 로그인 실패 시 로그인 페이지로 리다이렉트
-              let redirect_url = format!("{}/login?login=error", state.frontend_url);
-              axum::response::Redirect::to(&redirect_url).into_response()
-          }
-      }
-  }
-
-  async fn me(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
-      match AuthService::get_current_user(state, headers).await {
-          Ok(response_data) => (axum::http::StatusCode::OK, Json(response_data)).into_response(),
-          Err(err) => err.into_response(),
-      }
-  }
-
-  async fn logout(State(state): State<Arc<AppState>>) -> Response {
-      let cookies = AuthService::logout(&state.frontend_url);
-      let mut response = (axum::http::StatusCode::OK, Json(json!({"success": true, "message": "로그아웃되었습니다"}))).into_response();
-      let response_headers = response.headers_mut();
-
-      for cookie in cookies {
-          response_headers.append(SET_COOKIE, cookie);
-      }
-
-      response
-  }
+#[axum::debug_handler]
+async fn get_current_user(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let user_data = AuthService::get_current_user(state, headers).await?;
+    Ok(Json(user_data))
+}
