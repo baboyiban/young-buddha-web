@@ -4,15 +4,11 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
-
-# Copy source code
+# Copy all files first
 COPY . .
 
-# Build the application
-RUN npm run build
+# Install dependencies and build
+RUN npm install && npm run build
 
 # --- Runner stage ---
 FROM node:20-alpine AS runner
