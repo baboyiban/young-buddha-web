@@ -1,6 +1,7 @@
 services:
   backend:
     platform: linux/amd64
+    image: chl11wq12/young-buddha-backend:v0.1.0
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -37,6 +38,7 @@ services:
 
   frontend:
     platform: linux/amd64
+    image: chl11wq12/young-buddha-frontend:v0.1.0
     build:
       context: ./frontend
       dockerfile: Dockerfile
