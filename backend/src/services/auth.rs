@@ -44,11 +44,11 @@ impl AuthService {
 
         // 로컬/프로덕션 환경에 따라 쿠키 속성 분기
         let is_localhost = frontend_url.contains("localhost");
-        let domain_opt = if is_localhost { None } else { Some(".young-buddha.online") };
+        let domain_opt = if is_localhost { None } else { Some("young-buddha.online") };
         let same_site = if is_localhost { "Lax" } else { "None" };
         let secure = if is_localhost { "" } else { "; Secure" };
 
-        // JWT 토큰 쿠키
+        // JWT 토큰 쿠키 (로컬 환경에서는 도메인 설정 제거)
         let jwt_cookie = if let Some(domain) = domain_opt {
             format!(
                 "jwt={}; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age={}",

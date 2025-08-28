@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
         try {
           const backendOrigin =
             process.env.NEXT_PUBLIC_API_URL || "http://backend:8080";
-          const meUrl = `${backendOrigin.replace(/\/$/, "")}/auth/me`;
+    const meUrl = `${backendOrigin.replace(/\/$/, "")}/auth/me`;
           const res = await fetch(meUrl, {
             method: "GET",
             headers: {

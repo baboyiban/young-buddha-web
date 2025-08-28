@@ -39,7 +39,6 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://backend:8080
-      - BACKEND_ORIGIN=http://backend:8080
     ports:
       - "3000:3000"
     restart: unless-stopped

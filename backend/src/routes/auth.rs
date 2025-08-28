@@ -28,7 +28,6 @@ async fn google_login(
     let state_str = AuthService::generate_oauth_state();
 
     // State를 암호화된 쿠키에 저장합니다.
-    // TODO: 프로덕션 환경에서는 secure(true)와 SameSite::None을 사용해야 합니다.
     let is_prod = !state.frontend_url.contains("localhost");
     let cookie = Cookie::build(("oauth_state", state_str.clone()))
         .path("/")

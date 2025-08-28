@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
@@ -24,6 +24,12 @@ async fn main() {
 
     // Initialize app state
     let app_state = state::AppState::from_env();
+
+    // ADD THIS: Validate config for production
+    if let Err(e) = app_state.config.validate_production_config() {
+        tracing::error!(error = %e, "failed to validate production config");
+        std::process::exit(1);
+    }
 
     // Log configuration status
     if app_state.is_production {
@@ -75,6 +81,8 @@ async fn main() {
     tracing::info!(%addr, "starting server");
 
     // Start server
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
