@@ -10,7 +10,7 @@ type ApiResponse<T> = {
 export class AuthService {
   // 기본적으로 상대 경로를 사용해 Next.js 리라이트를 타도록 설정
   // (브라우저에서 내부 도커 호스트를 직접 호출하지 않도록 함)
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
   private httpClient: HttpClient;
 
   constructor() {

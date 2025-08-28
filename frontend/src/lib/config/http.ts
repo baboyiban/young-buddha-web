@@ -72,6 +72,7 @@ export class HttpClient {
       method: "GET",
       credentials: "include",
       headers,
+      cache: "no-store",
     });
     return this.handleResponse<T>(res);
   }
@@ -89,6 +90,7 @@ export class HttpClient {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      cache: "no-store",
     });
 
     return this.handleResponse<T>(res);
@@ -106,6 +108,7 @@ export class HttpClient {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      cache: "no-store",
     });
     return this.handleResponse<T>(res);
   }
@@ -121,6 +124,7 @@ export class HttpClient {
         ...csrf,
         "Content-Type": "application/json",
       },
+      cache: "no-store",
     });
     return this.handleResponse<T>(res);
   }

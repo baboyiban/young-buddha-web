@@ -27,11 +27,7 @@ function LoginContent() {
     try {
       setLoading(true);
       const authUrl = await authService.getGoogleAuthUrl();
-      if (authUrl.includes("login=success")) {
-        router.push("/?login=success");
-      } else {
-        window.location.href = authUrl;
-      }
+      window.location.href = authUrl; // 항상 리다이렉트
     } catch (error) {
       alert("로그인을 시작할 수 없습니다. 다시 시도해주세요.");
     } finally {

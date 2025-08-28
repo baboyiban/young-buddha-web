@@ -7,6 +7,7 @@ FROM --platform=linux/amd64 rust:1.89-alpine AS builder
 RUN apk add --no-cache \
     musl-dev \
     openssl-dev \
+    openssl-libs-static \
     pkgconfig \
     ca-certificates
 

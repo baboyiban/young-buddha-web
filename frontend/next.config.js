@@ -4,9 +4,9 @@
 const getBackendOrigin = () => {
   // 개발 환경에서는 localhost, 프로덕션에서는 백엔드 서비스 이름 사용
   if (process.env.NODE_ENV === "development") {
-    return process.env.BACKEND_ORIGIN || "http://localhost:8080";
+    return "http://localhost:8080";
   }
-  return process.env.BACKEND_ORIGIN || "http://backend:8080";
+  return "http://backend:8080";
 };
 
 const nextConfig = {

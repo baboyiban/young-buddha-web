@@ -16,19 +16,23 @@ use axum::middleware::Next;
 
 pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     // CORS 설정
-    let origin = state
-        .frontend_url
-        .parse::<HeaderValue>()
-        .unwrap_or_else(|_| HeaderValue::from_static("http://localhost:3000"));
     let cors = CorsLayer::new()
-        .allow_origin(origin)
+        .allow_origin([
+            "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+        ])
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
         .allow_headers([
             axum::http::header::CONTENT_TYPE,
             axum::http::header::ACCEPT,
+            axum::http::header::AUTHORIZATION,
             axum::http::HeaderName::from_static("x-csrf-token"),
         ])
-        .allow_credentials(true);
+        .allow_credentials(true)
+        .expose_headers([
+            axum::http::header::SET_COOKIE,
+            axum::http::header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+            axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        ]);
 
     // API v1 라우터
     let api_v1 = Router::new()
@@ -39,6 +43,7 @@ pub fn build_router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .nest("/auth", auth::router())      // 인증: /auth/*
         .nest("/api/v1", api_v1)            // API: /api/v1/*
+        .route("/", axum::routing::get(|| async { "Young Buddha Backend is running" }))
         .route("/health", axum::routing::get(health::health)) // 루트 헬스 엔드포인트 추가
         .layer(middleware::from_fn(csrf_protect))
         .layer(cors)                        // CORS 미들웨어 적용
