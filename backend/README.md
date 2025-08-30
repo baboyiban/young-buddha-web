@@ -83,3 +83,27 @@ backend/
 - B: `/api/health`에 DB/Redis 체크 추가
 
 원하시면 A와 B를 바로 적용하고 빌드/테스트를 검증하겠습니다.
+
+## 환경변수 가이드
+
+필수/선택으로 구분했습니다. prod에서는 필수 값이 누락되면 `main` 시작 시 검증에 실패합니다.
+
+- 필수 (production)
+	- NODE_ENV=production
+	- PORT=8080 (기본: 8080)
+	- DB_PATH=/app/data/data.db (또는 DATABASE_URL=sqlite:///app/data/data.db)
+	- JWT_SECRET=…
+	- FRONTEND_URL=https://young-buddha.online (쿠키/CORS에 사용)
+	- GOOGLE_CLIENT_ID=…
+	- GOOGLE_CLIENT_SECRET=…
+	- GOOGLE_REDIRECT_URI=https://young-buddha.online/api/auth/google/callback
+
+- 선택
+	- REDIS_URL=redis://redis:6379 (세션/시트 쿼리 캐시 활성화)
+	- USER_SHEET_SPREADSHEET_ID=… (권한/이름 조회용 시트)
+	- USER_SHEET_NAME=Users (기본 없음)
+	- RUST_LOG=info|debug
+
+샘플 파일
+- 개발: `backend/.env.dev`
+- 프로덕션 템플릿: `backend/.env.prod.example`
