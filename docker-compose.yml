@@ -1,47 +1,29 @@
+# Base docker-compose file for common service definitions
+# Use docker-compose.dev.yml for development
+# Use docker-compose.prod.yml for production
+
 services:
   backend:
     platform: linux/amd64
-    image: chl11wq12/young-buddha-backend:v0.1.0
     build:
       context: ./backend
-      dockerfile: Dockerfile
-      args:
-        - RUSTFLAGS=-C target-cpu=native
-    container_name: young-buddha-backend
-    env_file:
-      - backend/.env
-    environment:
-      - NODE_ENV=production
-      - RUST_LOG=info
-    volumes:
-      - ./data:/app/data
     ports:
       - "8080:8080"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:8080/"] # 루트 경로 테스트
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    volumes:
+      - backend-data:/app/data
 
   frontend:
     platform: linux/amd64
-    image: chl11wq12/young-buddha-frontend:v0.1.0
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_API_URL=http://backend:8080
-    container_name: young-buddha-frontend
-    depends_on:
-      backend:
-        condition: service_healthy
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://backend:8080
     ports:
       - "3000:3000"
     restart: unless-stopped
+    depends_on:
+      - backend
 
 volumes:
+  cargo-cache:
+  target-cache:
   backend-data:

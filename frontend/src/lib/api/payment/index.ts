@@ -2,11 +2,12 @@ import { PaymentRequest } from "@/lib/types/payment";
 import { PAYMENT_SHEET, USER_SHEET } from "@/lib/constants/sheets";
 import { sheetsRead, escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { SheetsData, SheetsRow } from "@/lib/types/sheets";
+import { ValidationError } from "@/lib/errors";
 
 // 이메일로 사용자 이름을 조회하는 함수
 export async function getUserNameByEmail(email: string): Promise<string> {
   if (!email || typeof email !== "string") {
-    throw new Error("유효하지 않은 이메일입니다.");
+    throw new ValidationError("유효하지 않은 이메일입니다.");
   }
 
   const safeEmail = escapeSheetQueryString(email).slice(0, 200);
@@ -31,7 +32,7 @@ export async function getUserNameByEmail(email: string): Promise<string> {
 // 이메일로 사용자 권한을 조회하는 함수
 export async function getUserRoleByEmail(email: string): Promise<string> {
   if (!email || typeof email !== "string") {
-    throw new Error("유효하지 않은 이메일입니다.");
+    throw new ValidationError("유효하지 않은 이메일입니다.");
   }
 
   const safeEmail = escapeSheetQueryString(email).slice(0, 200);
@@ -68,7 +69,7 @@ export async function fetchFilteredPayments(
   sortOrder: string = "desc", // desc: 최신순, asc: 오래된순
 ): Promise<{ data: PaymentRequest[]; totalCount: number }> {
   if (typeof userEmail !== "string") {
-    throw new Error("유효하지 않은 사용자 이메일입니다.");
+    throw new ValidationError("유효하지 않은 사용자 이메일입니다.");
   }
 
   let query = "";
@@ -200,7 +201,7 @@ export async function fetchPaymentsByQuery(
   limit: number = 10,
 ): Promise<{ data: PaymentRequest[]; totalCount: number }> {
   if (typeof query !== "string" || !query.trim()) {
-    throw new Error("유효하지 않은 쿼리입니다.");
+    throw new ValidationError("유효하지 않은 쿼리입니다.");
   }
 
   const data = (await sheetsRead(

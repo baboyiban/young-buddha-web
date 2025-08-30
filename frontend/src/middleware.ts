@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-// 토큰별 캐시: { valid, ts }
-const tokenCache = new Map<string, { valid: boolean; ts: number }>();
-const CACHE_TTL = 30 * 60 * 1000; // 30분
+import { AuthCache } from "@/lib/auth/cache";
+import { addCsrfTokenToHeaders } from "@/lib/csrf";
+import { buildBackendApiUrl, resolveBackendOrigin } from "@/lib/config/backend";
 
 // 공개 페이지 목록 (인증 불필요)
 const PUBLIC_PATHS = ["/login", "/privacy", "/terms", "/unauthorized"];
+// 인증 보호가 필요한 경로 prefix
+const PROTECTED_PREFIXES = ["/admin", "/mission", "/payment"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // 미들웨어에서는 rewrites가 보장되지 않으므로, 공용 유틸로 절대 URL 계산
+  const backendOrigin = resolveBackendOrigin(request.nextUrl.hostname);
 
   // 공개 페이지는 인증 확인 생략
   if (PUBLIC_PATHS.includes(pathname)) {
@@ -18,33 +21,30 @@ export async function middleware(request: NextRequest) {
       const jwtCookie = request.cookies.get("jwt");
       if (jwtCookie && jwtCookie.value) {
         const token = jwtCookie.value;
-        const now = Date.now();
 
-        const cached = tokenCache.get(token);
-        if (cached && now - cached.ts < CACHE_TTL) {
-          if (cached.valid) {
-            return NextResponse.redirect(new URL("/", request.url));
-          }
+        const cached = AuthCache.get(token);
+        if (cached && cached.valid) {
+          return NextResponse.redirect(new URL("/", request.url));
+        } else if (cached && !cached.valid) {
           return NextResponse.next();
         }
 
-        // 캐시가 없거나 만료된 경우 백엔드로 검증 요청
         try {
-          const backendOrigin =
-            process.env.NEXT_PUBLIC_API_URL || "http://backend:8080";
-    const meUrl = `${backendOrigin.replace(/\/$/, "")}/auth/me`;
+          const meUrl = buildBackendApiUrl("/api/auth/me", request.nextUrl.hostname);
+          const headers = addCsrfTokenToHeaders({
+            cookie: `jwt=${token}`,
+          });
+
           const res = await fetch(meUrl, {
             method: "GET",
-            headers: {
-              cookie: `jwt=${token}`,
-            },
+            headers,
           });
 
           if (res.ok) {
-            tokenCache.set(token, { valid: true, ts: now });
+            AuthCache.set(token, { valid: true });
             return NextResponse.redirect(new URL("/", request.url));
           } else {
-            tokenCache.set(token, { valid: false, ts: now });
+            AuthCache.set(token, { valid: false });
             return NextResponse.next();
           }
         } catch (err) {
@@ -55,47 +55,58 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 보호 경로가 아니면 통과 (과도한 me 호출 방지)
+  const isProtected = pathname === "/" || PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+  if (!isProtected) {
+    return NextResponse.next();
+  }
+
   // 보호된 페이지 접근 시 인증 확인
   const jwtCookie = request.cookies.get("jwt");
+  console.log("Middleware - JWT Cookie:", jwtCookie?.value ? "exists" : "missing");
 
   if (!jwtCookie || !jwtCookie.value) {
     // JWT 쿠키가 없으면 로그인 페이지로 리다이렉트
+    console.log("Middleware - Redirecting to login: No JWT cookie");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const token = jwtCookie.value;
-  const now = Date.now();
 
-  // 캐시 확인
-  const cached = tokenCache.get(token);
+  const cached = AuthCache.get(token);
+  console.log("Middleware - AuthCache result:", cached ? "cached" : "not cached");
 
-  if (cached && now - cached.ts < CACHE_TTL) {
+  if (cached) {
     if (cached.valid) {
+      console.log("Middleware - Using cached valid token");
       return NextResponse.next();
     } else {
+      console.log("Middleware - Redirecting to login: Cached but invalid");
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
-  // 캐시가 없거나 만료된 경우 백엔드로 검증 요청
   try {
-    const backendOrigin =
-      process.env.NEXT_PUBLIC_API_URL || "http://backend:8080";
-    const meUrl = `${backendOrigin.replace(/\/$/, "")}/auth/me`;
-    const res = await fetch(meUrl, {
-      method: "GET",
-      headers: {
-        cookie: `jwt=${token}`,
-      },
+    const meUrl = buildBackendApiUrl("/api/auth/me", request.nextUrl.hostname);
+    const headers = addCsrfTokenToHeaders({
+      cookie: `jwt=${token}`,
     });
 
+    console.log("Middleware - Fetching user info from:", meUrl);
+    const res = await fetch(meUrl, {
+      method: "GET",
+      headers,
+    });
+
+    console.log("Middleware - User info response status:", res.status);
     if (!res.ok) {
-      tokenCache.set(token, { valid: false, ts: now });
+      console.log("Middleware - User info fetch failed, caching as invalid");
+      AuthCache.set(token, { valid: false });
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
     const me = await res.json();
-    tokenCache.set(token, { valid: true, ts: now });
+    AuthCache.set(token, { valid: true, data: me });
 
     // 관리자 보호 경로 검사
     if (pathname.startsWith("/admin")) {

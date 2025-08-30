@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1.7
+
+# Use the official Bun image
+FROM oven/bun:1-alpine AS base
+WORKDIR /app
+
+# Install dependencies first for better caching
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+
+# Copy the rest of the application code
+COPY . .
+
+# Set the default command to run the development server
+CMD ["bun", "run", "dev"]

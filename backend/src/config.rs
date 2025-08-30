@@ -31,7 +31,19 @@ impl AppConfig {
         let google_client_secret = env::var("GOOGLE_CLIENT_SECRET").ok();
         let google_redirect_uri = env::var("GOOGLE_REDIRECT_URI").ok();
         
-        let db_path = env::var("DB_PATH").unwrap_or_else(|_| "./data/data.db".into());
+        // Prefer DB_PATH; fallback to DATABASE_URL (normalize sqlite:// URI to filesystem path)
+        let raw_db = env::var("DB_PATH")
+            .or_else(|_| env::var("DATABASE_URL"))
+            .unwrap_or_else(|_| "./data/data.db".into());
+        let db_path = if let Some(stripped) = raw_db.strip_prefix("sqlite://") {
+            // Handles both sqlite:///abs and sqlite://relative
+            stripped.to_string()
+        } else if let Some(stripped) = raw_db.strip_prefix("sqlite:") {
+            // Defensive: in case a single-colon scheme sneaks in
+            stripped.to_string()
+        } else {
+            raw_db
+        };
         
         let is_production = Self::is_production_env(&node_env);
         let frontend_url = env::var("FRONTEND_URL").unwrap_or_else(|_| {

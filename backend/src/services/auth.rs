@@ -43,8 +43,8 @@ impl AuthService {
         let mut cookies = Vec::new();
 
         // 로컬/프로덕션 환경에 따라 쿠키 속성 분기
-        let is_localhost = frontend_url.contains("localhost");
-        let domain_opt = if is_localhost { None } else { Some("young-buddha.online") };
+    let is_localhost = frontend_url.contains("localhost");
+    let domain_opt = if is_localhost { None } else { Some(".young-buddha.online") };
         let same_site = if is_localhost { "Lax" } else { "None" };
         let secure = if is_localhost { "" } else { "; Secure" };
 
