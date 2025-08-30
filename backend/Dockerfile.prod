@@ -48,8 +48,7 @@ RUN apk add --no-cache \
     update-ca-certificates
 
 # 애플리케이션 사용자 생성
-RUN addgroup -g 1001 -S appuser && \
-    adduser -S appuser -u 1001
+RUN adduser -S appuser -u 1001
 
 # 작업 디렉터리 설정
 WORKDIR /app

@@ -1,6 +1,7 @@
 import { MissionData } from "@/lib/types/mission";
 import { sheetsRead } from "@/lib/api/sheets/client";
 import { SheetsCell, SheetsRow, SheetsData } from "@/lib/types/sheets";
+import { ApiError } from "@/lib/errors";
 
 // 상수 정의
 const SHEET_CONFIG = {
@@ -46,7 +47,7 @@ export async function fetchMissionData(): Promise<MissionData> {
   }
 
   if (rows.length === 0) {
-    throw new Error("미션 데이터를 불러오는데 실패했습니다.");
+    throw new ApiError("미션 데이터를 불러오는데 실패했습니다.");
   }
 
   const firstRow = rows[0];

@@ -1,0 +1,27 @@
+# docker-compose override for development
+services:
+  backend:
+    build:
+      dockerfile: Dockerfile.dev
+    container_name: young-buddha-backend-dev
+    env_file:
+      - backend/.env.dev
+    volumes:
+      - ./backend:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    command: cargo watch -x run
+
+  frontend:
+    build:
+      dockerfile: Dockerfile.dev
+    container_name: young-buddha-frontend-dev
+    env_file:
+      - frontend/.env.development
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend:8080
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: bun run dev

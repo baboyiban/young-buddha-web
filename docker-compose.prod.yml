@@ -1,0 +1,31 @@
+# docker-compose override for production
+services:
+  backend:
+    image: ${BACKEND_IMAGE_TAG:-chl11wq12/young-buddha-backend:v0.1.0}
+    build:
+      dockerfile: Dockerfile.prod
+      args:
+        - RUSTFLAGS=${RUSTFLAGS:--C target-cpu=native}
+    container_name: young-buddha-backend-prod
+    env_file:
+      - backend/.env.prod
+    volumes:
+      - backend-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    image: ${FRONTEND_IMAGE_TAG:-chl11wq12/young-buddha-frontend:v0.1.0}
+    build:
+      dockerfile: Dockerfile.prod
+    container_name: young-buddha-frontend-prod
+    env_file:
+      - frontend/.env.production
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production

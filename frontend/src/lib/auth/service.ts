@@ -1,31 +1,32 @@
 import { User } from "@/lib/types/user";
-import { HttpClient } from "@/lib/config/http";
-
-type ApiResponse<T> = {
-  data: T;
-  error?: string;
-  message?: string;
-};
+import { apiClient } from "@/lib/api/client";
+import { HTTPError } from "ky";
+import { AUTH_ENDPOINTS } from "@/lib/config/api";
+import { AuthCache } from "@/lib/auth/cache";
+import { AuthError } from "@/lib/errors";
 
 export class AuthService {
-  // 기본적으로 상대 경로를 사용해 Next.js 리라이트를 타도록 설정
-  // (브라우저에서 내부 도커 호스트를 직접 호출하지 않도록 함)
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  private httpClient: HttpClient;
-
-  constructor() {
-    this.httpClient = new HttpClient(this.baseUrl);
-  }
-
   async getCurrentUser(): Promise<User> {
     try {
-      // 백엔드 응답: { authenticated, email, name, role }
-      const resp = await this.httpClient.get<{
+      const jwt = AuthService.getJwtFromCookie();
+      if (jwt) {
+        const cached = AuthCache.get(jwt);
+        if (cached?.valid && cached.data) {
+          return cached.data;
+        }
+      }
+
+      const resp = await apiClient.get("auth/me").json<{
         authenticated: boolean;
         email: string;
         name?: string;
         role?: string;
-      }>(`/auth/me`);
+      }>();
+
+      if (!resp.authenticated) {
+        throw new AuthError("User not authenticated", 401);
+      }
+
       const email = resp.email;
       const name = resp.name || email?.split("@")[0] || "User";
       const role = resp.role;
@@ -35,6 +36,11 @@ export class AuthService {
         name,
         roles: role ? [role] : undefined,
       };
+
+      if (jwt) {
+        AuthCache.set(jwt, { valid: true, data: user });
+      }
+
       return user;
     } catch (error: any) {
       this.handleAuthError(error);
@@ -42,19 +48,21 @@ export class AuthService {
     }
   }
 
-  async getGoogleAuthUrl(): Promise<string> {
-    return `${this.baseUrl}/auth/google/login`;
+  getGoogleAuthUrl(): string {
+    return AUTH_ENDPOINTS.googleLogin();
   }
 
   // 호환성을 위한 별칭 메서드
-  async startGoogleAuth(): Promise<string> {
+  startGoogleAuth(): string {
     return this.getGoogleAuthUrl();
   }
 
   async logout(shouldRedirect = true): Promise<void> {
     try {
-      await this.httpClient.get(`/auth/logout`);
-    } catch (error) {}
+      await apiClient.get("auth/logout");
+    } catch (error) {
+      // 실패하더라도 로그아웃 처리는 계속 진행
+    }
     this.clearAuthData();
     if (shouldRedirect && typeof window !== "undefined") {
       window.location.href = "/login";
@@ -77,6 +85,7 @@ export class AuthService {
     });
     const cookiesToClear = [
       "jwt",
+      "csrf_token", // csrf_token도 제거
       "auth",
       "token",
       "access_token",
@@ -97,10 +106,26 @@ export class AuthService {
 
   async checkAuthStatus(): Promise<boolean> {
     try {
-      const resp = await this.httpClient.get<{ authenticated: boolean }>(
-        `/auth/me`,
-      );
-      if (!resp.authenticated) throw new Error("unauthenticated");
+      const jwt = AuthService.getJwtFromCookie();
+      if (jwt) {
+        const cached = AuthCache.get(jwt);
+        if (cached && cached.valid) {
+          return true;
+        }
+      }
+
+      const resp = await apiClient
+        .get("auth/me")
+        .json<{ authenticated: boolean }>();
+
+      if (!resp.authenticated) {
+        throw new AuthError("unauthenticated", 401);
+      }
+
+      if (jwt) {
+        AuthCache.set(jwt, { valid: true });
+      }
+
       return true;
     } catch (error) {
       this.clearAuthData();
@@ -109,17 +134,27 @@ export class AuthService {
   }
 
   private handleAuthError(error: any): void {
-    const status = error?.status || error?.response?.status;
+    let status = 0;
+    if (error instanceof HTTPError) {
+      status = error.response.status;
+    } else if (error instanceof AuthError && error.status) {
+      status = error.status;
+    }
+
     if (status === 401 || status === 403) {
       this.clearAuthData();
+      const jwt = AuthService.getJwtFromCookie();
+      if (jwt) {
+        AuthCache.delete(jwt);
+      }
     }
   }
 
   async testJwtExpiry(): Promise<void> {
     try {
-      const user1 = await this.getCurrentUser();
+      await this.getCurrentUser();
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      const user2 = await this.getCurrentUser();
+      await this.getCurrentUser();
     } catch (error) {
       // Silent error handling
     }
