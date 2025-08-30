@@ -1,7 +1,8 @@
 # Young Buddha Web Makefile
 # Provides convenient commands for development and production workflows
 
-.PHONY: help dev prod stop clean logs backend frontend build
+.PHONY: help dev prod stop clean logs backend frontend build \
+	prod-build prod-push prod-pull prod-up prod-down
 
 # Default target
 help:
@@ -25,6 +26,13 @@ help:
 	@echo "Environment setup:"
 	@echo "  make setup-dev    - Creates .env.dev files from examples"
 	@echo "  make setup-prod   - Creates .env.prod files from examples"
+	@echo ""
+	@echo "Docker build/push/pull:"
+	@echo "  make prod-build   Build images with docker-compose.prod.yml"
+	@echo "  make prod-push    Push built images to registry"
+	@echo "  make prod-pull    Pull images from registry"
+	@echo "  make prod-up      Run production stack (detached)"
+	@echo "  make prod-down    Stop production stack"
 
 # Development environment
 dev:
@@ -104,20 +112,43 @@ status:
 	docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
 # Environment setup helpers
-setup-dev:
+setup-prod:
 	@echo "⚙️ Setting up development environment..."
-	@if [ ! -f "backend/.env.dev" ]; then \
-		cp backend/.env.example backend/.env.dev; \
+	@if [ ! -f "backend/.env.prod" ]; then \
+		if [ -f "backend/.env.prod.example" ]; then cp backend/.env.prod.example backend/.env.prod; \
+		else cp backend/.env.example backend/.env.prod; fi; \
 		echo "✅ Created backend/.env.dev - please edit with your values"; \
 	else \
 		echo "ℹ️ backend/.env.dev already exists"; \
 	fi
-	@if [ ! -f "frontend/.env.development" ]; then \
-		cp frontend/.env.example frontend/.env.development; \
+	@if [ ! -f "frontend/.env.production" ]; then \
+		if [ -f "frontend/.env.prod.example" ]; then cp frontend/.env.prod.example frontend/.env.production; \
+		else cp frontend/.env.example frontend/.env.production; fi; \
 		echo "✅ Created frontend/.env.development - please edit with your values"; \
 	else \
 		echo "ℹ️ frontend/.env.development already exists"; \
 	fi
+
+# Compose (production) helpers using docker compose v2 syntax
+prod-build:
+	@echo "\ud83d\udd28 Building production images..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+
+prod-push:
+	@echo "\ud83d\udcbe Pushing production images..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml push
+
+prod-pull:
+	@echo "\ud83d\udcbe Pulling production images..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+prod-up:
+	@echo "\ud83d\ude80 Starting production stack (detached)..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+prod-down:
+	@echo "\ud83d\uded1 Stopping production stack..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 setup-prod:
 	@echo "⚙️ Setting up production environment..."
