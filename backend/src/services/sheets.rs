@@ -38,6 +38,20 @@ impl SheetsService {
             final_query = format!("{} OFFSET {}", final_query, offset);
         }
 
+        // 2.1. Short TTL cache (best-effort) to speed up hot reads
+        // Cache key is based on (spreadsheet_id, sheet_name, final_query)
+        let cache_key = crate::auth::redis_cache::build_sheets_cache_key(
+            &params.spreadsheet_id,
+            &params.sheet_name,
+            &final_query,
+        );
+        if let Some(cached_json) = crate::auth::redis_cache::get_sheets_cache(&cache_key).await {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&cached_json) {
+                println!("   ⚡ 캐시 적중, 네트워크 요청 생략");
+                return Ok((StatusCode::OK, Json(v)).into_response());
+            }
+        }
+
         let url = format!(
             "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
             params.spreadsheet_id,
@@ -84,13 +98,16 @@ impl SheetsService {
 
         let text = resp.text().await.unwrap_or_default();
         println!("   📄 Google Sheets 응답 길이: {} bytes", text.len());
-        println!("   📄 응답 시작 부분: {}", &text.chars().take(200).collect::<String>());
-
+    println!("   📄 응답 시작 부분: {}", &text.chars().take(200).collect::<String>());
         let result = sheets_parser::parse_gviz_json(&text)
             .map_err(|e| {
                 println!("   ❌ JSON 파싱 오류: {:?}", e);
                 e
             })?;
+
+    // 3. Cache parsed JSON briefly to reduce duplicate reads
+    let sheets_cache_ttl: i64 = 30; // seconds
+    let _ = crate::auth::redis_cache::set_sheets_cache(&cache_key, &result.to_string(), sheets_cache_ttl).await;
 
         println!("   ✅ 쿼리 성공, 결과 반환");
         Ok((StatusCode::OK, Json(result)).into_response())
