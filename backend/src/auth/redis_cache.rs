@@ -107,3 +107,49 @@ pub async fn store_user_profile(email: &str, name: &str, role: &str, ttl_seconds
     }
     Ok(())
 }
+
+// ============ Sheets GViz read cache (short TTL, best-effort) ============
+
+/// Build a stable cache key for a given spreadsheet/sheet/query tuple.
+/// We hash the triplet to keep the key small and avoid issues with special characters.
+pub fn build_sheets_cache_key(spreadsheet_id: &str, sheet_name: &str, final_query: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(spreadsheet_id.as_bytes());
+    hasher.update(b"|");
+    hasher.update(sheet_name.as_bytes());
+    hasher.update(b"|");
+    hasher.update(final_query.as_bytes());
+    let digest = hex::encode(hasher.finalize());
+    format!("sheets:q:{}", digest)
+}
+
+/// Try get cached JSON string for a sheets query. Returns None if no cache or Redis unavailable.
+pub async fn get_sheets_cache(key: &str) -> Option<String> {
+    if let Some(client) = get_client_from_env_or_global() {
+        let key = key.to_string();
+        let client_move = client.clone();
+        if let Ok(Ok(val)) = tokio::task::spawn_blocking(move || -> Result<Option<String>, redis::RedisError> {
+            let mut conn = client_move.get_connection()?;
+            let v: Option<String> = conn.get(key)?;
+            Ok(v)
+        }).await {
+            return val;
+        }
+    }
+    None
+}
+
+/// Store JSON string for sheets query with TTL. Best-effort; ignores errors.
+pub async fn set_sheets_cache(key: &str, json: &str, ttl_seconds: i64) -> Result<(), ()> {
+    if let Some(client) = get_client_from_env_or_global() {
+        let key = key.to_string();
+        let val = json.to_string();
+        let client_move = client.clone();
+        let _ = tokio::task::spawn_blocking(move || -> Result<(), redis::RedisError> {
+            let mut conn = client_move.get_connection()?;
+            let _: () = conn.set_ex(key, val, ttl_seconds as u64)?;
+            Ok(())
+        }).await;
+    }
+    Ok(())
+}
