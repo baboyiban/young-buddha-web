@@ -50,69 +50,69 @@ prod:
 # Stop all containers
 stop:
 	@echo "🛑 Stopping all containers..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml down 2>/dev/null || true
-	@docker-compose -f docker-compose.yml -f docker-compose.prod.yml down 2>/dev/null || true
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml down 2>/dev/null || true
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down 2>/dev/null || true
 
 # Clean - stop and remove all containers and volumes
 clean:
 	@echo "🧹 Cleaning up containers and volumes..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml down -v 2>/dev/null || true
-	@docker-compose -f docker-compose.yml -f docker-compose.prod.yml down -v 2>/dev/null || true
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v 2>/dev/null || true
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v 2>/dev/null || true
 
 # View logs
 logs:
 	@echo "📋 Showing logs (Ctrl+C to exit)..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
 
 # Start only backend
 backend:
 	@echo "🔧 Starting backend service..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build backend
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build backend
 
 # Start only frontend
 frontend:
 	@echo "🎨 Starting frontend service..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build frontend
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build frontend
 
 # Build containers without starting
 build:
 	@echo "🔨 Building containers..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml build
-	@docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 
 # Backend specific commands
 backend-logs:
 	@echo "📋 Showing backend logs..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f backend 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f backend 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend
 
 frontend-logs:
 	@echo "📋 Showing frontend logs..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml logs -f frontend 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f frontend
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f frontend 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f frontend
 
 # Restart services
 restart:
 	@echo "🔄 Restarting services..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml restart 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml restart 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml restart
 
 restart-backend:
 	@echo "🔄 Restarting backend..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml restart backend 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart backend
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml restart backend 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml restart backend
 
 restart-frontend:
 	@echo "🔄 Restarting frontend..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml restart frontend 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart frontend
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml restart frontend 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml restart frontend
 
 # Status check
 status:
 	@echo "📊 Container status:"
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml ps 2>/dev/null || \
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml ps 2>/dev/null || \
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
 ## Environment setup helpers (development)
 setup-dev:
@@ -180,8 +180,8 @@ prod-down:
 # Quick test commands
 test-backend:
 	@echo "🧪 Testing backend..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml run --rm backend cargo test
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm backend cargo test
 
 test-frontend:
 	@echo "🧪 Testing frontend..."
-	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml run --rm frontend bun run test
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm frontend bun run test
