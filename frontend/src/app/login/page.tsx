@@ -37,7 +37,7 @@ function LoginContent() {
 
   return (
     <div className="min-h-svh flex items-center justify-center p-[0.5rem]">
-      <button onClick={handleGoogleLogin} disabled={loading} className="purple">
+      <button onClick={handleGoogleLogin} disabled={loading} className="button purple">
         {loading ? (
           <LoadingSpinner color="white" showMessage={false} />
         ) : (

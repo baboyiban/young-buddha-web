@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { fetchPaymentsByQuery } from "@/lib/api/payment";
+import { fetchFilteredPayments } from "@/lib/api/payment";
 import { escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { PaymentRequest } from "@/lib/types/payment";
 import { usePaymentOperations } from "@/lib/hooks/usePaymentOperations";
@@ -26,6 +26,7 @@ export default function PaymentPage() {
   } = usePaymentOperations();
 
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<PaymentRequest>>({});
@@ -66,12 +67,12 @@ export default function PaymentPage() {
 
     setLoading(true);
     try {
-      const safeEmail = escapeSheetQueryString(user.email);
-      const { data } = await fetchPaymentsByQuery(
-        `select * where B = '${safeEmail}' and J = '대기'`,
-        false,
-        1,
-        10,
+      const { data, totalCount } = await fetchFilteredPayments(
+        user.email,
+        false, // skipNameLookup: false (기본값)
+        currentPage,
+        itemsPerPage,
+        "대기" // statusFilter: "대기"만 표시
       );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
@@ -79,16 +80,15 @@ export default function PaymentPage() {
         absentDate: toYMD(r.absentDate),
       }));
       setRequests(normalized);
-
-      // 데이터가 로드되면 첫 페이지로 리셋
-      setCurrentPage(1);
+      setTotalCount(totalCount);
     } catch (err) {
       console.error("Failed to load payments:", err);
       setRequests([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, currentPage, itemsPerPage]);
 
   useEffect(() => {
     loadPayments();
@@ -199,6 +199,7 @@ export default function PaymentPage() {
 
         <PaymentTable
           requests={requests}
+          totalCount={totalCount}
           editingId={editingId}
           editForm={editForm}
           deletingId={deletingId}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Pagination from "@/components/Pagination";
+import LoadingButton from "@/components/LoadingButton";
 import { fetchFilteredPayments } from "@/lib/api/payment";
 import { sheetsUpdate, escapeSheetQueryString } from "@/lib/api/sheets/client";
 import { PAYMENT_SHEET } from "@/lib/constants/sheets";
@@ -132,8 +133,8 @@ export default function AdminPage() {
   const handleBatchApprove = async (status: string) => {
     if (selectedRequests.length === 0) return;
 
+    setUpdatingId("batch"); // 즉시 상태 설정 - 배치 처리 중임을 표시
     try {
-      setUpdatingId("batch"); // 배치 처리 중임을 표시
 
       // 선택된 모든 요청 처리
       for (const id of selectedRequests) {
@@ -201,8 +202,8 @@ export default function AdminPage() {
 
   // 결재 상태 변경 핸들러
   const handleApprove = async (request: PaymentRequest, status: string) => {
+    setUpdatingId(request.id); // 즉시 상태 설정
     try {
-      setUpdatingId(request.id);
 
       const normalizedId = normalizeId(request.id);
       const whereId = escapeSheetQueryString(normalizedId);
@@ -313,7 +314,7 @@ export default function AdminPage() {
             </select>
 
             {/* 새로고침 버튼 */}
-            <button onClick={loadPayments} className="gray" disabled={loading}>
+            <button onClick={loadPayments} className="button gray" disabled={loading}>
               {loading ? "새로고침 중..." : "새로고침"}
             </button>
           </div>
@@ -321,24 +322,20 @@ export default function AdminPage() {
           {/* 배치 처리 버튼들 */}
           {selectedRequests.length > 0 && (
             <div className="flex gap-[0.25rem]">
-              <button
+              <LoadingButton
+                loading={updatingId === "batch"}
                 onClick={() => handleBatchApprove("승인")}
                 className="text-sm purple"
-                disabled={updatingId === "batch"}
               >
-                {updatingId === "batch"
-                  ? "처리 중..."
-                  : `선택 ${selectedRequests.length}개 승인`}
-              </button>
-              <button
+                {`선택 ${selectedRequests.length}개 승인`}
+              </LoadingButton>
+              <LoadingButton
+                loading={updatingId === "batch"}
                 onClick={() => handleBatchApprove("반려")}
                 className="text-sm red"
-                disabled={updatingId === "batch"}
               >
-                {updatingId === "batch"
-                  ? "처리 중..."
-                  : `선택 ${selectedRequests.length}개 반려`}
-              </button>
+                {`선택 ${selectedRequests.length}개 반려`}
+              </LoadingButton>
             </div>
           )}
         </div>
@@ -404,7 +401,7 @@ export default function AdminPage() {
                         {r.approved === "승인" ? (
                           <button
                             onClick={() => handleApprove(r, "대기")}
-                            className="text-sm gray"
+                            className="button text-sm gray"
                             disabled={updatingId === r.id}
                           >
                             {updatingId === r.id ? "처리 중..." : "승인 취소"}
@@ -412,7 +409,7 @@ export default function AdminPage() {
                         ) : r.approved === "반려" ? (
                           <button
                             onClick={() => handleApprove(r, "대기")}
-                            className="text-sm gray"
+                            className="text-sm button gray"
                             disabled={updatingId === r.id}
                           >
                             {updatingId === r.id ? "처리 중..." : "반려 취소"}
@@ -421,14 +418,14 @@ export default function AdminPage() {
                           <>
                             <button
                               onClick={() => handleApprove(r, "승인")}
-                              className="text-sm purple"
+                              className="text-sm button purple"
                               disabled={updatingId === r.id}
                             >
                               {updatingId === r.id ? "처리 중..." : "승인"}
                             </button>
                             <button
                               onClick={() => handleApprove(r, "반려")}
-                              className="text-sm red"
+                              className="text-sm button red"
                               disabled={updatingId === r.id}
                             >
                               {updatingId === r.id ? "처리 중..." : "반려"}

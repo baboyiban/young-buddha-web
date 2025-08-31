@@ -85,14 +85,7 @@ export async function fetchFilteredPayments(
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
       query = `select * where J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     }
-    console.log("🔍 [ADMIN QUERY]", {
-      userEmail,
-      page,
-      limit,
-      statusFilter,
-      offset,
-      query,
-    });
+    console.log(`🔍 [ADMIN_QUERY] userEmail=${userEmail} page=${page} limit=${limit} statusFilter=${statusFilter} offset=${offset} query=${query}`);
   } else {
     const safeUserEmail = escapeSheetQueryString(userEmail).slice(0, 200);
     // B열(이메일)을 기준으로 검색 (페이지네이션 및 필터링 적용)
@@ -103,14 +96,7 @@ export async function fetchFilteredPayments(
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
       query = `select * where B = '${safeUserEmail}' and J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     }
-    console.log("🔍 [USER QUERY]", {
-      userEmail,
-      page,
-      limit,
-      statusFilter,
-      offset,
-      query,
-    });
+    console.log(`🔍 [USER_QUERY] userEmail=${userEmail} page=${page} limit=${limit} statusFilter=${statusFilter} offset=${offset} query=${query}`);
   }
 
   const data = (await sheetsRead(
@@ -119,11 +105,8 @@ export async function fetchFilteredPayments(
     query,
   )) as SheetsData;
 
-  console.log("📊 [QUERY RESULT]", {
-    rowsCount: data.table?.rows?.length || 0,
-    query: query,
-    hasData: !!data.table?.rows?.length,
-  });
+  const rowsCount = data.table?.rows?.length || 0;
+  console.log(`📊 [QUERY_RESULT] rowsCount=${rowsCount} query=${query} hasData=${!!data.table?.rows?.length}`);
 
   const rows = data.table?.rows ?? [];
 
@@ -158,31 +141,46 @@ export async function fetchFilteredPayments(
   }
 
   // 기존 방식 (개인 페이지용)
-  const requestsWithNames = await Promise.all(
-    rows.map(async (row: SheetsRow, idx: number): Promise<PaymentRequest> => {
-      const cells = row.c ?? [];
-      const email = cells[1]?.v ?? "";
-      let userName = "";
+  // 먼저 모든 이메일을 수집
+  const emails = new Set<string>();
+  rows.forEach((row: SheetsRow) => {
+    const cells = row.c ?? [];
+    const email = cells[1]?.v ?? "";
+    if (email) {
+      emails.add(email);
+    }
+  });
 
-      // 이메일이 있는 경우에만 이름 조회
-      if (email) {
-        userName = await getUserNameByEmail(email);
-      }
+  // 이메일별 이름 매핑 생성 (일괄 조회)
+  const emailToNameMap = new Map<string, string>();
+  if (emails.size > 0) {
+    const emailList = Array.from(emails);
+    const names = await Promise.all(
+      emailList.map(email => getUserNameByEmail(email))
+    );
+    emailList.forEach((email, index) => {
+      emailToNameMap.set(email, names[index]);
+    });
+  }
 
-      return {
-        id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
-        email: email,
-        userId: cells[2]?.v ?? "",
-        name: userName, // 조회한 이름 사용 (중복된 이름 무시)
-        type: cells[4]?.v ?? "", // 중복된 이름 컬럼을 건너뛰고 다음 컬럼부터 사용
-        requestDate: cells[5]?.v ?? "",
-        absentDate: cells[6]?.v ?? "",
-        schedule: cells[7]?.v ?? "",
-        reason: cells[8]?.v ?? "",
-        approved: cells[9]?.v ?? "",
-      };
-    }),
-  );
+  const requestsWithNames = rows.map((row: SheetsRow, idx: number): PaymentRequest => {
+    const cells = row.c ?? [];
+    const email = cells[1]?.v ?? "";
+    const userName = email ? emailToNameMap.get(email) || email.split("@")[0] : "";
+
+    return {
+      id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
+      email: email,
+      userId: cells[2]?.v ?? "",
+      name: userName, // 조회한 이름 사용
+      type: cells[4]?.v ?? "",
+      requestDate: cells[5]?.v ?? "",
+      absentDate: cells[6]?.v ?? "",
+      schedule: cells[7]?.v ?? "",
+      reason: cells[8]?.v ?? "",
+      approved: cells[9]?.v ?? "",
+    };
+  });
 
   const filteredData = requestsWithNames.filter(
     (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
@@ -241,31 +239,46 @@ export async function fetchPaymentsByQuery(
   }
 
   // 기존 방식 (개인 페이지용)
-  const requestsWithNames = await Promise.all(
-    rows.map(async (row: SheetsRow, idx: number): Promise<PaymentRequest> => {
-      const cells = row.c ?? [];
-      const email = cells[1]?.v ?? "";
-      let userName = "";
+  // 먼저 모든 이메일을 수집
+  const emails = new Set<string>();
+  rows.forEach((row: SheetsRow) => {
+    const cells = row.c ?? [];
+    const email = cells[1]?.v ?? "";
+    if (email) {
+      emails.add(email);
+    }
+  });
 
-      // 이메일이 있는 경우에만 이름 조회
-      if (email) {
-        userName = await getUserNameByEmail(email);
-      }
+  // 이메일별 이름 매핑 생성 (일괄 조회)
+  const emailToNameMap = new Map<string, string>();
+  if (emails.size > 0) {
+    const emailList = Array.from(emails);
+    const names = await Promise.all(
+      emailList.map(email => getUserNameByEmail(email))
+    );
+    emailList.forEach((email, index) => {
+      emailToNameMap.set(email, names[index]);
+    });
+  }
 
-      return {
-        id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
-        email: email,
-        userId: cells[2]?.v ?? "",
-        name: userName, // 조회한 이름 사용
-        type: cells[4]?.v ?? "",
-        requestDate: cells[5]?.v ?? "",
-        absentDate: cells[6]?.v ?? "",
-        schedule: cells[7]?.v ?? "",
-        reason: cells[8]?.v ?? "",
-        approved: cells[9]?.v ?? "",
-      };
-    }),
-  );
+  const requestsWithNames = rows.map((row: SheetsRow, idx: number): PaymentRequest => {
+    const cells = row.c ?? [];
+    const email = cells[1]?.v ?? "";
+    const userName = email ? emailToNameMap.get(email) || email.split("@")[0] : "";
+
+    return {
+      id: cells[0]?.v ?? `${email || "unknown"}-${idx}`,
+      email: email,
+      userId: cells[2]?.v ?? "",
+      name: userName, // 조회한 이름 사용
+      type: cells[4]?.v ?? "",
+      requestDate: cells[5]?.v ?? "",
+      absentDate: cells[6]?.v ?? "",
+      schedule: cells[7]?.v ?? "",
+      reason: cells[8]?.v ?? "",
+      approved: cells[9]?.v ?? "",
+    };
+  });
 
   const filteredData = requestsWithNames.filter(
     (request: PaymentRequest) => !!request.id && request.id.trim() !== "",
@@ -282,7 +295,7 @@ async function getTotalPaymentCount(
 ): Promise<number> {
   try {
     let countQuery = "";
-    console.log("🔢 [COUNT QUERY]", { userEmail, statusFilter });
+    console.log(`🔢 [COUNT_QUERY] userEmail=${userEmail} statusFilter=${statusFilter}`);
 
     if (!userEmail) {
       // 전체 데이터 개수 조회 (첫 번째 행 제외, 필터링 적용)
@@ -309,16 +322,18 @@ async function getTotalPaymentCount(
       countQuery,
     )) as SheetsData;
 
-    console.log("📊 [COUNT RESULT]", {
-      count: data.table?.rows?.[0]?.c?.[0]?.v || 0,
-      query: countQuery,
-    });
+    const count = data.table?.rows?.[0]?.c?.[0]?.v || 0;
+    console.log(`📊 [COUNT_RESULT] count=${count} query=${countQuery}`);
 
     const rows = data.table?.rows ?? [];
     if (rows.length > 0 && rows[0].c && rows[0].c[0]?.v) {
       const totalCount = Number(rows[0].c[0].v) || 0;
-      // 헤더 행을 제외하기 위해 1을 뺍니다 (관리자 모드에서만)
-      return !userEmail ? Math.max(0, totalCount - 1) : totalCount;
+      // 헤더 행을 제외하기 위해 1을 뺍니다 (관리자 모드에서만, 그리고 statusFilter가 "전체"일 때만)
+      // 일반 사용자 모드나 필터가 적용된 경우 where 절이 헤더를 제외하므로 뺄 필요 없음
+      if (!userEmail && statusFilter === "전체") {
+        return Math.max(0, totalCount - 1);
+      }
+      return totalCount;
     }
 
     return 0;

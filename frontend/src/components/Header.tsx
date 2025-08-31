@@ -9,7 +9,7 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       await logout();
-    } catch (error) {}
+    } catch (error) { }
   };
 
   return (
@@ -19,7 +19,7 @@ export default function Header() {
       </Link>
       <div className="flex items-center space-x-2">
         {user && <span className="text-sm text-gray-50">{user.name}</span>}
-        <button onClick={handleLogout} className="red text-sm">
+        <button onClick={handleLogout} className="button red text-sm">
           로그아웃
         </button>
       </div>

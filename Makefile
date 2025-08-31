@@ -2,7 +2,8 @@
 # Provides convenient commands for development and production workflows
 
 .PHONY: help dev prod stop clean logs backend frontend build \
-	prod-build prod-push prod-pull prod-up prod-down
+	prod-build prod-push prod-pull prod-up prod-down \
+	init-dev init-prod setup-dev setup-prod
 
 # Default target
 help:
@@ -19,6 +20,8 @@ help:
 	@echo "  make build        Build containers without starting"
 	@echo "  make setup-dev    Setup development environment files"
 	@echo "  make setup-prod   Setup production environment files"
+	@echo "  make init-dev     Alias of setup-dev"
+	@echo "  make init-prod    Alias of setup-prod"
 	@echo "  make test-backend Run backend tests"
 	@echo "  make test-frontend Run frontend tests"
 	@echo "  make help         Show this help message"
@@ -111,22 +114,44 @@ status:
 	@docker-compose -f docker-compose.yml -f docker-compose.dev.yml ps 2>/dev/null || \
 	docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
-# Environment setup helpers
-setup-prod:
+## Environment setup helpers (development)
+setup-dev:
 	@echo "⚙️ Setting up development environment..."
-	@if [ ! -f "backend/.env.prod" ]; then \
-		if [ -f "backend/.env.prod.example" ]; then cp backend/.env.prod.example backend/.env.prod; \
-		else cp backend/.env.example backend/.env.prod; fi; \
+	@if [ ! -f "backend/.env.dev" ]; then \
+		if [ -f "backend/.env.example" ]; then cp backend/.env.example backend/.env.dev; \
+		else touch backend/.env.dev; fi; \
 		echo "✅ Created backend/.env.dev - please edit with your values"; \
 	else \
 		echo "ℹ️ backend/.env.dev already exists"; \
 	fi
-	@if [ ! -f "frontend/.env.production" ]; then \
-		if [ -f "frontend/.env.prod.example" ]; then cp frontend/.env.prod.example frontend/.env.production; \
-		else cp frontend/.env.example frontend/.env.production; fi; \
+	@if [ ! -f "frontend/.env.development" ]; then \
+		if [ -f "frontend/.env.example" ]; then cp frontend/.env.example frontend/.env.development; \
+		else touch frontend/.env.development; fi; \
 		echo "✅ Created frontend/.env.development - please edit with your values"; \
 	else \
 		echo "ℹ️ frontend/.env.development already exists"; \
+	fi
+
+## Environment setup helpers (production)
+setup-prod:
+	@echo "⚙️ Setting up production environment..."
+	@if [ ! -f "backend/.env.prod" ]; then \
+		if [ -f "backend/.env.prod.example" ]; then cp backend/.env.prod.example backend/.env.prod; \
+		else cp backend/.env.example backend/.env.prod; fi; \
+		echo "✅ Created backend/.env.prod - please edit with SECURE values"; \
+	else \
+		echo "ℹ️ backend/.env.prod already exists"; \
+	fi
+
+# Aliases
+init-dev: setup-dev
+init-prod: setup-prod
+	@if [ ! -f "frontend/.env.production" ]; then \
+		if [ -f "frontend/.env.prod.example" ]; then cp frontend/.env.prod.example frontend/.env.production; \
+		else cp frontend/.env.example frontend/.env.production; fi; \
+		echo "✅ Created frontend/.env.production - please edit with your values"; \
+	else \
+		echo "ℹ️ frontend/.env.production already exists"; \
 	fi
 
 # Compose (production) helpers using docker compose v2 syntax
@@ -150,20 +175,7 @@ prod-down:
 	@echo "\ud83d\uded1 Stopping production stack..."
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
-setup-prod:
-	@echo "⚙️ Setting up production environment..."
-	@if [ ! -f "backend/.env.prod" ]; then \
-		cp backend/.env.example backend/.env.prod; \
-		echo "✅ Created backend/.env.prod - please edit with SECURE values"; \
-	else \
-		echo "ℹ️ backend/.env.prod already exists"; \
-	fi
-	@if [ ! -f "frontend/.env.production" ]; then \
-		cp frontend/.env.example frontend/.env.production; \
-		echo "✅ Created frontend/.env.production - please edit with your values"; \
-	else \
-		echo "ℹ️ frontend/.env.production already exists"; \
-	fi
+## (removed duplicate setup-prod)
 
 # Quick test commands
 test-backend:

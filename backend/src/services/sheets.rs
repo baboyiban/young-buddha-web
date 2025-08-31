@@ -17,14 +17,11 @@ impl SheetsService {
         headers: HeaderMap,
         params: QueryParams,
     ) -> Result<axum::response::Response, ApiError> {
-        println!("🔍 [SHEETS_QUERY] 요청 시작");
-        println!("   📋 spreadsheet_id: {}", params.spreadsheet_id);
-        println!("   📄 sheet_name: {}", params.sheet_name);
-        println!("   🔎 query: {}", params.query);
+        println!("🔍 [SHEETS_QUERY] 요청 시작 spreadsheet_id={} sheet_name={} query={}", params.spreadsheet_id, params.sheet_name, params.query);
 
         // 1. 인증 및 토큰 검증
         let (email, mut user_token) = authenticate_and_get_token(&headers, &state).await?;
-        println!("   👤 authenticated user: {}", email);
+        println!("   👤 [AUTH] user={}", email);
 
         let client = &state.http_client;
 
@@ -47,7 +44,7 @@ impl SheetsService {
         );
         if let Some(cached_json) = crate::auth::redis_cache::get_sheets_cache(&cache_key).await {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&cached_json) {
-                println!("   ⚡ 캐시 적중, 네트워크 요청 생략");
+                println!("   ⚡ [CACHE] hit=true network_request=skipped");
                 return Ok((StatusCode::OK, Json(v)).into_response());
             }
         }
@@ -58,37 +55,37 @@ impl SheetsService {
             urlencoding::encode(&final_query),
             urlencoding::encode(&params.sheet_name)
         );
-        println!("   🌐 Google Sheets URL: {}", url);
+        println!("   🌐 [URL] sheets_url={}", url);
 
         let mut resp = client.get(&url).bearer_auth(&user_token).send().await
             .map_err(|e| {
-                println!("   ❌ 네트워크 요청 실패: {}", e);
+                println!("   ❌ [NETWORK] request_failed error={}", e);
                 ApiError::bad_gateway("NETWORK_FAILED", format!("네트워크 요청 실패: {}", e))
             })?;
 
-        println!("   📡 HTTP 응답 상태: {}", resp.status());
+        println!("   📡 [RESPONSE] status={}", resp.status());
 
         // 401 Unauthorized이면 토큰 새로고침 후 한 번 재시도
         if resp.status() == StatusCode::UNAUTHORIZED {
-            println!("   🔄 토큰 만료, 토큰 새로고침 시도");
+            println!("   🔄 [TOKEN] expired=true refresh_attempted=true");
             if let Some(new_token) = refresh_user_access_token(client, &state.db_path, &email).await {
                 user_token = new_token;
-                println!("   ✅ 토큰 새로고침 성공, 재요청");
+                println!("   ✅ [TOKEN] refresh_success=true retry_attempted=true");
                 resp = client.get(&url).bearer_auth(&user_token).send().await
                     .map_err(|e| {
-                        println!("   ❌ 재요청 실패: {}", e);
+                        println!("   ❌ [RETRY] request_failed error={}", e);
                         ApiError::bad_gateway("NETWORK_FAILED", format!("네트워크 요청 실패: {}", e))
                     })?;
-                println!("   📡 재요청 응답 상태: {}", resp.status());
+                println!("   📡 [RETRY] response_status={}", resp.status());
             } else {
-                println!("   ❌ 토큰 새로고침 실패");
+                println!("   ❌ [TOKEN] refresh_failed=true");
             }
         }
 
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            println!("   ❌ Google Sheets API 오류 - 상태: {}, 응답: {}", status, body);
+            println!("   ❌ [SHEETS_API] error=true status={} response={}", status, body);
             if status == StatusCode::UNAUTHORIZED {
                 return Err(ApiError::unauthorized("Google 인증이 만료되었습니다. 다시 로그인해주세요."));
             }
@@ -97,11 +94,11 @@ impl SheetsService {
         }
 
         let text = resp.text().await.unwrap_or_default();
-        println!("   📄 Google Sheets 응답 길이: {} bytes", text.len());
-    println!("   📄 응답 시작 부분: {}", &text.chars().take(200).collect::<String>());
+        let preview = &text.chars().take(200).collect::<String>();
+        println!("   📄 [RESPONSE] length={} preview={}", text.len(), preview);
         let result = sheets_parser::parse_gviz_json(&text)
             .map_err(|e| {
-                println!("   ❌ JSON 파싱 오류: {:?}", e);
+                println!("   ❌ [PARSE] json_error={:?}", e);
                 e
             })?;
 
@@ -109,7 +106,7 @@ impl SheetsService {
     let sheets_cache_ttl: i64 = 30; // seconds
     let _ = crate::auth::redis_cache::set_sheets_cache(&cache_key, &result.to_string(), sheets_cache_ttl).await;
 
-        println!("   ✅ 쿼리 성공, 결과 반환");
+        println!("   ✅ [QUERY] success=true");
         Ok((StatusCode::OK, Json(result)).into_response())
     }
 

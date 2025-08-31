@@ -3,41 +3,40 @@ use crate::types::ApiError;
 
 // GViz(JSONP) 응답 텍스트에서 JSON 객체만 추출하여 파싱
 pub fn parse_gviz_json(text: &str) -> Result<Value, ApiError> {
-    println!("   🔧 [PARSER] GViz JSON 파싱 시작");
-    println!("   📄 원본 텍스트 길이: {} bytes", text.len());
+    println!("   🔧 [PARSER] action=start original_length={} bytes", text.len());
     
     let json_start = text.find('{')
         .ok_or_else(|| {
-            println!("   ❌ JSON 시작 '{{' 찾을 수 없음");
+            println!("   ❌ [PARSER] error=json_start_not_found");
             ApiError::bad_gateway("PARSE_FAILED", "GViz 응답에서 JSON 시작 위치를 찾지 못했습니다.")
         })?;
     let json_end = text.rfind('}')
         .ok_or_else(|| {
-            println!("   ❌ JSON 종료 '}}' 찾을 수 없음");
+            println!("   ❌ [PARSER] error=json_end_not_found");
             ApiError::bad_gateway("PARSE_FAILED", "GViz 응답에서 JSON 종료 위치를 찾지 못했습니다.")
         })?;
     
     if json_end < json_start {
-        println!("   ❌ JSON 범위 오류: start={}, end={}", json_start, json_end);
+        println!("   ❌ [PARSER] error=json_range_invalid start={} end={}", json_start, json_end);
         return Err(ApiError::bad_gateway("PARSE_FAILED", "GViz 응답의 JSON 범위가 올바르지 않습니다."));
     }
     
     let json_str = &text[json_start..=json_end];
-    println!("   📄 추출된 JSON 길이: {} bytes", json_str.len());
-    println!("   📄 JSON 미리보기: {}", &json_str.chars().take(100).collect::<String>());
+    let preview = &json_str.chars().take(100).collect::<String>();
+    println!("   📄 [PARSER] extracted_length={} bytes preview={}", json_str.len(), preview);
     
     let result = serde_json::from_str::<Value>(json_str)
         .map_err(|e| {
-            println!("   ❌ JSON 파싱 실패: {}", e);
+            println!("   ❌ [PARSER] error=json_parse_failed details={}", e);
             ApiError::bad_gateway("PARSE_FAILED", format!("JSON 파싱 실패: {}", e))
         })?;
     
-    println!("   ✅ JSON 파싱 성공");
-    if let Some(table) = result.get("table") {
-        if let Some(rows) = table.get("rows").and_then(|r| r.as_array()) {
-            println!("   📊 결과 행 수: {}", rows.len());
-        }
-    }
+    let row_count = if let Some(table) = result.get("table") {
+        table.get("rows").and_then(|r| r.as_array()).map(|rows| rows.len()).unwrap_or(0)
+    } else {
+        0
+    };
+    println!("   ✅ [PARSER] success=true row_count={}", row_count);
     
     Ok(result)
 }

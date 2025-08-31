@@ -20,7 +20,7 @@ export default function LoadingButton({
       type={type}
       onClick={onClick}
       disabled={loading || disabled}
-      className={`${className} ${loading || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={`button ${className} ${loading || disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       {loading ? (
         <>처리중...</>

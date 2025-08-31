@@ -257,7 +257,7 @@ impl AuthService {
             "user": {
                 "name": name,
                 "email": email,
-                "role": role_for_jwt
+                "roles": [role_for_jwt]
             }
         });
 

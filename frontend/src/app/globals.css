@@ -21,6 +21,7 @@ body {
 }
 
 @media (max-width: 768px) {
+
   /* 스크롤바 자체를 숨기기 */
   ::-webkit-scrollbar {
     display: none;
@@ -39,84 +40,93 @@ a {
 }
 
 a,
-button,
+.button,
 input {
   @apply cursor-pointer;
 }
+
 select,
 input,
 textarea {
   @apply bg-gray-90 border border-gray-80 w-[100%];
 }
 
-button,
+.button,
 select,
 input,
 textarea {
   @apply rounded-[1rem] px-[1rem] py-[0.5rem];
 }
 
-button.small,
+.button.small,
 input.small,
 select.small {
   @apply px-[0.5rem] py-[0.25rem] text-sm;
 }
-button.border,
+
+.button.border,
 input.border,
 select.border {
   @apply border border-gray-50;
 }
 
-button {
+.button {
   @apply whitespace-nowrap;
 }
-button.white {
+
+.button.white {
   @apply bg-white;
 }
-/*button.white:hover {
+
+/*.button.white:hover {
   @apply bg-purple;
 }*/
 
-button.gray {
+.button.gray {
   @apply bg-gray-80;
 }
-/*button.gray:hover {
+
+/*.button.gray:hover {
   @apply bg-gray-50;
 }*/
 
-button.purple {
+.button.purple {
   @apply bg-deep-purple text-white;
 }
-/*button.purple:hover {
+
+/*.button.purple:hover {
   @apply bg-dark-purple;
 }*/
 
-button.red {
+.button.red {
   @apply bg-deep-red text-white;
 }
-/*button.red:hover {
+
+/*.button.red:hover {
   @apply bg-dark-red;
 }*/
 
-button.blur-white {
+.button.blur-white {
   @apply backdrop-blur-[0.1rem] bg-white/50;
 }
-/*button.blur-white:hover {
+
+/*.button.blur-white:hover {
   @apply bg-purple/75;
 }*/
-button:disabled {
+.button:disabled {
   @apply pointer-events-none opacity-50;
 }
 
-button.blur-blue {
+.button.blur-purple {
   @apply backdrop-blur-[0.1rem] bg-dark-purple/50 text-white;
 }
 
-button.blur-red {
+.button.blur-red {
   @apply backdrop-blur-[0.1rem] bg-dark-red/50 text-white;
 }
-button.shadow {
-  @apply shadow-[0px_0px_0.5rem_rgba(0,0,0,0.1)];
+
+.button.shadow {
+  box-shadow: 0px 0px 0.5rem rgba(0, 0, 0, 0.1);
 }
 
 select {
@@ -134,6 +144,7 @@ textarea {
 table {
   @apply table-auto border-collapse overflow-x-auto text-center w-full;
 }
+
 table.small {
   @apply text-sm;
 }
