@@ -4,6 +4,7 @@ import Pagination from "@/components/Pagination";
 
 interface PaymentTableProps {
   requests: PaymentRequest[];
+  totalCount: number;
   editingId: string | null;
   editForm: Partial<PaymentRequest>;
   deletingId: string | null;
@@ -22,6 +23,7 @@ interface PaymentTableProps {
 
 export default function PaymentTable({
   requests,
+  totalCount,
   editingId,
   editForm,
   deletingId,
@@ -35,24 +37,13 @@ export default function PaymentTable({
   onUpdate,
   onDelete,
 }: PaymentTableProps) {
-  // 현재 페이지에 표시할 데이터 계산
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentPageRequests = requests.slice(startIndex, endIndex);
+  // 서버에서 이미 페이지네이션된 데이터를 받아왔으므로 추가 슬라이스 불필요
+  // requests는 현재 페이지의 데이터만 포함함
+  const currentPageRequests = requests;
 
-  // 총 페이지 수 계산
-  const totalPages = Math.ceil(requests.length / itemsPerPage) || 1;
+  // 총 페이지 수 계산 (서버 사이드 페이지네이션을 위해 totalCount 사용)
+  const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
 
-  // 디버깅 정보
-  console.log("PaymentTable:", {
-    totalRequests: requests.length,
-    currentPage,
-    itemsPerPage,
-    totalPages,
-    startIndex,
-    endIndex,
-    currentPageRequestsLength: currentPageRequests.length,
-  });
 
   if (requests.length === 0) {
     return (
@@ -108,7 +99,7 @@ export default function PaymentTable({
           totalPages={totalPages}
           onPageChange={onPageChange}
           itemsPerPage={itemsPerPage}
-          totalItems={requests.length}
+          totalItems={totalCount}
         />
       </div>
     </div>

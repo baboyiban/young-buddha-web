@@ -103,12 +103,12 @@ export default function PaymentTableRow({
           <>
             <button
               onClick={() => onUpdate(request)}
-              className="purple"
+              className="button purple"
               disabled={updating}
             >
               {updating ? "저장 중..." : "저장"}
             </button>
-            <button onClick={onEditCancel} className="gray" disabled={updating}>
+            <button onClick={onEditCancel} className="button gray" disabled={updating}>
               취소
             </button>
           </>
@@ -116,14 +116,14 @@ export default function PaymentTableRow({
           <>
             <button
               onClick={() => onEditStart(request)}
-              className="purple"
+              className="button purple"
               disabled={deletingId === request.id}
             >
               수정
             </button>
             <button
               onClick={() => onDelete(request)}
-              className="red"
+              className="button red"
               disabled={deletingId === request.id}
             >
               {deletingId === request.id ? "삭제 중..." : "삭제"}

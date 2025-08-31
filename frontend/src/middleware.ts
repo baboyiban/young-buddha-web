@@ -63,25 +63,27 @@ export async function middleware(request: NextRequest) {
 
   // 보호된 페이지 접근 시 인증 확인
   const jwtCookie = request.cookies.get("jwt");
-  console.log("Middleware - JWT Cookie:", jwtCookie?.value ? "exists" : "missing");
+  const hasJwt = jwtCookie?.value ? "exists" : "missing";
+  console.log(`🔐 [MIDDLEWARE] jwt_cookie=${hasJwt}`);
 
   if (!jwtCookie || !jwtCookie.value) {
     // JWT 쿠키가 없으면 로그인 페이지로 리다이렉트
-    console.log("Middleware - Redirecting to login: No JWT cookie");
+    console.log("🔐 [MIDDLEWARE] action=redirect_reason=no_jwt_cookie");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const token = jwtCookie.value;
 
   const cached = AuthCache.get(token);
-  console.log("Middleware - AuthCache result:", cached ? "cached" : "not cached");
+  const cacheStatus = cached ? "cached" : "not cached";
+  console.log(`🔐 [MIDDLEWARE] auth_cache=${cacheStatus}`);
 
   if (cached) {
     if (cached.valid) {
-      console.log("Middleware - Using cached valid token");
+      console.log("🔐 [MIDDLEWARE] action=use_cached_token status=valid");
       return NextResponse.next();
     } else {
-      console.log("Middleware - Redirecting to login: Cached but invalid");
+      console.log("🔐 [MIDDLEWARE] action=redirect_reason=cached_invalid");
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
@@ -92,15 +94,15 @@ export async function middleware(request: NextRequest) {
       cookie: `jwt=${token}`,
     });
 
-    console.log("Middleware - Fetching user info from:", meUrl);
+    console.log(`🔐 [MIDDLEWARE] action=fetch_user_info url=${meUrl}`);
     const res = await fetch(meUrl, {
       method: "GET",
       headers,
     });
 
-    console.log("Middleware - User info response status:", res.status);
+    console.log(`🔐 [MIDDLEWARE] user_info_response_status=${res.status}`);
     if (!res.ok) {
-      console.log("Middleware - User info fetch failed, caching as invalid");
+      console.log("🔐 [MIDDLEWARE] action=cache_invalid_reason=fetch_failed");
       AuthCache.set(token, { valid: false });
       return NextResponse.redirect(new URL("/login", request.url));
     }
@@ -110,7 +112,7 @@ export async function middleware(request: NextRequest) {
 
     // 관리자 보호 경로 검사
     if (pathname.startsWith("/admin")) {
-      if (!me?.role || me.role !== "ADMIN") {
+      if (!me?.roles || !me.roles.includes("ADMIN")) {
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
     }

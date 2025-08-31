@@ -44,7 +44,7 @@ export default function Pagination({
             <button
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="small gray"
+              className="button small gray"
             >
               이전
             </button>
@@ -55,7 +55,7 @@ export default function Pagination({
                 <button
                   key={pageNum}
                   onClick={() => onPageChange(pageNum)}
-                  className={`small ${pageNum === currentPage ? "purple" : ""}`}
+                  className={`button small ${pageNum === currentPage ? "purple" : ""}`}
                 >
                   {pageNum}
                 </button>
@@ -66,7 +66,7 @@ export default function Pagination({
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="small gray"
+              className="button small gray"
             >
               다음
             </button>
