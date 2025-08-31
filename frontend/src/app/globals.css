@@ -130,7 +130,7 @@ select.border {
 }
 
 select {
-  @apply appearance-none;
+  @apply appearance-none min-w-max;
 }
 
 textarea {
