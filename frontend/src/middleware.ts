@@ -38,6 +38,8 @@ export async function middleware(request: NextRequest) {
           const res = await fetch(meUrl, {
             method: "GET",
             headers,
+            // 타임아웃으로 무한 대기 방지
+            signal: (AbortSignal as any).timeout ? (AbortSignal as any).timeout(4000) : undefined,
           });
 
           if (res.ok) {
@@ -98,6 +100,8 @@ export async function middleware(request: NextRequest) {
     const res = await fetch(meUrl, {
       method: "GET",
       headers,
+      // 타임아웃으로 무한 대기 방지
+      signal: (AbortSignal as any).timeout ? (AbortSignal as any).timeout(4000) : undefined,
     });
 
     console.log(`🔐 [MIDDLEWARE] user_info_response_status=${res.status}`);

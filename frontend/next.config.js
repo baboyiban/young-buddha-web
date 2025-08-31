@@ -1,9 +1,12 @@
 /** @type {import('next').NextConfig} */
 
-// 환경 변수에서 백엔드 URL 가져오기 (런타임에 결정)
+// 환경 변수에서 백엔드 URL 가져오기 (빌드 시 결정)
+// NOTE: Next의 rewrites는 빌드 시 구성되므로, 프로덕션 기본값을 backend 서비스로 둡니다.
 const getBackendOrigin = () => {
-  // Docker 환경에서는 내부 서비스 주소를 사용하고, 그렇지 않으면 localhost를 사용
-  return process.env.BACKEND_INTERNAL_URL || "http://localhost:8080";
+  const fromEnv = process.env.BACKEND_INTERNAL_URL;
+  if (fromEnv && fromEnv.trim()) return fromEnv;
+  const isProd = process.env.NODE_ENV === "production";
+  return isProd ? "http://backend:8080" : "http://localhost:8080";
 };
 
 const nextConfig = {
