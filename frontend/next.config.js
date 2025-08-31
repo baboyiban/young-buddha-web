@@ -7,6 +7,8 @@ const getBackendOrigin = () => {
 };
 
 const nextConfig = {
+  // Docker runner 단계에서 .next/standalone을 사용하기 위해 필요
+  output: "standalone",
   // 이미지 최적화 설정
   images: {
     domains: ["lh3.googleusercontent.com"],
