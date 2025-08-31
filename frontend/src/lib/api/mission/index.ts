@@ -12,17 +12,17 @@ const SHEET_CONFIG = {
 const MISSION_INDICES = {
   date: 0, // A
   dayOfWeek: 1, // B
-  morningMeal: [2, 3, 4] as const, // C, D, E
-  morningHelper: [5, 6] as const, // F, G
-  morningDishes: [7, 8, 9] as const, // H, I, J
+  morningMeal: [2, 3, 4, 5] as const, // C, D, E, F (발공 당번 4칸)
+  morningHelper: [6, 7] as const, // G, H (바라지 2칸)
+  morningDishes: [8, 9, 10] as const, // I, J, K (설거지 3칸)
   laundry: {
-    wash: 10, // K
-    hang: 11, // L
-    fold: 12, // M
+    wash: 11, // L (애벌)
+    hang: 12, // M (널기)
+    fold: 13, // N (개기)
   },
-  afternoonCushion: [13, 14] as const, // N, O
-  eveningMeal: [15, 16, 17] as const, // P, Q, R
-  eveningCushion: 18, // S
+  afternoonCushion: [14, 15] as const, // O, P (사시예불 전 방석깔기 2칸)
+  eveningMeal: [16, 17, 18] as const, // Q, R, S (저녁공당 3칸)
+  eveningCushion: 19, // T (저녁예불 방석 한줄깔기 1칸)
 } as const;
 
 export async function fetchMissionData(): Promise<MissionData> {
