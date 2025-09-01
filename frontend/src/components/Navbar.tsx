@@ -2,12 +2,17 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const isAdmin = user?.roles?.includes("ADMIN");
 
   const navItems = [
     { href: "/", label: "홈", path: "/" },
+    ...(isAdmin ? [{ href: "/admin", label: "관리자 화면", path: "/admin" }] : []),
     { href: "/mission", label: "생활소임 일정표", path: "/mission" },
     { href: "/payment", label: "일정불참 결재시트", path: "/payment" },
     { href: "/privacy", label: "개인정보 처리방침", path: "/privacy" },
