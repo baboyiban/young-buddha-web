@@ -35,6 +35,9 @@ export default function PaymentPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // 테스트를 위해 3개로 설정 (나중에 10으로 변경)
 
+  // 타입 필터 상태 추가
+  const [typeFilter, setTypeFilter] = useState<"전체" | "정기" | "비정기">("전체");
+
   const [form, setForm] = useState<PaymentRequest>({
     id: "",
     email: "",
@@ -67,12 +70,17 @@ export default function PaymentPage() {
 
     setLoading(true);
     try {
+
+      const typeFilterParam = typeFilter === "전체" ? undefined : typeFilter;
+
       const { data, totalCount } = await fetchFilteredPayments(
         user.email,
         false, // skipNameLookup: false (기본값)
         currentPage,
         itemsPerPage,
-        "전체" // statusFilter: "대기"만 표시
+        "전체", // statusFilter: "전체" 표시
+        typeFilterParam,
+        "desc" // sortOrder: 최신순
       );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
@@ -88,11 +96,11 @@ export default function PaymentPage() {
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user, currentPage, itemsPerPage]);
+  }, [authLoading, user, currentPage, itemsPerPage, typeFilter]);
 
   useEffect(() => {
     loadPayments();
-  }, [user, authLoading, loadPayments]);
+  }, [user, authLoading, loadPayments, typeFilter]);
 
   // 페이지 변경 핸들러
   const handlePageChange = (page: number) => {
@@ -101,6 +109,11 @@ export default function PaymentPage() {
     if (editingId) {
       handleEditCancel();
     }
+  };
+
+  const handleTypeFilterChange = (type: "전체" | "정기" | "비정기") => {
+    setTypeFilter(type);
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로 이동
   };
 
   const handleFormChange = (
@@ -206,12 +219,14 @@ export default function PaymentPage() {
           updating={updating}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          typeFilter={typeFilter}
           onPageChange={handlePageChange}
           onEditChange={handleEditChange}
           onEditStart={handleEditStart}
           onEditCancel={handleEditCancel}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          onTypeFilterChange={handleTypeFilterChange}
         />
       </div>
     </div>
