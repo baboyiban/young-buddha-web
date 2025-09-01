@@ -72,7 +72,7 @@ export default function PaymentTable({
 
   return (
     <div className="mx-[0.5rem] bg-white rounded-[1rem] flex flex-col items-center">
-      <div className="p-[1rem] flex flex-col space-y-[0.75rem] items-center w-[60rem] max-w-full">
+      <div className="m-[1rem] flex flex-col space-y-[0.75rem] items-center w-[60rem] max-w-full">
         {/* 타입 필터 선택 UI - admin 페이지 스타일 참고 */}
         <div className="flex gap-[0.5rem] self-start">
           <select
@@ -91,9 +91,6 @@ export default function PaymentTable({
           <table className="max-w-full text-sm">
             <thead>
               <tr>
-                <th className="">이메일</th>
-                <th className="">아이디</th>
-                <th className="">이름</th>
                 <th className="">구분</th>
                 <th className="">신청 날짜</th>
                 <th className="">불참일</th>
