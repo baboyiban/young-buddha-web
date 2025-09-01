@@ -47,3 +47,9 @@ data.db
 .idea/
 *.swp
 *~
+
+# Kilo Code
+.kilocode/
+
+# Secret files
+backend/keys/

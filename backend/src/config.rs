@@ -15,6 +15,10 @@ pub struct AppConfig {
     // User sheet location for role/name lookup
     pub user_sheet_spreadsheet_id: Option<String>,
     pub user_sheet_name: Option<String>,
+    // 관리자 계정 추가 (서비스 계정으로 전환)
+    pub admin_email: Option<String>,
+    // Google 서비스 계정 키 파일 경로
+    pub google_service_account_key_path: Option<String>,
 }
 
 impl AppConfig {
@@ -66,6 +70,8 @@ impl AppConfig {
             frontend_url,
             user_sheet_spreadsheet_id: env::var("USER_SHEET_SPREADSHEET_ID").ok(),
             user_sheet_name: env::var("USER_SHEET_NAME").ok(),
+            admin_email: env::var("ADMIN_EMAIL").ok(),
+            google_service_account_key_path: env::var("GOOGLE_SERVICE_ACCOUNT_KEY_PATH").ok(),
         }
     }
 

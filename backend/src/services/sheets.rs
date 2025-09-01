@@ -1,5 +1,5 @@
 use crate::types::{AppState, QueryParams, CommonParams, ApiError};
-use crate::auth_tokens::{authenticate_and_get_token, refresh_user_access_token};
+use crate::auth_tokens::{get_admin_token};
 use crate::routes::sheets_client;
 use crate::routes::sheets_parser;
 use axum::http::{HeaderMap, StatusCode};
@@ -14,14 +14,14 @@ pub struct SheetsService;
 impl SheetsService {
     pub async fn query_sheet(
         state: Arc<AppState>,
-        headers: HeaderMap,
         params: QueryParams,
     ) -> Result<axum::response::Response, ApiError> {
         println!("🔍 [SHEETS_QUERY] 요청 시작 spreadsheet_id={} sheet_name={} query={}", params.spreadsheet_id, params.sheet_name, params.query);
 
-        // 1. 인증 및 토큰 검증
-        let (email, mut user_token) = authenticate_and_get_token(&headers, &state).await?;
-        println!("   👤 [AUTH] user={}", email);
+        // 1. 관리자 토큰 가져오기
+        println!("🔑 [SHEETS_SERVICE] Getting admin token...");
+        let user_token = get_admin_token(&state).await?;
+        println!("✅ [SHEETS_SERVICE] Admin token obtained: {}", format!("{}...", &user_token[..20]));
 
         let client = &state.http_client;
 
@@ -56,6 +56,7 @@ impl SheetsService {
             urlencoding::encode(&params.sheet_name)
         );
         println!("   🌐 [URL] sheets_url={}", url);
+        println!("   🔑 [TOKEN] Using token: {}", format!("{}...", &user_token[..20]));
 
         let mut resp = client.get(&url).bearer_auth(&user_token).send().await
             .map_err(|e| {
@@ -68,18 +69,10 @@ impl SheetsService {
         // 401 Unauthorized이면 토큰 새로고침 후 한 번 재시도
         if resp.status() == StatusCode::UNAUTHORIZED {
             println!("   🔄 [TOKEN] expired=true refresh_attempted=true");
-            if let Some(new_token) = refresh_user_access_token(client, &state.db_path, &email).await {
-                user_token = new_token;
-                println!("   ✅ [TOKEN] refresh_success=true retry_attempted=true");
-                resp = client.get(&url).bearer_auth(&user_token).send().await
-                    .map_err(|e| {
-                        println!("   ❌ [RETRY] request_failed error={}", e);
-                        ApiError::bad_gateway("NETWORK_FAILED", format!("네트워크 요청 실패: {}", e))
-                    })?;
-                println!("   📡 [RETRY] response_status={}", resp.status());
-            } else {
-                println!("   ❌ [TOKEN] refresh_failed=true");
-            }
+            // 관리자 토큰은 환경변수에서 직접 설정되므로 갱신 로직이 다름
+            // 현재는 단순히 에러를 반환하거나, 향후 관리자 토큰 갱신 로직 구현 필요
+            println!("   ❌ [TOKEN] admin_token_refresh_not_supported=true");
+            return Err(ApiError::unauthorized("관리자 토큰이 만료되었습니다. 환경변수를 업데이트해주세요."));
         }
 
         if !resp.status().is_success() {
@@ -112,11 +105,10 @@ impl SheetsService {
 
     pub async fn create_with_query(
         state: Arc<AppState>,
-        headers: HeaderMap,
         params: CommonParams,
     ) -> Result<axum::response::Response, ApiError> {
-        // 1. 인증 및 토큰 검증
-        let (_email, user_token) = authenticate_and_get_token(&headers, &state).await?;
+        // 1. 관리자 토큰 가져오기
+        let user_token = get_admin_token(&state).await?;
 
         let client = &state.http_client;
 
@@ -131,11 +123,10 @@ impl SheetsService {
 
     pub async fn update_with_query(
         state: Arc<AppState>,
-        headers: HeaderMap,
         params: CommonParams,
     ) -> Result<axum::response::Response, ApiError> {
-        // 1. 인증 및 토큰 검증
-        let (_email, user_token) = authenticate_and_get_token(&headers, &state).await?;
+        // 1. 관리자 토큰 가져오기
+        let user_token = get_admin_token(&state).await?;
 
         let client = &state.http_client;
 
@@ -168,11 +159,10 @@ impl SheetsService {
 
     pub async fn delete_by_query(
         state: Arc<AppState>,
-        headers: HeaderMap,
         params: CommonParams,
     ) -> Result<axum::response::Response, ApiError> {
-        // 1. 인증 및 토큰 검증
-        let (_email, user_token) = authenticate_and_get_token(&headers, &state).await?;
+        // 1. 관리자 토큰 가져오기
+        let user_token = get_admin_token(&state).await?;
 
         let client = &state.http_client;
 
