@@ -368,7 +368,7 @@ impl AuthService {
             Err(_) => return (None, None),
         };
 
-        let query = format!("SELECT B,C WHERE A = '{}'", email.replace("'", "''"));
+        let query = format!("SELECT B,C,D WHERE A = '{}'", email.replace("'", "''"));
         let url = format!(
             "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
             spreadsheet_id,
