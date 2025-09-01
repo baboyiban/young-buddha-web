@@ -18,13 +18,6 @@ export default function Pagination({
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
-  // 디버깅을 위해 항상 정보를 표시
-  console.log("Pagination:", {
-    currentPage,
-    totalPages,
-    totalItems,
-    itemsPerPage,
-  });
 
   return (
     <div className="flex items-center justify-center">
