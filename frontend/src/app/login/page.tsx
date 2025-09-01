@@ -15,10 +15,17 @@ function LoginContent() {
 
   useEffect(() => {
     const loginStatus = searchParams.get("login");
+    const errorMessage = searchParams.get("message");
+    
     if (loginStatus === "success") {
       router.replace("/");
     } else if (loginStatus === "error") {
-      alert("로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
+      if (errorMessage) {
+        alert(decodeURIComponent(errorMessage));
+      } else {
+        alert("로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
+      }
+      // 에러 메시지를 표시한 후 쿼리 파라미터 제거
       router.replace("/login");
     }
   }, [searchParams, router]);

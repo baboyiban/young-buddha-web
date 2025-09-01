@@ -242,8 +242,15 @@ impl AuthService {
         let jwt_secret = state.jwt_secret.as_ref()
             .ok_or_else(|| ApiError::internal_error("JWT_SECRET not configured"))?;
 
-        // Resolve role/name from user sheet (with cache). Default role is USER.
+        // Resolve role/name from user sheet (with cache). Reject login if user not found in spreadsheet.
         let (resolved_name, resolved_role) = Self::resolve_user_profile_from_sheet(state.clone(), &email).await;
+        
+        // 사용자가 스프레드시트에 없으면 로그인 거부
+        if resolved_name.is_none() && resolved_role.is_none() {
+            tracing::error!("User not found in spreadsheet: {}", email);
+            return Err(ApiError::unauthorized("스프레드시트에 등록되지 않은 사용자입니다. 관리자에게 문의해주세요."));
+        }
+        
         if let Some(n) = resolved_name { name = n; }
         let role_for_jwt = resolved_role.unwrap_or_else(|| "USER".to_string());
 
