@@ -14,24 +14,9 @@ RUN apk add --no-cache \
 # 작업 디렉터리 설정
 WORKDIR /app
 
-# Cargo.lock과 Cargo.toml을 먼저 복사하여 의존성 캐시 활용
+# 실제 소스 복사 후 빌드
 COPY Cargo.toml Cargo.lock ./
-
-# 더미 main.rs와 lib.rs 생성 (의존성 빌드를 위해 필요)
-RUN mkdir -p src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "" > src/lib.rs
-
-# 의존성 먼저 빌드 (캐시 활용)
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/target \
-    cargo build --release && \
-    rm -rf src
-
-# 소스 코드 복사
 COPY src ./src
-
-# 애플리케이션 빌드
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/app/target \
     cargo build --release && \
@@ -44,7 +29,9 @@ FROM --platform=linux/amd64 alpine:3.19 AS runtime
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
-    wget && \
+    su-exec \
+    wget \
+    openssl && \
     update-ca-certificates
 
 # 애플리케이션 사용자/그룹 생성 (명시적 그룹 추가)
@@ -56,9 +43,18 @@ WORKDIR /app
 # 빌드된 바이너리 복사 (숫자 UID:GID 사용으로 그룹 인식 문제 회피)
 COPY --from=builder --chown=1001:1001 /app/young-buddha-backend /app/young-buddha-backend
 
+# 키 파일 복사
+COPY keys /app/keys/
+
 # 데이터 및 키 디렉터리 생성 및 권한 설정
-RUN mkdir -p /app/data /app/keys && chmod -R 775 /app/data /app/keys && chown -R 1001:1001 /app/data /app/keys
+RUN mkdir -p /app/data \
+    && chmod -R 755 /app/data \
+    && chmod -R go-rwx /app/keys || true \
+    && chown -R 1001:1001 /app/data /app/keys
+
+# 런타임 기본 환경 (조정 가능)
+ENV RUST_LOG=${RUST_LOG:-info} \
+    RUST_BACKTRACE=1
 
 # 애플리케이션 실행
-USER appuser
-ENTRYPOINT ["/app/young-buddha-backend"]
+CMD ["/app/young-buddha-backend"]
