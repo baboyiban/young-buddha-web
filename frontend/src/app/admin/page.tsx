@@ -294,7 +294,7 @@ export default function AdminPage() {
               onChange={(e) => handleFilterChange(e.target.value)}
               className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
             >
-              <option value="전체">전체 상태</option>
+              <option value="전체">전체</option>
               <option value="대기">대기 중</option>
               <option value="승인">승인됨</option>
               <option value="반려">반려됨</option>
