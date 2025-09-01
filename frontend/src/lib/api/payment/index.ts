@@ -85,7 +85,6 @@ export async function fetchFilteredPayments(
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
       query = `select * where J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     }
-    console.log(`🔍 [ADMIN_QUERY] userEmail=${userEmail} page=${page} limit=${limit} statusFilter=${statusFilter} offset=${offset} query=${query}`);
   } else {
     const safeUserEmail = escapeSheetQueryString(userEmail).slice(0, 200);
     // B열(이메일)을 기준으로 검색 (페이지네이션 및 필터링 적용)
@@ -96,7 +95,6 @@ export async function fetchFilteredPayments(
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
       query = `select * where B = '${safeUserEmail}' and J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
     }
-    console.log(`🔍 [USER_QUERY] userEmail=${userEmail} page=${page} limit=${limit} statusFilter=${statusFilter} offset=${offset} query=${query}`);
   }
 
   const data = (await sheetsRead(
@@ -106,7 +104,6 @@ export async function fetchFilteredPayments(
   )) as SheetsData;
 
   const rowsCount = data.table?.rows?.length || 0;
-  console.log(`📊 [QUERY_RESULT] rowsCount=${rowsCount} query=${query} hasData=${!!data.table?.rows?.length}`);
 
   const rows = data.table?.rows ?? [];
 
@@ -295,7 +292,6 @@ async function getTotalPaymentCount(
 ): Promise<number> {
   try {
     let countQuery = "";
-    console.log(`🔢 [COUNT_QUERY] userEmail=${userEmail} statusFilter=${statusFilter}`);
 
     if (!userEmail) {
       // 전체 데이터 개수 조회 (첫 번째 행 제외, 필터링 적용)
@@ -323,7 +319,6 @@ async function getTotalPaymentCount(
     )) as SheetsData;
 
     const count = data.table?.rows?.[0]?.c?.[0]?.v || 0;
-    console.log(`📊 [COUNT_RESULT] count=${count} query=${countQuery}`);
 
     const rows = data.table?.rows ?? [];
     if (rows.length > 0 && rows[0].c && rows[0].c[0]?.v) {

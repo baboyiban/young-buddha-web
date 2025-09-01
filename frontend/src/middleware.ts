@@ -66,11 +66,9 @@ export async function middleware(request: NextRequest) {
   // 보호된 페이지 접근 시 인증 확인
   const jwtCookie = request.cookies.get("jwt");
   const hasJwt = jwtCookie?.value ? "exists" : "missing";
-  console.log(`🔐 [MIDDLEWARE] jwt_cookie=${hasJwt}`);
 
   if (!jwtCookie || !jwtCookie.value) {
     // JWT 쿠키가 없으면 로그인 페이지로 리다이렉트
-    console.log("🔐 [MIDDLEWARE] action=redirect_reason=no_jwt_cookie");
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -78,14 +76,11 @@ export async function middleware(request: NextRequest) {
 
   const cached = AuthCache.get(token);
   const cacheStatus = cached ? "cached" : "not cached";
-  console.log(`🔐 [MIDDLEWARE] auth_cache=${cacheStatus}`);
 
   if (cached) {
     if (cached.valid) {
-      console.log("🔐 [MIDDLEWARE] action=use_cached_token status=valid");
       return NextResponse.next();
     } else {
-      console.log("🔐 [MIDDLEWARE] action=redirect_reason=cached_invalid");
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
@@ -96,7 +91,6 @@ export async function middleware(request: NextRequest) {
       cookie: `jwt=${token}`,
     });
 
-    console.log(`🔐 [MIDDLEWARE] action=fetch_user_info url=${meUrl}`);
     const res = await fetch(meUrl, {
       method: "GET",
       headers,
@@ -104,9 +98,7 @@ export async function middleware(request: NextRequest) {
       signal: (AbortSignal as any).timeout ? (AbortSignal as any).timeout(4000) : undefined,
     });
 
-    console.log(`🔐 [MIDDLEWARE] user_info_response_status=${res.status}`);
     if (!res.ok) {
-      console.log("🔐 [MIDDLEWARE] action=cache_invalid_reason=fetch_failed");
       AuthCache.set(token, { valid: false });
       return NextResponse.redirect(new URL("/login", request.url));
     }
