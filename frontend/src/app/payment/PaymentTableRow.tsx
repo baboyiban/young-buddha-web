@@ -31,9 +31,6 @@ export default function PaymentTableRow({
 }: PaymentTableRowProps) {
   return (
     <tr className="">
-      <td className="">{request.email}</td>
-      <td className="">{request.userId}</td>
-      <td className="">{request.name}</td>
       <td className="">
         {isEditing ? (
           <select
