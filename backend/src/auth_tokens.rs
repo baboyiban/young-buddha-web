@@ -199,14 +199,16 @@ pub async fn refresh_user_access_token(
     Some(new_access)
 }
 
-// Re-expose Redis-backed JWT cache helpers so other modules use auth_tokens as the
-// single place for authentication/token related functionality.
-#[allow(dead_code)]
-pub async fn get_cached_jwt(token: &str) -> Option<serde_json::Value> {
-    crate::auth::redis_cache::get_cached_jwt(token).await
-}
+// 관리자 토큰을 가져오는 함수 (서비스 계정으로 전환)
+pub async fn get_admin_token(state: &AppState) -> Result<String, ApiError> {
+    // 서비스 계정 키 파일 경로 확인
+    let key_path = state.config.google_service_account_key_path
+        .as_ref()
+        .ok_or_else(|| ApiError::unauthorized("GOOGLE_SERVICE_ACCOUNT_KEY_PATH가 설정되지 않았습니다."))?;
 
-#[allow(dead_code)]
-pub async fn store_valid_jwt(token: &str, cached_obj: serde_json::Value) -> Result<(), ()> {
-    crate::auth::redis_cache::store_valid_jwt(token, cached_obj).await
+    // 서비스 계정 인증 클라이언트 생성
+    let mut service_account_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(key_path.clone());
+    
+    // 서비스 계정에서 액세스 토큰 가져오기
+    service_account_auth.get_access_token().await
 }

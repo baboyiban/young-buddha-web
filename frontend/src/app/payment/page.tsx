@@ -72,7 +72,7 @@ export default function PaymentPage() {
         false, // skipNameLookup: false (기본값)
         currentPage,
         itemsPerPage,
-        "대기" // statusFilter: "대기"만 표시
+        "전체" // statusFilter: "대기"만 표시
       );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,

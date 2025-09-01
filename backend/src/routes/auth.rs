@@ -45,7 +45,7 @@ async fn google_login(
         .config
         .get_google_redirect_uri()
         .map_err(|e| ApiError::internal_error(e.to_string()))?;
-    let scope = "openid email profile https://www.googleapis.com/auth/spreadsheets";
+    let scope = "openid email";
 
     let auth_url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth?{}",

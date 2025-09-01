@@ -56,8 +56,8 @@ WORKDIR /app
 # 빌드된 바이너리 복사 (숫자 UID:GID 사용으로 그룹 인식 문제 회피)
 COPY --from=builder --chown=1001:1001 /app/young-buddha-backend /app/young-buddha-backend
 
-# 데이터 디렉터리 생성 및 권한 설정
-RUN mkdir -p /app/data && chmod -R 775 /app/data && chown -R 1001:1001 /app/data
+# 데이터 및 키 디렉터리 생성 및 권한 설정
+RUN mkdir -p /app/data /app/keys && chmod -R 775 /app/data /app/keys && chown -R 1001:1001 /app/data /app/keys
 
 # 애플리케이션 실행
 USER appuser
