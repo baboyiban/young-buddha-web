@@ -9,7 +9,9 @@ export default function Navbar() {
   const navItems = [
     { href: "/", label: "홈", path: "/" },
     { href: "/mission", label: "생활소임 일정표", path: "/mission" },
-    // { href: "/payment", label: "일정불참 결재시트", path: "/payment" },
+    { href: "/payment", label: "일정불참 결재시트", path: "/payment" },
+    { href: "/privacy", label: "개인정보 처리방침", path: "/privacy" },
+    { href: "/terms", label: "이용약관", path: "/terms" },
   ];
 
   return (
@@ -18,7 +20,7 @@ export default function Navbar() {
         <Link
           key={item.path}
           href={item.href}
-          className={`button ${pathname === item.path ? "blur-purple" : "blur-white"} px-[1rem] py-[0.5rem] rounded-[1rem]`}
+          className={`button ${pathname === item.path ? "backdrop-blur-[0.25rem] bg-dark-purple/50 text-white" : "backdrop-blur-[0.25rem] bg-black/[0.1]"} px-[1rem] py-[0.5rem] rounded-[1rem]`}
         >
           {item.label}
         </Link>

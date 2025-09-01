@@ -83,7 +83,7 @@ export async function fetchFilteredPayments(
       query = `select * order by F ${sortOrder} limit ${limit} offset ${offset + 1}`;
     } else {
       const safeStatus = escapeSheetQueryString(statusFilter).slice(0, 50);
-      query = `select * where J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset}`;
+      query = `select * where J = '${safeStatus}' order by F ${sortOrder} limit ${limit} offset ${offset + 1}`;
     }
   } else {
     const safeUserEmail = escapeSheetQueryString(userEmail).slice(0, 200);
@@ -323,9 +323,9 @@ async function getTotalPaymentCount(
     const rows = data.table?.rows ?? [];
     if (rows.length > 0 && rows[0].c && rows[0].c[0]?.v) {
       const totalCount = Number(rows[0].c[0].v) || 0;
-      // 헤더 행을 제외하기 위해 1을 뺍니다 (관리자 모드에서만, 그리고 statusFilter가 "전체"일 때만)
-      // 일반 사용자 모드나 필터가 적용된 경우 where 절이 헤더를 제외하므로 뺄 필요 없음
-      if (!userEmail && statusFilter === "전체") {
+      // 헤더 행을 제외하기 위해 1을 뺍니다 (관리자 모드에서만)
+      // 일반 사용자 모드에서는 where 절이 헤더를 제외하므로 뺄 필요 없음
+      if (!userEmail) {
         return Math.max(0, totalCount - 1);
       }
       return totalCount;

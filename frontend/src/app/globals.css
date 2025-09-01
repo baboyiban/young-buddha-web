@@ -78,51 +78,20 @@ select.border {
   @apply bg-white;
 }
 
-/*.button.white:hover {
-  @apply bg-purple;
-}*/
-
 .button.gray {
   @apply bg-gray-80;
 }
-
-/*.button.gray:hover {
-  @apply bg-gray-50;
-}*/
 
 .button.purple {
   @apply bg-deep-purple text-white;
 }
 
-/*.button.purple:hover {
-  @apply bg-dark-purple;
-}*/
-
 .button.red {
   @apply bg-deep-red text-white;
 }
 
-/*.button.red:hover {
-  @apply bg-dark-red;
-}*/
-
-.button.blur-white {
-  @apply backdrop-blur-[0.1rem] bg-white/50;
-}
-
-/*.button.blur-white:hover {
-  @apply bg-purple/75;
-}*/
 .button:disabled {
   @apply pointer-events-none opacity-50;
-}
-
-.button.blur-purple {
-  @apply backdrop-blur-[0.1rem] bg-dark-purple/50 text-white;
-}
-
-.button.blur-red {
-  @apply backdrop-blur-[0.1rem] bg-dark-red/50 text-white;
 }
 
 .button.shadow {

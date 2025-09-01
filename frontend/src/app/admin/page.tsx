@@ -25,7 +25,7 @@ export default function AdminPage() {
   const itemsPerPage = 10;
 
   // 필터링 상태
-  const [statusFilter, setStatusFilter] = useState<string>("전체");
+  const [statusFilter, setStatusFilter] = useState<string>("대기");
 
   // 정렬 상태
   const [sortOrder, setSortOrder] = useState<string>("desc"); // desc: 최신순, asc: 오래된순
