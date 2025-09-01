@@ -4,18 +4,31 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 
+// 네비게이션 항목 타입 정의
+interface NavItem {
+  href: string;
+  label: string;
+  path: string;
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const { user } = useAuth();
 
   const isAdmin = user?.roles?.includes("ADMIN");
 
-  const navItems = [
+  // 네비게이션 항목 정의 - 그룹별로 주석 처리하여 가독성 향상
+  const navItems: NavItem[] = [
+    // 주요 기능 항목
     { href: "/", label: "홈", path: "/" },
-    ...(isAdmin ? [{ href: "/admin", label: "관리자 화면", path: "/admin" }] : []),
-    { href: "/mission", label: "생활소임 일정표", path: "/mission" },
-    { href: "/payment", label: "일정불참 결재시트", path: "/payment" },
-    { href: "/privacy", label: "개인정보 처리방침", path: "/privacy" },
+    { href: "/mission", label: "생활소임", path: "/mission" },
+    { href: "/payment", label: "결재시트", path: "/payment" },
+    
+    // 관리자 전용 항목 (조건부 추가)
+    ...(isAdmin ? [{ href: "/admin", label: "관리자", path: "/admin" }] : []),
+    
+    // 정책 및 정보 항목
+    { href: "/privacy", label: "개인정보", path: "/privacy" },
     { href: "/terms", label: "이용약관", path: "/terms" },
   ];
 
