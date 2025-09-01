@@ -2,7 +2,7 @@
 # Provides convenient commands for development and production workflows
 
 .PHONY: help dev prod stop clean logs backend frontend build \
-	prod-build prod-push prod-pull prod-up prod-down \
+	prod-build prod-push prod-pull prod-up prod-down prod-build-push prod-pull-up \
 	init-dev init-prod setup-dev setup-prod
 
 # Default target
@@ -36,6 +36,8 @@ help:
 	@echo "  make prod-pull    Pull images from registry"
 	@echo "  make prod-up      Run production stack (detached)"
 	@echo "  make prod-down    Stop production stack"
+	@echo "  make prod-build-push Build and push production images"
+	@echo "  make prod-pull-up   Pull images and start production stack"
 
 # Development environment
 dev:
@@ -261,6 +263,13 @@ prod-up:
 prod-down:
 	@echo "🔴 Stopping production stack..."
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+
+# Combined commands
+prod-build-push: prod-build prod-push
+	@echo "✅ Production images built and pushed successfully"
+
+prod-pull-up: prod-pull prod-up
+	@echo "✅ Production images pulled and stack started successfully"
 
 # Quick test commands
 test-backend:
