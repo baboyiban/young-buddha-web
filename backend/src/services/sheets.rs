@@ -2,7 +2,7 @@ use crate::types::{AppState, QueryParams, CommonParams, ApiError};
 use crate::auth_tokens::{get_admin_token};
 use crate::routes::sheets_client;
 use crate::routes::sheets_parser;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::Value;
@@ -58,7 +58,7 @@ impl SheetsService {
         println!("   🌐 [URL] sheets_url={}", url);
         println!("   🔑 [TOKEN] Using token: {}", format!("{}...", &user_token[..20]));
 
-        let mut resp = client.get(&url).bearer_auth(&user_token).send().await
+        let resp = client.get(&url).bearer_auth(&user_token).send().await
             .map_err(|e| {
                 println!("   ❌ [NETWORK] request_failed error={}", e);
                 ApiError::bad_gateway("NETWORK_FAILED", format!("네트워크 요청 실패: {}", e))

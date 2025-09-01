@@ -26,7 +26,7 @@ redis = { version = "0.32", features = ["aio", "tokio-comp"] }
 sha2 = "0.10"
 hex = "0.4"
 serde_urlencoded = "0.7.1"
-google-sheets4 = "4.0.1+20240526"
+google-sheets4 = "4.0.1"
 openssl = "0.10"
 base64 = "0.21"
 

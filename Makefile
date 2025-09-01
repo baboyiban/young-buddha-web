@@ -40,12 +40,98 @@ help:
 # Development environment
 dev:
 	@echo "🚀 Starting development environment..."
-	@./scripts/dev.sh
+	@if ! docker info > /dev/null 2>&1; then \
+		echo "❌ Docker is not running. Please start Docker and try again."; \
+		exit 1; \
+	fi
+	@if [ ! -f "backend/.env.dev" ]; then \
+		echo "⚠️  backend/.env.dev not found. Creating from example..."; \
+		cp backend/.env.example backend/.env.dev; \
+		echo "📝 Please edit backend/.env.dev with your actual values"; \
+	fi
+	@if [ ! -f "frontend/.env.development" ]; then \
+		echo "⚠️  frontend/.env.development not found. Creating from example..."; \
+		cp frontend/.env.example frontend/.env.development; \
+		echo "📝 Please edit frontend/.env.development with your actual values"; \
+	fi
+	@echo "📦 Building and starting development containers..."
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+	@echo "✅ Development environment started!"
+	@echo "🌐 Backend API: http://localhost:8080"
+	@echo "🌐 Frontend: http://localhost:3000"
+	@echo "📊 Health check: http://localhost:8080/health"
 
 # Production environment
 prod:
 	@echo "🚀 Starting production environment..."
-	@./scripts/prod.sh
+	@if ! docker info > /dev/null 2>&1; then \
+		echo "❌ Docker is not running. Please start Docker and try again."; \
+		exit 1; \
+	fi
+	@if [ ! -f "backend/.env.prod" ]; then \
+		echo "❌ backend/.env.prod not found. Please create it from the example:"; \
+		echo "   cp backend/.env.example backend/.env.prod"; \
+		echo "   Then edit with your production values"; \
+		exit 1; \
+	fi
+	@if [ ! -f "frontend/.env.production" ]; then \
+		echo "❌ frontend/.env.production not found. Please create it from the example:"; \
+		echo "   cp frontend/.env.example frontend/.env.production"; \
+		echo "   Then edit with your production values"; \
+		exit 1; \
+	fi
+	@if grep -q "your_very_secure_jwt_secret_here" backend/.env.prod; then \
+		echo "❌ ERROR: Please change the default JWT_SECRET in backend/.env.prod"; \
+		echo "   Using default secrets in production is a security risk!"; \
+		exit 1; \
+	fi
+	@echo "📦 Building production containers (this may take a while)..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml build --pull
+	@echo "🚀 Starting production services in detached mode..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+	@echo "⏳ Waiting for services to start..." && sleep 3
+	@echo "📊 Checking service status..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml ps || true
+	@NAME=young-buddha-backend-prod; \
+	echo "🔎 Waiting for backend health (up to 60s)..."; \
+	for i in {1..12}; do \
+		STATUS=$$(docker inspect -f '{{ .State.Health.Status }}' "$$NAME" 2>/dev/null || echo unknown); \
+		echo " - backend health: $$STATUS ($$i/12)"; \
+		if [ "$$STATUS" = "healthy" ]; then \
+			echo "✅ Backend is healthy"; \
+			break; \
+		fi; \
+		if [ "$$STATUS" = "unhealthy" ] || [ "$$STATUS" = "restarting" ] || [ "$$STATUS" = "exited" ]; then \
+			echo "📌 Backend logs (last 80 lines):"; \
+			docker logs --tail=80 "$$NAME" 2>&1 || true; \
+		fi; \
+		sleep 5; \
+	done; \
+	FINAL=$$(docker inspect -f '{{ .State.Health.Status }}' "$$NAME" 2>/dev/null || echo unknown); \
+	if [ "$$FINAL" != "healthy" ]; then \
+		echo "❌ Backend failed to become healthy. Dumping diagnostics..."; \
+		docker compose -f docker-compose.yml -f docker-compose.prod.yml ps || true; \
+		echo "📌 Backend logs (last 200 lines):"; \
+		docker logs --tail=200 "$$NAME" 2>&1 || true; \
+		echo "🔍 Tip: set RUST_LOG=debug in backend/.env.prod to increase verbosity."; \
+		exit 1; \
+	fi
+	@echo "✅ Production environment started successfully!"
+	@echo "🌐 Backend API: http://localhost:8080"
+	@echo "🌐 Frontend: http://localhost:3000"
+	@echo "📊 Health check: http://localhost:8080/health"
+	@echo ""
+	@echo "📋 Useful commands:"
+	@echo "   View logs: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs"
+	@echo "   View backend logs: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backend"
+	@echo "   View frontend logs: docker compose -f docker-compose.yml -f docker-compose.prod.yml logs frontend"
+	@echo "   Stop services: docker compose -f docker-compose.yml -f docker-compose.prod.yml down"
+	@echo ""
+	@echo "🔒 Remember to:"
+	@echo "   - Use HTTPS in production"
+	@echo "   - Set up proper SSL certificates"
+	@echo "   - Configure firewall rules"
+	@echo "   - Set up monitoring and alerts"
 
 # Stop all containers
 stop:
@@ -122,14 +208,14 @@ setup-dev:
 		else touch backend/.env.dev; fi; \
 		echo "✅ Created backend/.env.dev - please edit with your values"; \
 	else \
-		echo "ℹ️ backend/.env.dev already exists"; \
+		echo "❗️ backend/.env.dev already exists"; \
 	fi
 	@if [ ! -f "frontend/.env.development" ]; then \
 		if [ -f "frontend/.env.example" ]; then cp frontend/.env.example frontend/.env.development; \
 		else touch frontend/.env.development; fi; \
 		echo "✅ Created frontend/.env.development - please edit with your values"; \
 	else \
-		echo "ℹ️ frontend/.env.development already exists"; \
+		echo "❗️ frontend/.env.development already exists"; \
 	fi
 
 ## Environment setup helpers (production)
@@ -140,7 +226,7 @@ setup-prod:
 		else cp backend/.env.example backend/.env.prod; fi; \
 		echo "✅ Created backend/.env.prod - please edit with SECURE values"; \
 	else \
-		echo "ℹ️ backend/.env.prod already exists"; \
+		echo "❗️ backend/.env.prod already exists"; \
 	fi
 
 # Aliases
@@ -151,31 +237,30 @@ init-prod: setup-prod
 		else cp frontend/.env.example frontend/.env.production; fi; \
 		echo "✅ Created frontend/.env.production - please edit with your values"; \
 	else \
-		echo "ℹ️ frontend/.env.production already exists"; \
+		echo "❗️ frontend/.env.production already exists"; \
 	fi
 
-# Compose (production) helpers using docker compose v2 syntax
+# Production build/push/pull commands
 prod-build:
-	@echo "\ud83d\udd28 Building production images..."
+	@echo "🔨 Building production images..."
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 
 prod-push:
-	@echo "\ud83d\udcbe Pushing production images..."
+	@echo "📤 Pushing production images..."
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml push
 
 prod-pull:
-	@echo "\ud83d\udcbe Pulling production images..."
+	@echo "📥 Pulling production images..."
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 
 prod-up:
-	@echo "\ud83d\ude80 Starting production stack (detached)..."
-	@docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+	@echo "🚀 Starting production stack (detached)..."
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+	@echo "✅ Production stack started in detached mode"
 
 prod-down:
-	@echo "\ud83d\uded1 Stopping production stack..."
+	@echo "🔴 Stopping production stack..."
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down
-
-## (removed duplicate setup-prod)
 
 # Quick test commands
 test-backend:

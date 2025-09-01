@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
 
 // 공통 인증 및 토큰 검증
+#[allow(dead_code)]
 pub async fn authenticate_and_get_token(
     headers: &HeaderMap,
     state: &AppState,

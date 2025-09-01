@@ -15,7 +15,8 @@ pub struct AppConfig {
     // User sheet location for role/name lookup
     pub user_sheet_spreadsheet_id: Option<String>,
     pub user_sheet_name: Option<String>,
-    // 관리자 계정 추가 (서비스 계정으로 전환)
+    // 관리자 계정 추가 (서비스 계정으로 전환) - 더 이상 사용되지 않음
+    #[allow(dead_code)]
     pub admin_email: Option<String>,
     // Google 서비스 계정 키 파일 경로
     pub google_service_account_key_path: Option<String>,
