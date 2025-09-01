@@ -4,18 +4,29 @@ import { AuthCache } from "@/lib/auth/cache";
 import { addCsrfTokenToHeaders } from "@/lib/csrf";
 import { buildBackendApiUrl, resolveBackendOrigin } from "@/lib/config/backend";
 
-// 공개 페이지 목록 (인증 불필요)
-const PUBLIC_PATHS = ["/login", "/privacy", "/terms", "/unauthorized"];
-// 인증 보호가 필요한 경로 prefix
-const PROTECTED_PREFIXES = ["/admin", "/mission", "/payment"];
+// 역할 정의
+const ROLE_USER = "USER";   // 일반 사용자
+const ROLE_ADMIN = "ADMIN"; // 관리자
+
+// 모든 경로의 접근 규칙을 단일 객체로 통합
+const PATH_ACCESS_RULES: Record<string, string[]> = {
+  "/login": [], // 공개 페이지 (인증 불필요)
+  "/privacy": [], // 공개 페이지 (인증 불필요)
+  "/terms": [], // 공개 페이지 (인증 불필요)
+  "/unauthorized": [], // 공개 페이지 (인증 불필요)
+  "/": [ROLE_USER, ROLE_ADMIN],
+  "/mission": [ROLE_USER, ROLE_ADMIN],
+  "/payment": [ROLE_USER, ROLE_ADMIN],
+  "/admin": [ROLE_ADMIN],
+};
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // 미들웨어에서는 rewrites가 보장되지 않으므로, 공용 유틸로 절대 URL 계산
   const backendOrigin = resolveBackendOrigin(request.nextUrl.hostname);
 
-  // 공개 페이지는 인증 확인 생략
-  if (PUBLIC_PATHS.includes(pathname)) {
+  // 공개 페이지 확인 (빈 배열 = 인증 불필요)
+  if (PATH_ACCESS_RULES[pathname] && PATH_ACCESS_RULES[pathname].length === 0) {
     // /login 페이지 접근 시 이미 로그인된 사용자 체크
     if (pathname === "/login") {
       const jwtCookie = request.cookies.get("jwt");
@@ -58,7 +69,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // 보호 경로가 아니면 통과 (과도한 me 호출 방지)
-  const isProtected = pathname === "/" || PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
+  const isProtected =
+    (pathname === "/" && PATH_ACCESS_RULES["/"]?.length > 0) ||
+    Object.keys(PATH_ACCESS_RULES).some(key =>
+      key !== "/" && pathname.startsWith(key) && PATH_ACCESS_RULES[key].length > 0
+    );
   if (!isProtected) {
     return NextResponse.next();
   }
@@ -106,11 +121,33 @@ export async function middleware(request: NextRequest) {
     const me = await res.json();
     AuthCache.set(token, { valid: true, data: me });
 
-    // 관리자 보호 경로 검사
-    if (pathname.startsWith("/admin")) {
-      if (!me?.roles || !me.roles.includes("ADMIN")) {
-        return NextResponse.redirect(new URL("/unauthorized", request.url));
+    // 권한 기반 라우팅 검사
+    const userRole = me?.role;
+    const userRoles = userRole ? [userRole] : [];
+    const hasRequiredRole = (path: string): boolean => {
+      // 정확한 경로 매칭 먼저 시도
+      if (PATH_ACCESS_RULES[path]) {
+        return PATH_ACCESS_RULES[path].some(role => userRoles.includes(role));
       }
+      
+      // prefix 기반 매칭 (하위 경로용)
+      for (const [pathPrefix, requiredRoles] of Object.entries(PATH_ACCESS_RULES)) {
+        if (path.startsWith(pathPrefix) && pathPrefix !== "/") {
+          return requiredRoles.some(role => userRoles.includes(role));
+        }
+      }
+      
+      // 기본 경로에 대한 권한 확인
+      if (path === "/") {
+        return PATH_ACCESS_RULES["/"].some(role => userRoles.includes(role));
+      }
+      
+      // 권한 정보가 없는 경로는 USER 이상만 접근 가능
+      return userRoles.includes(ROLE_USER) || userRoles.includes(ROLE_ADMIN);
+    };
+
+    if (!hasRequiredRole(pathname)) {
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
 
     return NextResponse.next();
