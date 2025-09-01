@@ -92,7 +92,9 @@ async fn google_callback(
         }
         Err(e) => {
             tracing::error!("Login failed: {:?}", e);
-            let redirect_url = format!("{}/login?login=error", &state.frontend_url);
+            // 에러 메시지를 URL-safe하게 인코딩하여 전달
+            let error_message = urlencoding::encode(&e.message);
+            let redirect_url = format!("{}/login?login=error&message={}", &state.frontend_url, error_message);
             (jar, Redirect::to(&redirect_url))
         }
     }
