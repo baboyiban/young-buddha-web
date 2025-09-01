@@ -52,7 +52,7 @@ export default function Navbar() {
         <Link
           key={item.path}
           href={item.href}
-          className={`button ${pathname === item.path ? "backdrop-blur-[0.25rem] bg-dark-purple/50 text-white" : "backdrop-blur-[0.25rem] bg-black/[0.1]"} px-[1rem] py-[0.5rem] rounded-[1rem]`}
+          className={`button ${pathname === item.path ? "backdrop-blur-[0.25rem] bg-dark-purple/50 text-white" : "backdrop-blur-[0.25rem] bg-white/[0.1]"} px-[1rem] py-[0.5rem] rounded-[1rem]`}
         >
           {item.label}
         </Link>
