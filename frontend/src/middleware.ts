@@ -4,12 +4,12 @@ import { AuthCache } from "@/lib/auth/cache";
 import { addCsrfTokenToHeaders } from "@/lib/csrf";
 import { buildBackendApiUrl, resolveBackendOrigin } from "@/lib/config/backend";
 
-// 역할 정의
-const ROLE_USER = "USER";   // 일반 사용자
-const ROLE_ADMIN = "ADMIN"; // 관리자
+// 역할 정의 (외부에서 재사용 가능하도록 export)
+export const ROLE_USER = "USER";   // 일반 사용자
+export const ROLE_ADMIN = "ADMIN"; // 관리자
 
-// 모든 경로의 접근 규칙을 단일 객체로 통합
-const PATH_ACCESS_RULES: Record<string, string[]> = {
+// 모든 경로의 접근 규칙을 단일 객체로 통합 (외부에서 재사용 가능하도록 export)
+export const PATH_ACCESS_RULES: Record<string, string[]> = {
   "/login": [], // 공개 페이지 (인증 불필요)
   "/privacy": [], // 공개 페이지 (인증 불필요)
   "/terms": [], // 공개 페이지 (인증 불필요)
