@@ -53,3 +53,6 @@ data.db
 
 # Secret files
 backend/keys/
+
+# OpenCode
+.opencode/
