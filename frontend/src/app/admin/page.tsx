@@ -188,7 +188,9 @@ export default function AdminPage() {
 
       alert(`${selectedRequests.length}개 항목이 ${status} 처리되었습니다.`);
     } catch (err) {
-      console.error("batch approve error:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("batch approve error:", err);
+      }
       alert("배치 처리 중 오류가 발생했습니다.");
       // 401 에러인 경우 로그인 페이지로 리다이렉트
       if (err instanceof Error && err.message.includes("401")) {
@@ -253,7 +255,9 @@ export default function AdminPage() {
         setCurrentPage(newTotalPages);
       }
     } catch (err) {
-      console.error("handleApprove error:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("handleApprove error:", err);
+      }
       alert("결재 상태 변경 중 오류가 발생했습니다.");
       // 401 에러인 경우 로그인 페이지로 리다이렉트
       if (err instanceof Error && err.message.includes("401")) {

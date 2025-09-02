@@ -48,7 +48,7 @@ input {
 select,
 input,
 textarea {
-  @apply bg-gray-90 border border-gray-80 w-[100%];
+  @apply bg-gray-90 border border-gray-80;
 }
 
 .button,
@@ -107,11 +107,27 @@ textarea {
 }
 
 .table-wrapper {
-  @apply overflow-x-auto rounded-[1rem];
+  @apply overflow-x-auto;
 }
 
 table {
   @apply table-auto border-collapse overflow-x-auto text-center w-full;
+}
+
+table thead tr th:first-child {
+  @apply rounded-tl-[1rem];
+}
+
+table thead tr th:last-child {
+  @apply rounded-tr-[1rem];
+}
+
+table tbody tr:last-child td:first-child {
+  @apply rounded-bl-[1rem];
+}
+
+table tbody tr:last-child td:last-child {
+  @apply !rounded-br-[1rem];
 }
 
 table.small {

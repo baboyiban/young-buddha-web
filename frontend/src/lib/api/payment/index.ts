@@ -387,7 +387,9 @@ async function getTotalPaymentCount(
 
     return 0;
   } catch (error) {
-    console.error("총 데이터 개수 조회 실패:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("총 데이터 개수 조회 실패:", error);
+    }
     return 0;
   }
 }
