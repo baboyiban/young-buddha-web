@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { PATH_ACCESS_RULES, ROLE_USER, ROLE_ADMIN } from "@/middleware";
+import { PATH_ACCESS_RULES, ROLE_USER, ROLE_ADMIN } from "@/lib/utils/pathAccess";
 
 // 네비게이션 항목 타입 정의
 interface NavItem {

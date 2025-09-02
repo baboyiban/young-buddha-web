@@ -1,8 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { authService } from "@/lib/auth/service";
 import { User } from "@/lib/types/user";
+import { isPublicPath, hasAccess, ROLE_USER, ROLE_ADMIN } from "@/lib/utils/pathAccess";
 
 type AuthState = {
   user: User | null;
@@ -27,15 +29,19 @@ const CACHE_TTL = 30 * 1000; // 30초
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // 마운트 시 한 번 인증 확인
-    checkAuth().catch(() => {
-      // 오류는 내부에서 처리
-    });
+    // 공개 페이지는 인증 확인 스킵
+    if (!isPublicPath(pathname)) {
+      // 마운트 시 한 번 인증 확인
+      checkAuth().catch(() => {
+        // 오류는 내부에서 처리
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
