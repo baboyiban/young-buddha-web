@@ -4,21 +4,8 @@ import { AuthCache } from "@/lib/auth/cache";
 import { addCsrfTokenToHeaders } from "@/lib/csrf";
 import { buildBackendApiUrl, resolveBackendOrigin } from "@/lib/config/backend";
 
-// 역할 정의 (외부에서 재사용 가능하도록 export)
-export const ROLE_USER = "USER";   // 일반 사용자
-export const ROLE_ADMIN = "ADMIN"; // 관리자
-
-// 모든 경로의 접근 규칙을 단일 객체로 통합 (외부에서 재사용 가능하도록 export)
-export const PATH_ACCESS_RULES: Record<string, string[]> = {
-  "/login": [], // 공개 페이지 (인증 불필요)
-  "/privacy": [], // 공개 페이지 (인증 불필요)
-  "/terms": [], // 공개 페이지 (인증 불필요)
-  "/unauthorized": [], // 공개 페이지 (인증 불필요)
-  "/": [ROLE_USER, ROLE_ADMIN],
-  "/mission": [ROLE_USER, ROLE_ADMIN],
-  "/payment": [ROLE_USER, ROLE_ADMIN],
-  "/admin": [ROLE_ADMIN],
-};
+// 역할 정의와 접근 규칙을 공유 유틸에서 import
+import { ROLE_USER, ROLE_ADMIN, PATH_ACCESS_RULES, isPublicPath, hasAccess } from "@/lib/utils/pathAccess";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -124,29 +111,7 @@ export async function middleware(request: NextRequest) {
     // 권한 기반 라우팅 검사
     const userRole = me?.role;
     const userRoles = userRole ? [userRole] : [];
-    const hasRequiredRole = (path: string): boolean => {
-      // 정확한 경로 매칭 먼저 시도
-      if (PATH_ACCESS_RULES[path]) {
-        return PATH_ACCESS_RULES[path].some(role => userRoles.includes(role));
-      }
-      
-      // prefix 기반 매칭 (하위 경로용)
-      for (const [pathPrefix, requiredRoles] of Object.entries(PATH_ACCESS_RULES)) {
-        if (path.startsWith(pathPrefix) && pathPrefix !== "/") {
-          return requiredRoles.some(role => userRoles.includes(role));
-        }
-      }
-      
-      // 기본 경로에 대한 권한 확인
-      if (path === "/") {
-        return PATH_ACCESS_RULES["/"].some(role => userRoles.includes(role));
-      }
-      
-      // 권한 정보가 없는 경로는 USER 이상만 접근 가능
-      return userRoles.includes(ROLE_USER) || userRoles.includes(ROLE_ADMIN);
-    };
-
-    if (!hasRequiredRole(pathname)) {
+    if (!hasAccess(pathname, userRoles)) {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
 

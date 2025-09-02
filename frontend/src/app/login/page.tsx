@@ -16,7 +16,7 @@ function LoginContent() {
   useEffect(() => {
     const loginStatus = searchParams.get("login");
     const errorMessage = searchParams.get("message");
-    
+
     if (loginStatus === "success") {
       router.replace("/");
     } else if (loginStatus === "error") {
@@ -43,7 +43,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-svh flex items-center justify-center p-[0.5rem]">
+    <div className="min-h-[calc(100svh-36px)] flex items-center justify-center p-[0.5rem]">
       <button onClick={handleGoogleLogin} disabled={loading} className="button purple">
         {loading ? (
           <LoadingSpinner color="white" showMessage={false} />
@@ -61,7 +61,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="min-h-[calc(100svh-36px)] flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
           <LoadingSpinner message="로그인 페이지 로딩 중..." />
         </div>
       }

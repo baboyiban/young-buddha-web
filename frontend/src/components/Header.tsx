@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { usePathname } from 'next/navigation'
 import Image from "next/image";
 
 export default function Header() {
@@ -19,13 +20,17 @@ export default function Header() {
         <Image alt="logo" src="/favicon.ico" width={24} height={24} /> <p>청년붓다</p>
       </Link>
       <div className="flex items-center space-x-2">
-        {user && (
+        {user ? (
           <>
             <span className="text-sm text-gray-50">{user.name}</span>
             <button onClick={handleLogout} className="button red text-sm">
               로그아웃
             </button>
           </>
+        ) : (
+          <button onClick={() => window.location.href = "/login"} className="button purple text-sm">
+            로그인
+          </button>
         )}
       </div>
     </header>
