@@ -107,7 +107,7 @@ textarea {
 }
 
 .table-wrapper {
-  @apply overflow-x-auto;
+  @apply overflow-x-auto rounded-[1rem];
 }
 
 table {

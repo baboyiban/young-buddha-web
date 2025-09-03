@@ -53,6 +53,7 @@ export default function AdminPage() {
           currentPage,
           itemsPerPage,
           statusFilter,
+          undefined, // typeFilter not used
           sortOrder,
         );
         const normalized = data.map((r: PaymentRequest) => ({
@@ -172,6 +173,7 @@ export default function AdminPage() {
         currentPage,
         itemsPerPage,
         statusFilter,
+        undefined, // typeFilter not used
         sortOrder,
       );
       const normalized = data.map((r: PaymentRequest) => ({
@@ -240,6 +242,8 @@ export default function AdminPage() {
         currentPage,
         itemsPerPage,
         statusFilter,
+        undefined, // typeFilter not used
+        sortOrder,
       );
       const normalized = data.map((r: PaymentRequest) => ({
         ...r,
@@ -289,39 +293,37 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col gap-[0.5rem]">
       {/* 결재 신청 목록 */}
-      <div className="mt-[0] m-[0.5rem] p-[1rem] bg-white rounded-xl flex flex-col space-y-[0.5rem]">
+      <div className="mt-[0] m-[0.5rem] p-[1rem] bg-white rounded-xl flex flex-col space-y-[0.75rem]">
         {/* 필터 선택 UI */}
-        <div className="grid grid-flow-col auto-cols-min gap-[0.25rem] mb-[0.5rem] overflow-x-auto rounded-[1rem]">
-          <div className="flex gap-[0.5rem] mb-[1rem] self-start">
-            <select
-              value={statusFilter}
-              onChange={(e) => handleFilterChange(e.target.value)}
-              className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
-            >
-              <option value="전체">전체</option>
-              <option value="대기">대기 중</option>
-              <option value="승인">승인됨</option>
-              <option value="반려">반려됨</option>
-            </select>
+        <div className="overflow-x-auto rounded-[1rem] flex space-x-[0.25rem]">
+          <select
+            value={statusFilter}
+            onChange={(e) => handleFilterChange(e.target.value)}
+            className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
+          >
+            <option value="전체">전체</option>
+            <option value="대기">대기</option>
+            <option value="승인">승인</option>
+            <option value="반려">반려</option>
+          </select>
 
-            {/* 정렬 선택 UI */}
-            <select
-              value={sortOrder}
-              onChange={(e) => {
-                setSortOrder(e.target.value);
-                setLoading(true);
-              }}
-              className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
-            >
-              <option value="desc">최신순</option>
-              <option value="asc">오래된순</option>
-            </select>
+          {/* 정렬 선택 UI */}
+          <select
+            value={sortOrder}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              setLoading(true);
+            }}
+            className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
+          >
+            <option value="desc">최신순</option>
+            <option value="asc">오래된순</option>
+          </select>
 
-            {/* 새로고침 버튼 */}
-            <button onClick={loadPayments} className="button gray" disabled={loading}>
-              {loading ? "새로고침 중..." : "새로고침"}
-            </button>
-          </div>
+          {/* 새로고침 버튼 */}
+          <button onClick={loadPayments} className="button gray" disabled={loading}>
+            {loading ? "새로고침 중..." : "새로고침"}
+          </button>
 
           {/* 배치 처리 버튼들 */}
           {selectedRequests.length > 0 && (
@@ -401,41 +403,43 @@ export default function AdminPage() {
                       <td className="">{r.schedule || "-"}</td>
                       <td className="">{r.reason || "-"}</td>
                       <td className="">{r.approved || "대기"}</td>
-                      <td className="flex justify-center gap-[0.25rem]">
-                        {r.approved === "승인" ? (
-                          <button
-                            onClick={() => handleApprove(r, "대기")}
-                            className="button text-sm gray"
-                            disabled={updatingId === r.id}
-                          >
-                            {updatingId === r.id ? "처리 중..." : "승인 취소"}
-                          </button>
-                        ) : r.approved === "반려" ? (
-                          <button
-                            onClick={() => handleApprove(r, "대기")}
-                            className="text-sm button gray"
-                            disabled={updatingId === r.id}
-                          >
-                            {updatingId === r.id ? "처리 중..." : "반려 취소"}
-                          </button>
-                        ) : (
-                          <>
+                      <td className="">
+                        <div className="flex space-x-[0.25rem]">
+                          {r.approved === "승인" ? (
                             <button
-                              onClick={() => handleApprove(r, "승인")}
-                              className="text-sm button purple"
+                              onClick={() => handleApprove(r, "대기")}
+                              className="button text-sm gray"
                               disabled={updatingId === r.id}
                             >
-                              {updatingId === r.id ? "처리 중..." : "승인"}
+                              {updatingId === r.id ? "처리 중..." : "승인 취소"}
                             </button>
+                          ) : r.approved === "반려" ? (
                             <button
-                              onClick={() => handleApprove(r, "반려")}
-                              className="text-sm button red"
+                              onClick={() => handleApprove(r, "대기")}
+                              className="text-sm button gray"
                               disabled={updatingId === r.id}
                             >
-                              {updatingId === r.id ? "처리 중..." : "반려"}
+                              {updatingId === r.id ? "처리 중..." : "반려 취소"}
                             </button>
-                          </>
-                        )}
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleApprove(r, "승인")}
+                                className="text-sm button purple"
+                                disabled={updatingId === r.id}
+                              >
+                                {updatingId === r.id ? "처리 중..." : "승인"}
+                              </button>
+                              <button
+                                onClick={() => handleApprove(r, "반려")}
+                                className="text-sm button red"
+                                disabled={updatingId === r.id}
+                              >
+                                {updatingId === r.id ? "처리 중..." : "반려"}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
