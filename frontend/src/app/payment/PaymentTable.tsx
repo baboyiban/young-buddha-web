@@ -53,7 +53,7 @@ export default function PaymentTable({
       <div className="mx-[0.5rem] bg-white rounded-[1rem]">
         <div className="p-[1rem] flex flex-col items-center">
           {/* 타입 필터 선택 UI - admin 페이지 스타일 참고 */}
-          <div className="flex gap-[0.5rem] mb-[1rem] self-start">
+          <div className="flex self-start">
             <select
               value={typeFilter}
               onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
