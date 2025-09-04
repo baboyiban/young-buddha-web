@@ -1,9 +1,8 @@
 use axum::{body::Body, http::{Request, StatusCode}};
-use tower::ServiceExt; // tower = "0.4"이면 이 경로
-
+use tower::ServiceExt;
 
 use young_buddha_backend::config::{
-    Config, ServerConfig, Environment, AuthConfig, CacheConfig, GoogleConfig, DatabaseConfig,
+    Config, ServerConfig, Environment, AuthConfig, CacheConfig, GoogleConfig, DatabaseConfig
 };
 use young_buddha_backend::{services::AppServices, routes::build_router};
 
@@ -39,7 +38,6 @@ async fn test_health_endpoint() {
         },
     };
 
-    // AppServices::new 리턴 타입은 Arc<AppServices>이므로 그대로 받아서 사용
     let services = AppServices::new(config).await.unwrap();
     let app = build_router(services);
 

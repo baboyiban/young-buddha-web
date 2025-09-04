@@ -1,11 +1,9 @@
-pub mod auth;
-pub mod database;
-pub mod sheets;
 pub mod error;
-pub mod common;
+pub mod auth;
+pub mod sheets;
+pub mod database;
 
+pub use error::AppError;
 pub use auth::*;
-pub use database::*;
 pub use sheets::*;
-pub use error::*;
-pub use common::*; 
+pub use database::*;

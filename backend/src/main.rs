@@ -1,15 +1,6 @@
-mod routes;
-mod auth;
-mod auth_tokens;
-mod state;
-mod types;
-mod config;
-mod api;
-mod db;
-mod services;
-
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use young_buddha_backend::{config::Config, services::AppServices, routes::build_router};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,63 +13,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     let _ = dotenvy::dotenv();
 
-    // Initialize app state
-    let app_state = state::AppState::from_env();
+    // Load configuration
+    let config = Config::from_env()?;
+    tracing::info!("Loaded configuration for environment: {:?}", config.server.environment);
 
-    // ADD THIS: Validate config for production
-    if let Err(e) = app_state.config.validate_production_config() {
-        tracing::error!(error = %e, "failed to validate production config");
-        std::process::exit(1);
-    }
-
-    // Log configuration status
-    if app_state.is_production {
-        tracing::info!("Running in production mode");
-    } else {
-        tracing::info!("Running in development mode");
-    }
-
-    if app_state.jwt_secret.is_none() {
-        tracing::warn!("JWT_SECRET is not set — auth endpoints will not work (acceptable for local development)");
-    }
-
-    // Initialize global Redis client if present
-    if let Some(rc) = &app_state.redis_client {
-        crate::auth::redis_cache::init_global_redis(rc.clone());
-        tracing::info!("Initialized global Redis client from REDIS_URL");
-    }
-
-    // Initialize database schema
-    tracing::info!(db_path = %app_state.db_path, "initializing database");
-    if let Err(e) = crate::db::pool::initialize_db(&app_state.db_path).await {
-        tracing::error!(error = %e, "failed to initialize database");
-        std::process::exit(1);
-    }
-
-    // Get port from configuration
-    let port = app_state.config.port;
-
-    // Log OAuth configuration status
-    if let Ok(id) = app_state.config.get_google_client_id() {
-        tracing::info!(client_id = %id, "GOOGLE_CLIENT_ID loaded");
-    } else {
-        tracing::warn!("GOOGLE_CLIENT_ID not set");
-    }
-    
-    if let Ok(uri) = app_state.config.get_google_redirect_uri() {
-        tracing::info!(redirect_uri = %uri, "GOOGLE_REDIRECT_URI loaded");
-    } else {
-        tracing::warn!("GOOGLE_REDIRECT_URI not set");
-    }
+    // Initialize services
+    let services = AppServices::new(config.clone()).await?;
+    tracing::info!("Initialized application services");
 
     // Build router
-    let app = routes::build_router(app_state.clone())
-        .with_state(app_state);
+    let app = build_router(services);
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.server.port));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-
-    // Log startup information
-    tracing::info!(%addr, "starting server");
+    tracing::info!(%addr, "Starting server");
 
     // Start server
     let listener = tokio::net::TcpListener::bind(addr).await?;

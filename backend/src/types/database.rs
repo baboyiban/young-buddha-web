@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[allow(dead_code)]
-
 #[derive(Debug, Deserialize)]
 pub struct CreateRequest {
     pub name: String,
@@ -14,7 +12,6 @@ pub struct CreateRequest {
 }
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 pub struct DatabaseRow {
     pub id: i64,
     pub name: String,

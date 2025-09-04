@@ -5,64 +5,64 @@ use axum::{
     Json, Router,
 };
 use std::sync::Arc;
-use crate::types::AppState;
-use crate::types::{CreateRequest};
-use crate::services::DatabaseService;
 
-pub fn router() -> Router<Arc<AppState>> {
+use crate::services::AppServices;
+use crate::types::CreateRequest;
+
+pub fn router() -> Router<Arc<AppServices>> {
     Router::new()
-        .route("/database/requests", post(create_request))
-        .route("/database/requests", get(get_all_requests))
-        .route("/database/requests/:id", get(get_request_by_id))
-        .route("/database/requests/:id", put(update_request))
-        .route("/database/requests/:id", delete(delete_request))
+        .route("/requests", post(create_request))
+        .route("/requests", get(get_all_requests))
+        .route("/requests/:id", get(get_request_by_id))
+        .route("/requests/:id", put(update_request))
+        .route("/requests/:id", delete(delete_request))
 }
 
 async fn create_request(
-    State(state): State<Arc<AppState>>,
+    State(services): State<Arc<AppServices>>,
     Json(request): Json<CreateRequest>,
 ) -> axum::response::Response {
-    match DatabaseService::create_request(state, request).await {
+    match services.database.create_request(request).await {
         Ok(response) => response,
         Err(err) => err.into_response(),
     }
 }
 
 async fn get_all_requests(
-    State(state): State<Arc<AppState>>,
+    State(services): State<Arc<AppServices>>,
 ) -> axum::response::Response {
-    match DatabaseService::get_all_requests(state).await {
+    match services.database.get_all_requests().await {
         Ok(response) => response,
         Err(err) => err.into_response(),
     }
 }
 
 async fn get_request_by_id(
-    State(state): State<Arc<AppState>>,
+    State(services): State<Arc<AppServices>>,
     Path(id): Path<i64>,
 ) -> axum::response::Response {
-    match DatabaseService::get_request_by_id(state, id).await {
+    match services.database.get_request_by_id(id).await {
         Ok(response) => response,
         Err(err) => err.into_response(),
     }
 }
 
 async fn update_request(
-    State(state): State<Arc<AppState>>,
+    State(services): State<Arc<AppServices>>,
     Path(id): Path<i64>,
     Json(request): Json<CreateRequest>,
 ) -> axum::response::Response {
-    match DatabaseService::update_request(state, id, request).await {
+    match services.database.update_request(id, request).await {
         Ok(response) => response,
         Err(err) => err.into_response(),
     }
 }
 
 async fn delete_request(
-    State(state): State<Arc<AppState>>,
+    State(services): State<Arc<AppServices>>,
     Path(id): Path<i64>,
 ) -> axum::response::Response {
-    match DatabaseService::delete_request(state, id).await {
+    match services.database.delete_request(id).await {
         Ok(response) => response,
         Err(err) => err.into_response(),
     }
