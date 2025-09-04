@@ -13,7 +13,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.12",
     "ky": "^1.9.1",
-    "next": "14.2.5",
+    "next": "14.2.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^4.1.12"
@@ -24,8 +24,8 @@
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.21",
     "concurrently": "^8.2.2",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.5",
+    "eslint": "9.0.0",
+    "eslint-config-next": "14.2.10",
     "postcss": "^8.5.6",
     "typescript": "^5.9.2"
   }
