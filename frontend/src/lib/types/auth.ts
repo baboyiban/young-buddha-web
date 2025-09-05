@@ -4,8 +4,14 @@ export interface AuthResponse {
   message?: string;
 }
 
+export interface User {
+  email: string;
+  name: string;
+  role: string;
+}
+
 export interface LoginStatus {
   isAuthenticated: boolean;
-  user?: any;
+  user?: User;
   loading: boolean;
 }

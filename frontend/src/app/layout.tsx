@@ -1,28 +1,31 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import ClientShell from '../components/ClientShell'
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import ClientShell from "../components/ClientShell";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Young Buddha',
-  description: 'Young Buddha App',
+  title: "Young Buddha",
+  description: "Young Buddha App",
   icons: {
-    icon: '/favicon.ico',
+    icon: "/favicon.ico",
   },
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="ko">
       <body className={inter.className}>
-        <ClientShell>{children}</ClientShell>
+        <ErrorBoundary>
+          <ClientShell>{children}</ClientShell>
+        </ErrorBoundary>
       </body>
     </html>
-  )
+  );
 }

@@ -4,6 +4,7 @@ import { HTTPError } from "ky";
 import { AUTH_ENDPOINTS } from "@/lib/config/api";
 import { AuthCache } from "@/lib/auth/cache";
 import { AuthError } from "@/lib/errors";
+import type { UserRole } from "@/lib/types/user";
 
 export class AuthService {
   async getCurrentUser(): Promise<User> {
@@ -34,7 +35,7 @@ export class AuthService {
         id: email,
         email,
         name,
-        roles: role ? [role] : undefined,
+        roles: role ? [role as UserRole] : ["USER"],
       };
 
       if (jwt) {
