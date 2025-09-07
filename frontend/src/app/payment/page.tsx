@@ -1,6 +1,7 @@
+"use client";
+
 // 개선된 Payment 페이지 예시
 // app/payment/page.tsx (간소화된 버전)
-("use client");
 
 import React from "react";
 import PageLayout from "@/components/layouts/PageLayout";

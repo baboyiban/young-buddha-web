@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'

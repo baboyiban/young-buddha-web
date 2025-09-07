@@ -3,7 +3,7 @@
 
 .PHONY: help dev prod stop clean logs backend frontend build \
 	prod-build prod-push prod-pull prod-up prod-down prod-build-push prod-pull-up \
-	init-dev init-prod setup-dev setup-prod
+	init-dev init-prod setup-dev setup-prod clean-frontend clean-backend clean-docker clean-all
 
 # Default target
 help:
@@ -29,6 +29,12 @@ help:
 	@echo "Environment setup:"
 	@echo "  make setup-dev    - Creates .env.dev files from examples"
 	@echo "  make setup-prod   - Creates .env.prod files from examples"
+	@echo ""
+	@echo "Clean commands:"
+	@echo "  make clean-frontend  - Clean frontend dependencies and build cache"
+	@echo "  make clean-backend   - Clean backend build cache and dependencies"
+	@echo "  make clean-docker    - Clean Docker containers, images, and volumes"
+	@echo "  make clean-all       - Clean everything (frontend + backend + docker)"
 	@echo ""
 	@echo "Docker build/push/pull:"
 	@echo "  make prod-build   Build images with docker-compose.prod.yml"
@@ -146,6 +152,30 @@ clean:
 	@echo "🧹 Cleaning up containers and volumes..."
 	@docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v 2>/dev/null || true
 	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v 2>/dev/null || true
+
+# Clean commands (new)
+clean-frontend:
+	@echo "🧹 Cleaning frontend..."
+	@cd frontend && rm -rf node_modules .next out dist build
+	@cd frontend && rm -f package-lock.json yarn.lock bun.lockb
+	@echo "✅ Frontend cleaned!"
+
+clean-backend:
+	@echo "🧹 Cleaning backend..."
+	@cd backend && rm -rf target Cargo.lock
+	@cd backend && cargo clean 2>/dev/null || true
+	@echo "✅ Backend cleaned!"
+
+clean-docker:
+	@echo "🧹 Cleaning Docker..."
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml down --volumes --remove-orphans 2>/dev/null || true
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml down --volumes --remove-orphans 2>/dev/null || true
+	@docker system prune -f
+	@docker volume prune -f
+	@echo "✅ Docker cleaned!"
+
+clean-all: clean-frontend clean-backend clean-docker
+	@echo "🎉 Everything cleaned!"
 
 # View logs
 logs:

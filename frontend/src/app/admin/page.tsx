@@ -1,4 +1,4 @@
-("use client");
+"use client"
 
 import React, { useCallback } from "react";
 import PageLayout from "@/components/layouts/PageLayout";
