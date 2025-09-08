@@ -12,13 +12,7 @@ export function validatePaymentForm(
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (!form.email || !validateEmail(form.email)) {
-    errors.push({
-      field: "email",
-      message: "올바른 이메일 주소를 입력해주세요.",
-      code: "INVALID_EMAIL",
-    });
-  }
+  // email 검증은 submitPayment에서 user.email을 사용하므로 폼에서는 제외
 
   if (!form.absentDate || !isValidDate(form.absentDate)) {
     errors.push({

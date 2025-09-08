@@ -8,6 +8,7 @@ import PageLayout from "@/components/layouts/PageLayout";
 import { FormField } from "@/components/forms/FormField";
 import { useForm } from "@/lib/hooks/useForm";
 import { useErrorHandler } from "@/lib/hooks/useErrorHandler";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { PaymentRequest } from "@/lib/types/payment";
 import { validatePaymentForm } from "@/lib/utils/validation";
 import { OPTIONS, MESSAGES } from "@/lib/config/app";
@@ -16,6 +17,7 @@ import { usePaymentOperations } from "@/lib/hooks/usePaymentOperations";
 export default function PaymentPageExample() {
   const { handleError, handleSuccess } = useErrorHandler();
   const { submitPayment } = usePaymentOperations();
+  const { user } = useAuth();
 
   const initialValues: Partial<PaymentRequest> = {
     type: "정기",
