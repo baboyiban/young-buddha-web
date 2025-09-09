@@ -12,6 +12,7 @@ interface PaymentTableProps {
   currentPage: number;
   itemsPerPage: number;
   typeFilter: "전체" | "정기" | "비정기";
+  isEditable?: boolean;
   onPageChange: (page: number) => void;
   onEditChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -33,6 +34,7 @@ export default function PaymentTable({
   currentPage,
   itemsPerPage,
   typeFilter,
+  isEditable = true,
   onPageChange,
   onEditChange,
   onEditStart,
@@ -101,21 +103,22 @@ export default function PaymentTable({
               </tr>
             </thead>
             <tbody>
-              {currentPageRequests.map((request) => (
-                <PaymentTableRow
-                  key={request.id}
-                  request={request}
-                  isEditing={editingId === request.id}
-                  editForm={editForm}
-                  deletingId={deletingId}
-                  updating={updating}
-                  onEditChange={onEditChange}
-                  onEditStart={onEditStart}
-                  onEditCancel={onEditCancel}
-                  onUpdate={onUpdate}
-                  onDelete={onDelete}
-                />
-              ))}
+               {currentPageRequests.map((request) => (
+                 <PaymentTableRow
+                   key={request.id}
+                   request={request}
+                   isEditing={editingId === request.id}
+                   editForm={editForm}
+                   deletingId={deletingId}
+                   updating={updating}
+                   isEditable={isEditable}
+                   onEditChange={onEditChange}
+                   onEditStart={onEditStart}
+                   onEditCancel={onEditCancel}
+                   onUpdate={onUpdate}
+                   onDelete={onDelete}
+                 />
+               ))}
             </tbody>
           </table>
         </div>

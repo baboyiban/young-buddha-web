@@ -8,6 +8,7 @@ interface PaymentTableRowProps {
   editForm: Partial<PaymentRequest>;
   deletingId: string | null;
   updating: boolean;
+  isEditable?: boolean;
   onEditChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
@@ -23,6 +24,7 @@ export default function PaymentTableRow({
   editForm,
   deletingId,
   updating,
+  isEditable = true,
   onEditChange,
   onEditStart,
   onEditCancel,
@@ -95,39 +97,41 @@ export default function PaymentTableRow({
 
       <td className="">{request.approved || "대기"}</td>
 
-      <td className="flex justify-center gap-[0.25rem]">
-        {isEditing ? (
-          <>
-            <button
-              onClick={() => onUpdate(request)}
-              className="button purple"
-              disabled={updating}
-            >
-              {updating ? "저장 중..." : "저장"}
-            </button>
-            <button onClick={onEditCancel} className="button gray" disabled={updating}>
-              취소
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => onEditStart(request)}
-              className="button purple"
-              disabled={deletingId === request.id}
-            >
-              수정
-            </button>
-            <button
-              onClick={() => onDelete(request)}
-              className="button red"
-              disabled={deletingId === request.id}
-            >
-              {deletingId === request.id ? "삭제 중..." : "삭제"}
-            </button>
-          </>
-        )}
-      </td>
+       <td className="flex justify-center gap-[0.25rem]">
+         {isEditing ? (
+           <>
+             <button
+               onClick={() => onUpdate(request)}
+               className="button purple"
+               disabled={updating}
+             >
+               {updating ? "저장 중..." : "저장"}
+             </button>
+             <button onClick={onEditCancel} className="button gray" disabled={updating}>
+               취소
+             </button>
+           </>
+         ) : isEditable ? (
+           <>
+             <button
+               onClick={() => onEditStart(request)}
+               className="button purple"
+               disabled={deletingId === request.id}
+             >
+               수정
+             </button>
+             <button
+               onClick={() => onDelete(request)}
+               className="button red"
+               disabled={deletingId === request.id}
+             >
+               {deletingId === request.id ? "삭제 중..." : "삭제"}
+             </button>
+           </>
+         ) : (
+           <span>-</span>
+         )}
+       </td>
     </tr>
   );
 }

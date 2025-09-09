@@ -4,6 +4,7 @@
 // app/payment/page.tsx (간소화된 버전)
 
 import React from "react";
+import useSWR from "swr";
 import PageLayout from "@/components/layouts/PageLayout";
 import { FormField } from "@/components/forms/FormField";
 import { useForm } from "@/lib/hooks/useForm";
@@ -13,11 +14,18 @@ import { PaymentRequest } from "@/lib/types/payment";
 import { validatePaymentForm } from "@/lib/utils/validation";
 import { OPTIONS, MESSAGES } from "@/lib/config/app";
 import { usePaymentOperations } from "@/lib/hooks/usePaymentOperations";
+import { fetchFilteredPayments } from "@/lib/api/payment";
+import PaymentTable from "./PaymentTable";
 
 export default function PaymentPageExample() {
   const { handleError, handleSuccess } = useErrorHandler();
   const { submitPayment } = usePaymentOperations();
   const { user } = useAuth();
+
+  const { data: payments, error: paymentsError, isLoading: paymentsLoading } = useSWR(
+    user?.email ? ['payments', user.email] : null,
+    ([key, email]) => fetchFilteredPayments(email, false, 1, 10, '전체', undefined, 'desc')
+  );
 
   const initialValues: Partial<PaymentRequest> = {
     type: "정기",
@@ -107,15 +115,39 @@ export default function PaymentPageExample() {
             />
           </FormField>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="button purple w-full"
-          >
-            {isSubmitting ? MESSAGES.LOADING.PAYMENT.SUBMITTING : "결재 신청"}
-          </button>
-        </form>
-      </div>
-    </PageLayout>
-  );
-}
+           <button
+             type="submit"
+             disabled={isSubmitting}
+             className="button purple w-full"
+           >
+             {isSubmitting ? MESSAGES.LOADING.PAYMENT.SUBMITTING : "결재 신청"}
+           </button>
+         </form>
+
+         {/* 결재 현황 */}
+         <div className="mt-8">
+           <h2 className="text-lg font-semibold mb-4">내 결재 현황</h2>
+           <PaymentTable
+             requests={payments?.data || []}
+             totalCount={payments?.totalCount || 0}
+             editingId={null}
+             editForm={{}}
+             deletingId={null}
+             updating={false}
+             currentPage={1}
+             itemsPerPage={10}
+             typeFilter="전체"
+             isEditable={false}
+             onPageChange={() => {}}
+             onEditChange={() => {}}
+             onEditStart={() => {}}
+             onEditCancel={() => {}}
+             onUpdate={() => {}}
+             onDelete={() => {}}
+             onTypeFilterChange={() => {}}
+           />
+         </div>
+       </div>
+     </PageLayout>
+   );
+ }
