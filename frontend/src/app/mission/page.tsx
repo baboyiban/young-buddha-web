@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { MissionData } from "@/lib/types/mission";
 import { fetchMissionData } from "@/lib/api/mission";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import PageLayout from "@/components/layouts/PageLayout";
 
 export default function Mission() {
   const [missionData, setMissionData] = useState<MissionData | null>(null);
@@ -39,85 +39,69 @@ export default function Mission() {
     loadMissionData();
   }, [loadMissionData]);
 
-  if (loading) {
-    return (
-      <div className="bg-gray-90 flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-gray-90 flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
-        <div className="text-dark-red">{error}</div>
-      </div>
-    );
-  }
-
-  if (!missionData) {
-    return (
-      <div className="bg-gray-90 flex items-center justify-center min-h-[calc(100svh-52px-0.5rem)]">
-        <div className="text-gray-50">미션 데이터가 없습니다.</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem)] flex flex-col">
-      {/* 미션 컨텐츠 */}
-      <div className="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem] flex-1 p-[1rem]">
-        <MissionHeader
-          date={missionData.date}
-          dayOfWeek={missionData.dayOfWeek}
-        />
+    <PageLayout title="생활 소임" requireAuth={true} loading={loading} error={error}>
+      <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem-32px)] flex flex-col">
+        {!missionData ? (
+          <div className="text-gray-50">미션 데이터가 없습니다.</div>
+        ) : (
+          <>
+            {/* 미션 컨텐츠 */}
+            <div className="flex flex-col items-center justify-center-safe *:not-last:mb-[1rem] *:text-center *:*:not-last:mb-[0.25rem] flex-1 p-[1rem]">
+              <MissionHeader
+                date={missionData.date}
+                dayOfWeek={missionData.dayOfWeek}
+              />
 
-        {missionData.morningMeal.length > 0 && (
-          <MissionItem
-            title="🍚 발우공양 당번"
-            members={missionData.morningMeal}
-          />
-        )}
+              {missionData.morningMeal.length > 0 && (
+                <MissionItem
+                  title="🍚 발우공양 당번"
+                  members={missionData.morningMeal}
+                />
+              )}
 
-        {missionData.morningHelper.length > 0 && (
-          <MissionItem
-            title="🤲 발우공양 바라지"
-            members={missionData.morningHelper}
-          />
-        )}
+              {missionData.morningHelper.length > 0 && (
+                <MissionItem
+                  title="🤲 발우공양 바라지"
+                  members={missionData.morningHelper}
+                />
+              )}
 
-        {missionData.morningDishes.length > 0 && (
-          <MissionItem
-            title="🧼 아침 설거지"
-            members={missionData.morningDishes}
-          />
-        )}
+              {missionData.morningDishes.length > 0 && (
+                <MissionItem
+                  title="🧼 아침 설거지"
+                  members={missionData.morningDishes}
+                />
+              )}
 
-        {(missionData.laundry.wash ||
-          missionData.laundry.hang ||
-          missionData.laundry.fold) && (
-          <LaundryMission laundry={missionData.laundry} />
-        )}
+              {(missionData.laundry.wash ||
+                missionData.laundry.hang ||
+                missionData.laundry.fold) && (
+                  <LaundryMission laundry={missionData.laundry} />
+                )}
 
-        {missionData.afternoonCushion.length > 0 && (
-          <AfternoonCushionMission members={missionData.afternoonCushion} />
-        )}
+              {missionData.afternoonCushion.length > 0 && (
+                <AfternoonCushionMission members={missionData.afternoonCushion} />
+              )}
 
-        {missionData.eveningMeal.length > 0 && (
-          <MissionItem
-            title="🍛 저녁공양 당번"
-            members={missionData.eveningMeal}
-          />
-        )}
+              {missionData.eveningMeal.length > 0 && (
+                <MissionItem
+                  title="🍛 저녁공양 당번"
+                  members={missionData.eveningMeal}
+                />
+              )}
 
-        {missionData.eveningCushion && (
-          <MissionItem
-            title="🌚 저녁예불 방석 한줄깔기"
-            members={[missionData.eveningCushion]}
-          />
+              {missionData.eveningCushion && (
+                <MissionItem
+                  title="🌚 저녁예불 방석 한줄깔기"
+                  members={[missionData.eveningCushion]}
+                />
+              )}
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

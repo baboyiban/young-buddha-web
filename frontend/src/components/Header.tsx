@@ -16,7 +16,7 @@ export default function Header() {
 
   return (
     <header className="h-[52px] flex justify-between items-center p-[0.5rem]">
-      <Link href="/" className="text-xl font-bold mx-[0.5rem] !flex items-center space-x-[0.25rem]">
+      <Link href="/" className="text-xl font-bold !flex items-center space-x-[0.25rem]">
         <Image alt="logo" src="/favicon.ico" width={24} height={24} /> <p>청년붓다</p>
       </Link>
       <div className="flex items-center space-x-2">

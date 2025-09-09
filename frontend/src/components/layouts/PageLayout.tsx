@@ -76,8 +76,8 @@ export default function PageLayout({
   return (
     <div className="min-h-[calc(100svh-52px-0.5rem)]">
       {title && (
-        <div className="mx-[0.5rem] mb-[0.5rem]">
-          <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+        <div className="mx-[1rem] mb-[0.25rem]">
+          <p className="text-lg font-bold text-left">{title}</p>
         </div>
       )}
       {children}
