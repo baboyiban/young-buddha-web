@@ -1,46 +1,41 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { MissionData } from "@/lib/types/mission";
 import { fetchMissionData } from "@/lib/api/mission";
 import PageLayout from "@/components/layouts/PageLayout";
 
 export default function Mission() {
-  const [missionData, setMissionData] = useState<MissionData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const loadMissionData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await fetchMissionData();
-      setMissionData(data);
-    } catch (err: any) {
-      // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
-      if (
-        err?.status === 401 ||
-        err?.message?.includes("401") ||
-        err?.message?.includes("Unauthorized")
-      ) {
-        alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
-        router.push("/login");
-        return;
-      }
-
-      setError("미션 데이터를 불러오는데 실패했습니다.");
-    } finally {
-      setLoading(false);
+  const { data: missionData, error, isLoading } = useSWR<MissionData>(
+    "/api/mission",
+    fetchMissionData,
+    {
+      onError: (err: any) => {
+        // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
+        if (
+          err?.status === 401 ||
+          err?.message?.includes("401") ||
+          err?.message?.includes("Unauthorized")
+        ) {
+          alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+          router.push("/login");
+        }
+      },
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
     }
-  }, [router]);
-
-  useEffect(() => {
-    loadMissionData();
-  }, [loadMissionData]);
+  );
 
   return (
-    <PageLayout title="생활 소임" requireAuth={true} loading={loading} error={error}>
+    <PageLayout
+      title="생활 소임"
+      requireAuth={true}
+      loading={isLoading}
+      error={error ? "미션 데이터를 불러오는데 실패했습니다." : null}
+    >
       <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem-32px)] flex flex-col">
         {!missionData ? (
           <div className="text-gray-50">미션 데이터가 없습니다.</div>
