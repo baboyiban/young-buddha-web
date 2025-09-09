@@ -1,9 +1,9 @@
 import React from 'react';
-import AdminFilters from '@/components/admin/AdminFilters';
-import AdminBatchActions from '@/components/admin/AdminBatchActions';
+import ApprovalFilters from '@/components/approval/ApprovalFilters';
+import ApprovalBatchActions from '@/components/approval/ApprovalBatchActions';
 import { PAYMENT_STATUS } from '@/lib/constants/payment';
 
-interface AdminToolbarProps {
+interface ApprovalToolbarProps {
   statusFilter: string;
   sortOrder: string;
   loading: boolean;
@@ -15,7 +15,7 @@ interface AdminToolbarProps {
   onBatchAction: (status: string) => void;
 }
 
-export default function AdminToolbar({
+export default function ApprovalToolbar({
   statusFilter,
   sortOrder,
   loading,
@@ -25,10 +25,10 @@ export default function AdminToolbar({
   onSortOrderChange,
   onRefresh,
   onBatchAction
-}: AdminToolbarProps) {
+}: ApprovalToolbarProps) {
   return (
     <div className="flex justify-between items-center">
-      <AdminFilters
+      <ApprovalFilters
         statusFilter={statusFilter}
         sortOrder={sortOrder}
         loading={loading}
@@ -36,7 +36,7 @@ export default function AdminToolbar({
         onSortOrderChange={onSortOrderChange}
         onRefresh={onRefresh}
       />
-      <AdminBatchActions
+      <ApprovalBatchActions
         selectedCount={selectedCount}
         isUpdating={isUpdating}
         onApprove={() => onBatchAction(PAYMENT_STATUS.APPROVED)}

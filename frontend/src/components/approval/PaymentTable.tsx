@@ -1,6 +1,6 @@
 import React from "react";
 import DataTable from "@/components/tables/DataTable";
-import ActionButtons from "@/components/admin/ActionButtons";
+import ActionButtons from "@/components/approval/ActionButtons";
 import { formatDate, formatPaymentStatus } from "@/lib/utils/format";
 import { APP_CONFIG } from "@/lib/config/app";
 import { PaymentRequest } from "@/lib/types/payment";

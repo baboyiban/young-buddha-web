@@ -1,20 +1,20 @@
-// components/admin/AdminBatchActions.tsx
+// components/approval/ApprovalBatchActions.tsx
 import React from "react";
 import LoadingButton from "@/components/LoadingButton";
 
-interface AdminBatchActionsProps {
+interface ApprovalBatchActionsProps {
   selectedCount: number;
   isUpdating: boolean;
   onApprove: () => void;
   onReject: () => void;
 }
 
-export default function AdminBatchActions({
+export default function ApprovalBatchActions({
   selectedCount,
   isUpdating,
   onApprove,
   onReject,
-}: AdminBatchActionsProps) {
+}: ApprovalBatchActionsProps) {
   if (selectedCount === 0) return null;
 
   return (

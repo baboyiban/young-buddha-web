@@ -3,12 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { paymentService } from "@/lib/services/paymentService";
 import { PaymentRequest } from "@/lib/types/payment";
 
-export function useAdminPayments() {
+export function useApprovalPayments() {
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("대기");
   const [sortOrder, setSortOrder] = useState("desc");
 
-  const queryKey = ["adminPayments", { currentPage, statusFilter, sortOrder }];
+  const queryKey = ["approvalPayments", { currentPage, statusFilter, sortOrder }];
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey,

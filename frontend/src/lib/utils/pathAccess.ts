@@ -11,7 +11,7 @@ export const PATH_ACCESS_RULES: Record<string, UserRole[]> = {
   "/": [ROLE_USER, ROLE_ADMIN],
   "/mission": [ROLE_USER, ROLE_ADMIN],
   "/payment": [ROLE_USER, ROLE_ADMIN],
-  "/admin": [ROLE_ADMIN],
+   "/approval": [ROLE_ADMIN],
 };
 
 export const isPublicPath = (pathname: string): boolean => {

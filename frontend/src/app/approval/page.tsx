@@ -2,17 +2,17 @@
 
 import React, { useCallback } from "react";
 import PageLayout from "@/components/layouts/PageLayout";
-import AdminToolbar from "@/components/admin/AdminToolbar";
-import PaymentTable from "@/components/admin/PaymentTable";
-import { useAdminPayments } from "@/lib/hooks/useAdminPayments";
-import { useAdminBatchOperations } from "@/lib/hooks/useAdminBatchOperations";
+import ApprovalToolbar from "@/components/approval/ApprovalToolbar";
+import PaymentTable from "@/components/approval/PaymentTable";
+import { useApprovalPayments } from "@/lib/hooks/useApprovalPayments";
+import { useApprovalBatchOperations } from "@/lib/hooks/useApprovalBatchOperations";
 import { useErrorHandler } from "@/lib/hooks/useErrorHandler";
 import { useConfirm } from "@/lib/hooks/useConfirm";
 import { MESSAGES } from "@/lib/config/app";
 import { PAYMENT_STATUS } from "@/lib/constants/payment";
 import { PaymentRequest } from "@/lib/types/payment";
 
-export default function AdminPage() {
+export default function ApprovalPage() {
   const { handleError, handleSuccess } = useErrorHandler();
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -28,7 +28,7 @@ export default function AdminPage() {
     setCurrentPage,
     setStatusFilter,
     setSortOrder,
-  } = useAdminPayments();
+  } = useApprovalPayments();
 
   const {
     selectedRequests,
@@ -39,7 +39,7 @@ export default function AdminPage() {
     clearSelection,
     handleBatchApprove,
     handleSingleApprove,
-  } = useAdminBatchOperations();
+  } = useApprovalBatchOperations();
 
   const handleApproveAction = useCallback(
     async (item: PaymentRequest, status: string) => {
@@ -90,7 +90,7 @@ export default function AdminPage() {
         error={error}
       >
         <div className="mx-[0.5rem] bg-white p-[1rem] rounded-xl space-y-[0.75rem]">
-          <AdminToolbar
+          <ApprovalToolbar
             statusFilter={statusFilter}
             sortOrder={sortOrder}
             loading={loading}

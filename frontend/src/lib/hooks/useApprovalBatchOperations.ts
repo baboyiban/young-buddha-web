@@ -3,15 +3,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { paymentService } from "@/lib/services/paymentService";
 import { PaymentRequest } from "@/lib/types/payment";
 
-export function useAdminBatchOperations() {
+export function useApprovalBatchOperations() {
   const queryClient = useQueryClient();
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
 
   const mutationOptions = {
     onSuccess: () => {
-      // 'adminPayments'로 시작하는 모든 쿼리를 무효화하여 데이터 테이블을 새로고침합니다.
-      queryClient.invalidateQueries({ queryKey: ["adminPayments"] });
+      // 'approvalPayments'로 시작하는 모든 쿼리를 무효화하여 데이터 테이블을 새로고침합니다.
+      queryClient.invalidateQueries({ queryKey: ["approvalPayments"] });
       clearSelection();
     },
   };

@@ -24,7 +24,7 @@ export default function Navbar() {
     { path: "/", label: "홈" },
     { path: "/mission", label: "생활소임" },
     { path: "/payment", label: "결재신청" },
-    { path: "/admin", label: "결재관리" },
+     { path: "/approval", label: "결재관리" },
     { path: "/privacy", label: "개인정보" },
     { path: "/terms", label: "이용약관" }
   ];

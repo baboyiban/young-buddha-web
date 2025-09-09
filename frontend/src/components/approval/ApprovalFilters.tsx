@@ -1,7 +1,7 @@
-// components/admin/AdminFilters.tsx
+// components/approval/ApprovalFilters.tsx
 import React from "react";
 
-interface AdminFiltersProps {
+interface ApprovalFiltersProps {
   statusFilter: string;
   sortOrder: string;
   loading: boolean;
@@ -22,14 +22,14 @@ const SORT_OPTIONS = [
   { value: "asc", label: "오래된순" },
 ];
 
-export default function AdminFilters({
+export default function ApprovalFilters({
   statusFilter,
   sortOrder,
   loading,
   onStatusFilterChange,
   onSortOrderChange,
   onRefresh,
-}: AdminFiltersProps) {
+}: ApprovalFiltersProps) {
   return (
     <div className="overflow-x-auto rounded-[1rem] flex space-x-[0.25rem]">
       <select

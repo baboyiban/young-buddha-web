@@ -52,7 +52,7 @@ export default function PaymentTable({
     return (
       <div className="mx-[0.5rem] bg-white rounded-[1rem]">
         <div className="p-[1rem] flex flex-col items-center">
-          {/* 타입 필터 선택 UI - admin 페이지 스타일 참고 */}
+          {/* 타입 필터 선택 UI - approval 페이지 스타일 참고 */}
           <div className="flex self-start">
             <select
               value={typeFilter}
