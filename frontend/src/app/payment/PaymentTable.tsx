@@ -56,11 +56,11 @@ export default function PaymentTable({
         <div className="p-[1rem] flex flex-col items-center">
           {/* 타입 필터 선택 UI - approval 페이지 스타일 참고 */}
           <div className="flex self-start">
-            <select
-              value={typeFilter}
-              onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
-              className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
-            >
+             <select
+               value={typeFilter}
+               onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
+               className="px-2 py-1 border rounded text-sm"
+             >
               <option value="전체">전체</option>
               <option value="정기">정기</option>
               <option value="비정기">비정기</option>
@@ -77,11 +77,11 @@ export default function PaymentTable({
       <div className="mx-[1rem] flex flex-col space-y-[0.75rem] items-center w-[60rem] max-w-full">
         {/* 타입 필터 선택 UI - admin 페이지 스타일 참고 */}
         <div className="flex gap-[0.5rem] self-start">
-          <select
-            value={typeFilter}
-            onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
-            className="border rounded text-sm"
-          >
+           <select
+             value={typeFilter}
+             onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
+             className="px-2 py-1 border rounded text-sm"
+           >
             <option value="전체">전체</option>
             <option value="정기">정기</option>
             <option value="비정기">비정기</option>
@@ -90,18 +90,18 @@ export default function PaymentTable({
 
         {/* 모든 신청 현황을 하나의 테이블로 표시 (서버에서 이미 필터링됨) */}
         <div className="table-wrapper w-[60rem] max-w-full">
-          <table className="max-w-full text-sm">
-            <thead>
-              <tr>
-                <th className="">구분</th>
-                <th className="">신청 날짜</th>
-                <th className="">불참일</th>
-                <th className="">불참 일정</th>
-                <th className="">사유</th>
-                <th className="">결재 상태</th>
-                <th className="">관리</th>
-              </tr>
-            </thead>
+           <table className="w-full text-sm border-collapse">
+             <thead>
+               <tr className="bg-gray-50">
+                 <th className="p-2 text-left border-b">구분</th>
+                 <th className="p-2 text-left border-b">신청 날짜</th>
+                 <th className="p-2 text-left border-b">불참일</th>
+                 <th className="p-2 text-left border-b">불참 일정</th>
+                 <th className="p-2 text-left border-b">사유</th>
+                 <th className="p-2 text-left border-b">결재 상태</th>
+                 <th className="p-2 text-center border-b">관리</th>
+               </tr>
+             </thead>
             <tbody>
                {currentPageRequests.map((request) => (
                  <PaymentTableRow

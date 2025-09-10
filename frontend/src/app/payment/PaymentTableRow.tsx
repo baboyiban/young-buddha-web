@@ -1,5 +1,5 @@
 import { PaymentRequest } from "@/lib/types/payment";
-import { PAYMENT_TYPES } from "@/lib/constants/payment";
+import { OPTIONS } from "@/lib/config/app";
 import { toYMD } from "@/lib/utils/dateUtils";
 
 interface PaymentTableRowProps {
@@ -32,16 +32,16 @@ export default function PaymentTableRow({
   onDelete,
 }: PaymentTableRowProps) {
   return (
-    <tr className="">
-      <td className="">
+    <tr className="border-b">
+      <td className="p-2">
         {isEditing ? (
           <select
             name="type"
             value={editForm.type ?? request.type}
             onChange={onEditChange}
-            className=""
+            className="w-full p-1 border rounded"
           >
-            {PAYMENT_TYPES.map(({ value, label }) => (
+            {OPTIONS.PAYMENT.TYPES.map(({ value, label }) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -52,81 +52,81 @@ export default function PaymentTableRow({
         )}
       </td>
 
-      <td className="">{toYMD(request.requestDate)}</td>
-      <td className="">
+      <td className="p-2">{toYMD(request.requestDate)}</td>
+      <td className="p-2">
         {isEditing ? (
           <input
             type="date"
             name="absentDate"
             value={editForm.absentDate ?? request.absentDate}
             onChange={onEditChange}
-            className=""
+            className="w-full p-1 border rounded"
           />
         ) : (
           request.absentDate
         )}
       </td>
 
-      <td className="">
+      <td className="p-2">
         {isEditing ? (
           <input
             type="text"
             name="schedule"
             value={editForm.schedule ?? request.schedule}
             onChange={onEditChange}
-            className=""
+            className="w-full p-1 border rounded"
           />
         ) : (
           request.schedule || "-"
         )}
       </td>
 
-      <td className="">
+      <td className="p-2">
         {isEditing ? (
           <input
             type="text"
             name="reason"
             value={editForm.reason ?? request.reason}
             onChange={onEditChange}
-            className=""
+            className="w-full p-1 border rounded"
           />
         ) : (
           request.reason || "-"
         )}
       </td>
 
-      <td className="">{request.approved || "대기"}</td>
+      <td className="p-2">{request.approved || "대기"}</td>
 
-       <td className="flex justify-center gap-[0.25rem]">
+       <td className="p-2 flex justify-center gap-2">
          {isEditing ? (
            <>
-             <button
-               onClick={() => onUpdate(request)}
-               className="button purple"
-               disabled={updating}
-             >
-               {updating ? "저장 중..." : "저장"}
-             </button>
-             <button onClick={onEditCancel} className="button gray" disabled={updating}>
-               취소
-             </button>
+              <button
+                onClick={() => onUpdate(request)}
+                className="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:opacity-50"
+                disabled={updating}
+              >
+                {updating ? "저장 중..." : "저장"}
+              </button>
+              <button onClick={onEditCancel} className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600" disabled={updating}>
+                취소
+              </button>
            </>
          ) : isEditable ? (
            <>
-             <button
-               onClick={() => onEditStart(request)}
-               className="button purple"
-               disabled={deletingId === request.id}
-             >
-               수정
-             </button>
-             <button
-               onClick={() => onDelete(request)}
-               className="button red"
-               disabled={deletingId === request.id}
-             >
-               {deletingId === request.id ? "삭제 중..." : "삭제"}
-             </button>
+              <button
+                onClick={() => onEditStart(request)}
+                className="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:opacity-50"
+                disabled={deletingId === request.id}
+              >
+                수정
+              </button>
+              <button
+                onClick={() => onDelete(request)}
+                className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 disabled:opacity-50"
+                disabled={deletingId === request.id}
+              >
+                {deletingId === request.id ? "삭제 중..." : "삭제"}
+              </button>
            </>
          ) : (
            <span>-</span>

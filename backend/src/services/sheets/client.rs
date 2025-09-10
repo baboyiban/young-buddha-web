@@ -18,6 +18,7 @@ impl SheetsClient {
         query: &str,
         access_token: &str,
     ) -> Result<String, AppError> {
+        // Try with authentication first
         let url = format!(
             "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
             spreadsheet_id,
@@ -33,14 +34,25 @@ impl SheetsClient {
             .send()
             .await?;
 
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
+        if resp.status().is_success() {
+            return Ok(resp.text().await?);
+        }
+
+        // If authentication fails, try without authentication (for public sheets)
+        tracing::debug!("Authentication failed, trying without auth for public sheet");
+        let resp_public = self.client
+            .get(&url)
+            .send()
+            .await?;
+
+        if !resp_public.status().is_success() {
+            let status = resp_public.status();
+            let body = resp_public.text().await.unwrap_or_default();
             tracing::error!("Sheets API error: status={}, body={}", status, body);
             return Err(AppError::external_api(format!("시트 쿼리 실패: {}", status)));
         }
 
-        Ok(resp.text().await?)
+        Ok(resp_public.text().await?)
     }
 
     pub async fn append_row(

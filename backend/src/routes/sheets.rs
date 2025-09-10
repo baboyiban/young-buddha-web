@@ -96,8 +96,9 @@ async fn get_access_token(services: &AppServices, headers: &HeaderMap) -> Result
 
     // 사용자 토큰이 없으면 서비스 계정 토큰 사용
     // Clone 대신 새로운 인스턴스 생성
-    let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(
-        services.auth.config.google.service_account_key_path.clone().unwrap_or_default()
-    );
+    let key_path = services.auth.config.google.service_account_key_path.clone()
+        .ok_or_else(|| AppError::Config("GOOGLE_SERVICE_ACCOUNT_KEY_PATH not configured".to_string()))?;
+    tracing::debug!("Service account key path: '{}'", key_path);
+    let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(key_path);
     sa_auth.get_access_token().await
 }

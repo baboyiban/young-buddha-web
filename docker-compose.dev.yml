@@ -1,4 +1,8 @@
 # docker-compose override for development
+
+volumes:
+  frontend-node-modules:
+
 services:
   backend:
     build:
@@ -22,6 +26,6 @@ services:
       - BACKEND_INTERNAL_URL=http://backend:8080
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - frontend-node-modules:/app/node_modules
       - /app/.next
     command: bun run dev

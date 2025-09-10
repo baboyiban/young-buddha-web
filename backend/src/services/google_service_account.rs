@@ -130,6 +130,7 @@ impl GoogleServiceAccountAuth {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
+            tracing::error!("Service account token request failed: status={}, body={}", status, body);
             return Err(AppError::external_api(format!(
                 "Failed to get service account access token: status={}, body={}",
                 status, body
