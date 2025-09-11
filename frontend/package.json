@@ -8,7 +8,7 @@
     "dev:with-backend": "concurrently \"cd ../backend && cargo run\" \"next dev\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "bunx eslint .",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,8 +30,12 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^8.2.2",
     "eslint": "9.0.0",
-    "eslint-config-next": "14.2.10",
     "postcss": "^8.5.6",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@eslint/js": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "globals": "^15.0.0",
+    "@next/eslint-plugin-next": "^14.2.10"
   }
 }

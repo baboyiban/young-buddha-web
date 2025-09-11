@@ -18,8 +18,8 @@ import { fetchFilteredPayments } from "@/lib/api/payment";
 import { toYMD } from "@/lib/utils/dateUtils";
 import PaymentTable from "./PaymentTable";
 
-const initialValues = {
-  type: "",
+const initialValues: Partial<PaymentRequest> = {
+  type: undefined,
   absentDate: "",
   schedule: "",
   reason: "",
