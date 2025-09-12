@@ -32,14 +32,14 @@ export default function PaymentTableRow({
   onDelete,
 }: PaymentTableRowProps) {
   return (
-    <tr className="border-b">
-      <td className="p-2">
+    <tr className="">
+      <td className="">
         {isEditing ? (
           <select
             name="type"
             value={editForm.type ?? request.type}
             onChange={onEditChange}
-            className="w-full p-1 border rounded"
+            className=""
           >
             {OPTIONS.PAYMENT.TYPES.map(({ value, label }) => (
               <option key={value} value={value}>
@@ -60,7 +60,7 @@ export default function PaymentTableRow({
             name="absentDate"
             value={editForm.absentDate ?? request.absentDate}
             onChange={onEditChange}
-            className="w-full p-1 border rounded"
+            className=""
           />
         ) : (
           request.absentDate
@@ -74,7 +74,7 @@ export default function PaymentTableRow({
             name="schedule"
             value={editForm.schedule ?? request.schedule}
             onChange={onEditChange}
-            className="w-full p-1 border rounded"
+            className=""
           />
         ) : (
           request.schedule || "-"
@@ -88,7 +88,7 @@ export default function PaymentTableRow({
             name="reason"
             value={editForm.reason ?? request.reason}
             onChange={onEditChange}
-            className="w-full p-1 border rounded"
+            className=""
           />
         ) : (
           request.reason || "-"
@@ -102,12 +102,12 @@ export default function PaymentTableRow({
            <>
               <button
                 onClick={() => onUpdate(request)}
-                className="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:opacity-50"
+                className="button purple small"
                 disabled={updating}
               >
                 {updating ? "저장 중..." : "저장"}
               </button>
-              <button onClick={onEditCancel} className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600" disabled={updating}>
+              <button onClick={onEditCancel} className="button gray small" disabled={updating}>
                 취소
               </button>
            </>
@@ -115,14 +115,14 @@ export default function PaymentTableRow({
            <>
               <button
                 onClick={() => onEditStart(request)}
-                className="px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:opacity-50"
+                className="button purple small"
                 disabled={deletingId === request.id}
               >
                 수정
               </button>
               <button
                 onClick={() => onDelete(request)}
-                className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 disabled:opacity-50"
+                className="button red small"
                 disabled={deletingId === request.id}
               >
                 {deletingId === request.id ? "삭제 중..." : "삭제"}

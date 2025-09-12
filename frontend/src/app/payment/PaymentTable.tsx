@@ -80,7 +80,7 @@ export default function PaymentTable({
            <select
              value={typeFilter}
              onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
-             className="px-2 py-1 border rounded text-sm"
+             className=""
            >
             <option value="전체">전체</option>
             <option value="정기">정기</option>
@@ -92,14 +92,14 @@ export default function PaymentTable({
         <div className="table-wrapper w-[60rem] max-w-full">
            <table className="w-full text-sm border-collapse">
              <thead>
-               <tr className="bg-gray-50">
-                 <th className="p-2 text-left border-b">구분</th>
-                 <th className="p-2 text-left border-b">신청 날짜</th>
-                 <th className="p-2 text-left border-b">불참일</th>
-                 <th className="p-2 text-left border-b">불참 일정</th>
-                 <th className="p-2 text-left border-b">사유</th>
-                 <th className="p-2 text-left border-b">결재 상태</th>
-                 <th className="p-2 text-center border-b">관리</th>
+               <tr>
+                 <th>구분</th>
+                 <th>신청 날짜</th>
+                 <th>불참일</th>
+                 <th>불참 일정</th>
+                 <th>사유</th>
+                 <th>결재 상태</th>
+                 <th>관리</th>
                </tr>
              </thead>
             <tbody>

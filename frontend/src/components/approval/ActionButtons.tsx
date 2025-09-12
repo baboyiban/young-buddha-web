@@ -24,7 +24,7 @@ export default function ActionButtons({ item, isUpdating, onApprove }: ActionBut
     return (
       <button
         onClick={() => onApprove(PAYMENT_STATUS.PENDING)}
-        className="button text-sm gray"
+        className="button small gray"
         disabled={isUpdating}
       >
         {isUpdating ? '처리 중...' : '반려 취소'}
@@ -36,14 +36,14 @@ export default function ActionButtons({ item, isUpdating, onApprove }: ActionBut
     <div className="flex space-x-[0.25rem]">
       <button
         onClick={() => onApprove(PAYMENT_STATUS.APPROVED)}
-        className="button text-sm purple"
+        className="button small purple"
         disabled={isUpdating}
       >
         {isUpdating ? '처리 중...' : '승인'}
       </button>
       <button
         onClick={() => onApprove(PAYMENT_STATUS.REJECTED)}
-        className="button text-sm red"
+        className="button small red"
         disabled={isUpdating}
       >
         {isUpdating ? '처리 중...' : '반려'}
