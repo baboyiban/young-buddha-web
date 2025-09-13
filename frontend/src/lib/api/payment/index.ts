@@ -335,7 +335,7 @@ export async function getTotalPaymentCount(
     return Math.max(0, totalCount);
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
-      console.error("총 데이터 개수 조회 실패:", error);
+      // Error logging removed
     }
     return 0;
   }

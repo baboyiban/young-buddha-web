@@ -34,7 +34,7 @@ impl SheetsService {
         params: QueryParams,
         access_token: &str,
     ) -> Result<axum::response::Response, AppError> {
-        tracing::info!("Querying sheet: {} / {}", params.spreadsheet_id, params.sheet_name);
+
 
         let mut final_query = params.query.clone();
 
@@ -56,7 +56,7 @@ impl SheetsService {
         if let Some(cache) = &self.cache {
             if let Some(cached_json) = cache.get(&cache_key).await {
                 if let Ok(cached_value) = serde_json::from_str::<Value>(&cached_json) {
-                    tracing::debug!("Cache hit for sheets query");
+    
                     return Ok((StatusCode::OK, Json(cached_value)).into_response());
                 }
             }

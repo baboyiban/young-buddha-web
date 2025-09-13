@@ -19,7 +19,7 @@ export function useErrorHandler() {
     toast.error(message);
 
     if (process.env.NODE_ENV === "development") {
-      console.error("Error handled by useErrorHandler:", error);
+      // Error logging removed
     }
   }, []);
 

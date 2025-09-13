@@ -2,8 +2,6 @@ use serde_json::Value;
 use crate::types::AppError;
 
 pub fn parse_gviz_json(text: &str) -> Result<Value, AppError> {
-    tracing::debug!("Parsing GViz response, length: {} bytes", text.len());
-
     let json_start = text.find('{')
         .ok_or_else(|| AppError::external_api("GViz 응답에서 JSON 시작 위치를 찾지 못했습니다"))?;
 
@@ -15,8 +13,6 @@ pub fn parse_gviz_json(text: &str) -> Result<Value, AppError> {
     }
 
     let json_str = &text[json_start..=json_end];
-    let preview = &json_str.chars().take(100).collect::<String>();
-    tracing::debug!("Extracted JSON preview: {}", preview);
 
     let result = serde_json::from_str::<Value>(json_str)
         .map_err(|e| AppError::external_api(format!("JSON 파싱 실패: {}", e)))?;
@@ -26,8 +22,6 @@ pub fn parse_gviz_json(text: &str) -> Result<Value, AppError> {
         .and_then(|r| r.as_array())
         .map(|rows| rows.len())
         .unwrap_or(0);
-
-    tracing::debug!("Successfully parsed GViz response with {} rows", row_count);
 
     Ok(result)
 }

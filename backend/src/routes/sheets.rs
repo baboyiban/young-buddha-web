@@ -90,7 +90,7 @@ async fn get_access_token(services: &AppServices, _headers: &HeaderMap) -> Resul
     // Always use service account token for server-side sheet access.
     let key_path = services.auth.config.google.service_account_key_path.clone()
         .ok_or_else(|| AppError::Config("GOOGLE_SERVICE_ACCOUNT_KEY_PATH not configured".to_string()))?;
-    tracing::debug!("Service account key path: '{}'", key_path);
+
     let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(key_path);
     sa_auth.get_access_token().await
 }

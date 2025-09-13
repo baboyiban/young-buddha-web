@@ -26,7 +26,7 @@ impl SheetsClient {
             urlencoding::encode(sheet_name)
         );
 
-        tracing::debug!("Querying Sheets Visualization API: {}", url);
+
 
         let resp = self.client
             .get(&url)
@@ -39,7 +39,7 @@ impl SheetsClient {
         }
 
         // If authentication fails, try without authentication (for public sheets)
-        tracing::debug!("Authentication failed, trying without auth for public sheet");
+
         let resp_public = self.client
             .get(&url)
             .send()

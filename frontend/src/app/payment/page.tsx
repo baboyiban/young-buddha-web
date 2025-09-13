@@ -38,9 +38,7 @@ export default function PaymentPageExample() {
   const [typeFilter, setTypeFilter] = React.useState<"전체" | "정기" | "비정기">("전체");
 
   const fetcher = async ([key, email, page, filter]: [string, string, number, string]) => {
-    console.log('fetching payments for', email, 'page:', page, 'filter:', filter);
     const { data, totalCount } = await fetchFilteredPayments(email, false, page, itemsPerPage, filter, undefined, 'desc');
-    console.log('fetched data:', { data, totalCount });
     const normalized = data.map((r) => ({
       ...r,
       requestDate: toYMD(r.requestDate),
@@ -53,12 +51,6 @@ export default function PaymentPageExample() {
     user?.email ? ['payments', user.email, currentPage, typeFilter] : null,
     fetcher
   );
-
-  console.log('user:', user);
-  console.log('user?.email:', user?.email);
-  console.log('payments:', payments);
-  console.log('paymentsError:', paymentsError);
-  console.log('paymentsLoading:', paymentsLoading);
 
   const { values, errors, handleSubmit, setValue, isSubmitting, reset } =
     useForm({
