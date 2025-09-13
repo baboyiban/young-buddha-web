@@ -162,9 +162,9 @@ clean-frontend:
 
 clean-backend:
 	@echo "🧹 Cleaning backend..."
-	@cd backend && rm -rf target Cargo.lock
+	@cd backend && rm -rf target/
 	@cd backend && cargo clean 2>/dev/null || true
-	@echo "✅ Backend cleaned!"
+	@echo "✅ Backend cleaned (Cargo.lock preserved)!"
 
 clean-docker:
 	@echo "🧹 Cleaning Docker..."

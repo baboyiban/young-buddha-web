@@ -263,15 +263,25 @@ impl AuthService {
             urlencoding::encode(sheet_name)
         );
 
-        let maybe_token = self.get_valid_user_token(email).await;
-        let req = self.http_client.get(&url);
-        let req = if let Some(token) = maybe_token {
-            req.bearer_auth(token)
-        } else {
-            req
+        // Use service account token for server-side sheet access
+        let key_path = match &self.config.google.service_account_key_path {
+            Some(p) if !p.is_empty() => p.clone(),
+            _ => {
+                tracing::error!("Service account key path not configured; cannot query spreadsheet");
+                return (None, None);
+            }
         };
 
-        let resp = match req.send().await {
+        let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(key_path);
+        let token = match sa_auth.get_access_token().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to obtain service account token: {:?}", e);
+                return (None, None);
+            }
+        };
+
+        let resp = match self.http_client.get(&url).bearer_auth(token).send().await {
             Ok(r) => r,
             Err(_) => return (None, None),
         };

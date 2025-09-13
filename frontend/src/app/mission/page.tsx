@@ -10,7 +10,7 @@ export default function Mission() {
   const router = useRouter();
 
   const { data: missionData, error, isLoading } = useSWR<MissionData>(
-    "/api/mission",
+    "mission-data",
     fetchMissionData,
     {
       onError: (err: any) => {

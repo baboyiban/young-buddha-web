@@ -86,16 +86,8 @@ async fn delete_by_query(
     }
 }
 
-async fn get_access_token(services: &AppServices, headers: &HeaderMap) -> Result<String, AppError> {
-    // 먼저 사용자 토큰 시도
-    if let Some(email) = services.auth.jwt_service.extract_email_from_headers(headers) {
-        if let Some(user_token) = services.auth.get_valid_user_token(&email).await {
-            return Ok(user_token);
-        }
-    }
-
-    // 사용자 토큰이 없으면 서비스 계정 토큰 사용
-    // Clone 대신 새로운 인스턴스 생성
+async fn get_access_token(services: &AppServices, _headers: &HeaderMap) -> Result<String, AppError> {
+    // Always use service account token for server-side sheet access.
     let key_path = services.auth.config.google.service_account_key_path.clone()
         .ok_or_else(|| AppError::Config("GOOGLE_SERVICE_ACCOUNT_KEY_PATH not configured".to_string()))?;
     tracing::debug!("Service account key path: '{}'", key_path);
