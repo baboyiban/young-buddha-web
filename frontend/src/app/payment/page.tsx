@@ -19,7 +19,7 @@ import { toYMD } from "@/lib/utils/dateUtils";
 import PaymentTable from "./PaymentTable";
 
 const initialValues: Partial<PaymentRequest> = {
-  type: undefined,
+  type: "비정기",
   requestDate: new Date().toISOString().slice(0, 10),
   absentDate: new Date().toISOString().slice(0, 10),
   schedule: "",
