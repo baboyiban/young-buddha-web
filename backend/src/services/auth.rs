@@ -263,6 +263,10 @@ impl AuthService {
             urlencoding::encode(sheet_name)
         );
 
+        tracing::debug!("Resolving user profile for email: {}", email);
+        tracing::debug!("GViz query: {}", query);
+        tracing::debug!("GViz query URL: {}", url);
+
         // Use service account token for server-side sheet access
         let key_path = match &self.config.google.service_account_key_path {
             Some(p) if !p.is_empty() => p.clone(),
@@ -272,9 +276,14 @@ impl AuthService {
             }
         };
 
+        tracing::debug!("Using service account key path: {}", key_path);
+
         let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(key_path);
         let token = match sa_auth.get_access_token().await {
-            Ok(t) => t,
+            Ok(t) => {
+                tracing::debug!("Obtained service account token (len={})", t.len());
+                t
+            },
             Err(e) => {
                 tracing::error!("Failed to obtain service account token: {:?}", e);
                 return (None, None);
@@ -283,26 +292,53 @@ impl AuthService {
 
         let resp = match self.http_client.get(&url).bearer_auth(token).send().await {
             Ok(r) => r,
-            Err(_) => return (None, None),
+            Err(e) => {
+                tracing::error!("HTTP request to GViz endpoint failed: {:?}", e);
+                return (None, None);
+            },
         };
 
-        if !resp.status().is_success() {
+        let status = resp.status();
+        tracing::debug!("GViz response status: {}", status);
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            tracing::error!("GViz returned non-success status: {} body: {}", status, body);
             return (None, None);
         }
 
         let text = match resp.text().await {
-            Ok(t) => t,
-            Err(_) => return (None, None),
+            Ok(t) => {
+                tracing::debug!("GViz response text length: {}", t.len());
+                if t.len() < 4000 {
+                    tracing::debug!("GViz response text: {}", t);
+                } else {
+                    tracing::debug!("GViz response text (truncated): {}...", &t[..4000]);
+                }
+                t
+            },
+            Err(e) => {
+                tracing::error!("Failed to read GViz response body: {:?}", e);
+                return (None, None);
+            }
         };
 
         let parsed: serde_json::Value = match crate::services::sheets::parser::parse_gviz_json(&text) {
             Ok(v) => v,
-            Err(_) => return (None, None),
+            Err(e) => {
+                tracing::error!("Failed to parse GViz JSON: {:?}", e);
+                tracing::debug!("GViz response text for debugging: {}", text);
+                return (None, None);
+            }
         };
+
+        tracing::debug!("Parsed GViz JSON: {:?}", parsed);
 
         let rows = parsed.get("table")
             .and_then(|t| t.get("rows"))
             .and_then(|r| r.as_array());
+
+        let rows_count = rows.as_ref().map(|r| r.len()).unwrap_or(0);
+        tracing::debug!("GViz parsed rows count: {}", rows_count);
 
         if let Some(rows) = rows {
             if let Some(row0) = rows.get(0) {
@@ -316,9 +352,18 @@ impl AuthService {
                         .and_then(|c| c.get("v"))
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
+
+                    tracing::debug!("Resolved name: {:?}, role: {:?}", name, role);
+
                     return (name, role);
+                } else {
+                    tracing::debug!("Row 0 has no cells");
                 }
+            } else {
+                tracing::debug!("Rows array present but no row 0");
             }
+        } else {
+            tracing::debug!("No rows found in parsed GViz response");
         }
 
         (None, None)

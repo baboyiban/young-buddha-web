@@ -20,7 +20,8 @@ import PaymentTable from "./PaymentTable";
 
 const initialValues: Partial<PaymentRequest> = {
   type: undefined,
-  absentDate: "",
+  requestDate: new Date().toISOString().slice(0, 10),
+  absentDate: new Date().toISOString().slice(0, 10),
   schedule: "",
   reason: "",
 };

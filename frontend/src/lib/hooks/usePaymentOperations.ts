@@ -40,7 +40,7 @@ export function usePaymentOperations() {
         user.email.split("@")[0],
         userName,
         form.type,
-        toYMD(form.requestDate),
+        toYMD(form.requestDate || new Date()),
         toYMD(form.absentDate),
         form.schedule,
         form.reason,
