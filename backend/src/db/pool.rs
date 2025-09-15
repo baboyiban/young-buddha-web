@@ -9,8 +9,10 @@ pub struct DatabasePool {
 
 impl DatabasePool {
     pub fn new(path: String) -> Result<Self, AppError> {
+        tracing::info!("Creating DatabasePool for path: {}", path);
         let db = Self { path };
         db.initialize()?;
+        tracing::info!("DatabasePool initialized successfully");
         Ok(db)
     }
 
@@ -19,19 +21,28 @@ impl DatabasePool {
         let db_path = Path::new(&self.path);
 
         if let Some(parent) = db_path.parent() {
+            tracing::debug!("Ensuring parent directory exists: {:?}", parent);
             fs::create_dir_all(parent)
-                .map_err(|e| AppError::Database(rusqlite::Error::FromSqlConversionFailure(
-                    0, rusqlite::types::Type::Text, Box::new(e)
-                )))?;
+                .map_err(|e| {
+                    tracing::error!("Failed to create parent directory {:?}: {}", parent, e);
+                    AppError::Database(rusqlite::Error::FromSqlConversionFailure(
+                        0, rusqlite::types::Type::Text, Box::new(e)
+                    ))
+                })?;
         }
 
         if !db_path.exists() {
+            tracing::debug!("DB file does not exist, creating: {:?}", db_path);
             fs::File::create(&db_path)
-                .map_err(|e| AppError::Database(rusqlite::Error::FromSqlConversionFailure(
-                    0, rusqlite::types::Type::Text, Box::new(e)
-                )))?;
+                .map_err(|e| {
+                    tracing::error!("Failed to create DB file {:?}: {}", db_path, e);
+                    AppError::Database(rusqlite::Error::FromSqlConversionFailure(
+                        0, rusqlite::types::Type::Text, Box::new(e)
+                    ))
+                })?;
         }
 
+        tracing::debug!("Opening SQLite connection at: {:?}", db_path);
         Ok(Connection::open_with_flags(db_path, flags)?)
     }
 
@@ -50,6 +61,7 @@ impl DatabasePool {
     }
 
     fn initialize(&self) -> Result<(), AppError> {
+        tracing::info!("Initializing database schema at: {}", self.path);
         let conn = self.get_connection()?;
         conn.execute_batch(
             r#"
@@ -71,6 +83,7 @@ impl DatabasePool {
             );
             "#,
         )?;
+        tracing::info!("Database schema ensured");
         Ok(())
     }
 }

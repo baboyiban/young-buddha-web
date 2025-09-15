@@ -44,7 +44,9 @@ impl GoogleServiceAccountAuth {
     }
 
     pub async fn get_access_token(&mut self) -> Result<String, AppError> {
+        tracing::debug!("Attempting to get service account token from path: {}", self.key_path);
         if self.key_path.is_empty() {
+            tracing::error!("Service account key path not configured");
             return Err(AppError::Config("Service account key path not configured".to_string()));
         }
 
@@ -63,7 +65,10 @@ impl GoogleServiceAccountAuth {
         // Read service account key file
         let key_content = tokio::fs::read_to_string(&self.key_path)
             .await
-            .map_err(|e| AppError::internal(format!("Failed to read service account key file: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!("Failed to read service account key file '{}': {}", self.key_path, e);
+                AppError::internal(format!("Failed to read service account key file: {}", e))
+            })?;
 
         // Parse service account key
         let sa_key: ServiceAccountKey = serde_json::from_str(&key_content)
