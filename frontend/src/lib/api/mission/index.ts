@@ -13,16 +13,16 @@ const MISSION_INDICES = {
   date: 0, // A
   dayOfWeek: 1, // B
   morningMeal: [2, 3, 4, 5] as const, // C, D, E, F (발공 당번 4칸)
-  morningHelper: [6, 7] as const, // G, H (바라지 2칸)
-  morningDishes: [8, 9, 10] as const, // I, J, K (설거지 3칸)
+  morningHelper: [6, 7, 8, 9] as const, // G, H, I, J (바라지 4칸)
+  morningDishes: [10, 11, 12] as const, // K, L, M (설거지 3칸)
   laundry: {
-    wash: 11, // L (애벌)
-    hang: 12, // M (널기)
-    fold: 13, // N (개기)
+    wash: 13, // N (애벌)
+    hang: 14, // O (널기)
+    fold: 15, // P (개기)
   },
-  afternoonCushion: [14, 15] as const, // O, P (사시예불 전 방석깔기 2칸)
-  eveningMeal: [16, 17, 18] as const, // Q, R, S (저녁공당 3칸)
-  eveningCushion: 19, // T (저녁예불 방석 한줄깔기 1칸)
+  afternoonCushion: [16, 17] as const, // Q, R (사시예불전 방석깔기 2칸)
+  eveningMeal: [18, 19, 20] as const, // S, T, U (저녁 공당 3칸)
+  eveningCushion: 21, // V (저녁예불 방석 한줄깔기 - 이동)
 } as const;
 
 export async function fetchMissionData(): Promise<MissionData> {
@@ -76,7 +76,6 @@ function processMissionData(rawData: string[]): MissionData {
       MISSION_INDICES.afternoonCushion,
     ),
     eveningMeal: getMissionMembers(rawData, MISSION_INDICES.eveningMeal),
-    eveningCushion: rawData[MISSION_INDICES.eveningCushion] || undefined,
   };
 }
 
