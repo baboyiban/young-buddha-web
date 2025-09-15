@@ -125,7 +125,7 @@ export default function PaymentPageExample() {
 
   return (
     <PageLayout title="결재 신청" requireAuth={true}>
-      <div className="space-y-6">
+      <div className="space-y-[0.5rem]">
         {/* 결재 신청 폼 */}
         <div className="mx-[0.5rem] bg-white p-[1rem] rounded-xl">
           <form onSubmit={handleSubmit} className="max-w-[60rem] mx-auto space-y-4">
