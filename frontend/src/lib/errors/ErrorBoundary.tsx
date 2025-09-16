@@ -44,10 +44,10 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
             <div className="text-center">
               <div className="text-red-500 text-4xl mb-4">!</div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              <h2 className="text-xl font-semibold text-dark-gray mb-2">
                 문제가 발생했습니다
               </h2>
-              <p className="text-gray-600 mb-4">{MESSAGES.ERRORS.GENERIC}</p>
+              <p className="text-dark-gray mb-4">{MESSAGES.ERRORS.GENERIC}</p>
               <button onClick={this.handleRetry} className="button purple">
                 다시 시도
               </button>

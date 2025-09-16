@@ -45,7 +45,7 @@ export default function DataTable<T extends { [key: string]: unknown }>({
   if (loading) {
     return (
       <div className="flex justify-center p-8">
-        <div className="text-gray-50">로딩 중...</div>
+        <div className="text-dark-gray">로딩 중...</div>
       </div>
     );
   }
@@ -53,7 +53,7 @@ export default function DataTable<T extends { [key: string]: unknown }>({
   if (data.length === 0) {
     return (
       <div className="flex justify-center p-8">
-        <div className="text-gray-50">{emptyMessage}</div>
+        <div className="text-dark-gray">{emptyMessage}</div>
       </div>
     );
   }

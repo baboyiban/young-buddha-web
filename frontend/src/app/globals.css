@@ -1,23 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-gray-90: #e6e6e6;
-  --color-gray-80: #cccccc;
-  --color-gray-70: #b3b3b3;
-  --color-gray-60: #999999;
-  --color-gray-50: #808080;
-  --color-gray-40: #666666;
-  --color-light-purple: #ccccff;
-  --color-purple: #9999ff;
-  --color-deep-purple: #8080ff;
-  --color-dark-purple: #4747ff;
-  --color-red: #ffcccc;
-  --color-deep-red: #ff8080;
-  --color-dark-red: #ff4d4d;
+  --color-light-gray: rgba(0, 0, 0, 0.1);
+  --color-medium-gray: rgba(0, 0, 0, 0.2);
+  --color-deep-gray: rgba(0, 0, 0, 0.4);
+  --color-dark-gray: rgba(0, 0, 0, 0.8);
+
+  --color-light-purple: oklch(0.5 0.25 270 / 25%);
+  --color-medium-purple: oklch(0.5 0.25 270 / 50%);
+  --color-deep-purple: oklch(0.5 0.25 270 / 75%);
+  --color-dark-purple: oklch(0.5 0.25 270 / 100%);
+
+  --color-light-red: oklch(0.5 0.25 30 / 25%);
+  --color-medium-red: oklch(0.5 0.25 30 / 50%);
+  --color-deep-red: oklch(0.5 0.25 30 / 75%);
+  --color-dark-red: oklch(0.5 0.25 30 / 100%);
+
+  --color-light-green: oklch(0.5 0.25 150 / 25%);
+  --color-medium-green: oklch(0.5 0.25 150 / 50%);
+  --color-deep-green: oklch(0.5 0.25 150 / 75%);
+  --color-dark-green: oklch(0.5 0.25 150 / 100%);
 }
 
 body {
-  @apply bg-gray-90;
+  @apply bg-light-gray;
 }
 
 @media (max-width: 768px) {
@@ -48,7 +54,7 @@ input {
 select,
 input,
 textarea {
-  @apply bg-gray-90 border border-gray-80;
+  @apply bg-light-gray border border-medium-gray;
 }
 
 .button,
@@ -67,7 +73,7 @@ select.small {
 .button.border,
 input.border,
 select.border {
-  @apply border border-gray-50;
+  @apply border border-medium-gray;
 }
 
 .button {
@@ -79,7 +85,7 @@ select.border {
 }
 
 .button.gray {
-  @apply bg-gray-80;
+  @apply bg-medium-gray;
 }
 
 .button.purple {
@@ -99,11 +105,11 @@ select.border {
 }
 
 select {
-  @apply appearance-none min-w-max;
+  @apply appearance-none min-w-max !max-w-full;
 }
 
 textarea {
-  @apply resize-none text-black placeholder-gray-50;
+  @apply resize-none;
 }
 
 .table-wrapper {
@@ -140,19 +146,19 @@ table td {
 }
 
 table th {
-  @apply bg-gray-80 text-center;
+  @apply bg-medium-gray text-center;
 }
 
 tbody:has(tr:nth-child(odd):last-child) tr:nth-child(odd) {
-  @apply bg-gray-90;
+  @apply bg-light-gray;
 }
 
 tbody:has(tr:nth-child(even):last-child) tr:nth-child(even) {
-  @apply bg-gray-90;
+  @apply bg-light-gray;
 }
 
 input,
 select,
 textarea {
-  @apply focus:outline-none focus:border-dark-purple active:border-dark-purple selection:border-dark-purple;
+  @apply focus:outline-none focus:border-dark-purple active:border-dark-purple selection:border-dark-purple placeholder-deep-gray;
 }

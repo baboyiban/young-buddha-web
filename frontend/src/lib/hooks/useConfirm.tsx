@@ -43,10 +43,10 @@ export function useConfirm() {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-          <div className="p-6">
+        <div className="bg-white rounded-[1rem] shadow-xl max-w-md w-full">
+          <div className="p-[1rem] space-y-[0.25rem]">
             {options.title && (
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-dark-gray">
                 {options.title}
               </h3>
             )}

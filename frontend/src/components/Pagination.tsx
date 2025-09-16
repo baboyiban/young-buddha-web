@@ -18,12 +18,11 @@ export default function Pagination({
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
-
   return (
     <div className="flex items-center justify-center">
       <div className="flex flex-col items-center space-y-[0.5rem]">
         {/* 현재 상태 정보 */}
-        {/*<div className="text-sm text-gray-50">
+        {/*<div className="text-sm text-dark-gray">
           총 <span className="font-medium text-blue-600">{totalItems}</span>개
           중 <span className="font-medium text-blue-600">{startItem}</span>-
           <span className="font-medium text-blue-600">{endItem}</span>개 표시

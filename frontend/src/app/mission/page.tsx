@@ -9,25 +9,25 @@ import PageLayout from "@/components/layouts/PageLayout";
 export default function Mission() {
   const router = useRouter();
 
-  const { data: missionData, error, isLoading } = useSWR<MissionData>(
-    "mission-data",
-    fetchMissionData,
-    {
-      onError: (err: any) => {
-        // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
-        if (
-          err?.status === 401 ||
-          err?.message?.includes("401") ||
-          err?.message?.includes("Unauthorized")
-        ) {
-          alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
-          router.push("/login");
-        }
-      },
-      revalidateOnFocus: false,
-      revalidateOnReconnect: true,
-    }
-  );
+  const {
+    data: missionData,
+    error,
+    isLoading,
+  } = useSWR<MissionData>("mission-data", fetchMissionData, {
+    onError: (err: any) => {
+      // 401 Unauthorized 에러인 경우 로그인 페이지로 리다이렉트
+      if (
+        err?.status === 401 ||
+        err?.message?.includes("401") ||
+        err?.message?.includes("Unauthorized")
+      ) {
+        alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+        router.push("/login");
+      }
+    },
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+  });
 
   return (
     <PageLayout
@@ -38,7 +38,7 @@ export default function Mission() {
     >
       <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem-32px)] flex flex-col">
         {!missionData ? (
-          <div className="text-gray-50">미션 데이터가 없습니다.</div>
+          <div className="text-dark-gray">미션 데이터가 없습니다.</div>
         ) : (
           <>
             {/* 미션 컨텐츠 */}
@@ -72,11 +72,13 @@ export default function Mission() {
               {(missionData.laundry.wash ||
                 missionData.laundry.hang ||
                 missionData.laundry.fold) && (
-                  <LaundryMission laundry={missionData.laundry} />
-                )}
+                <LaundryMission laundry={missionData.laundry} />
+              )}
 
               {missionData.afternoonCushion.length > 0 && (
-                <AfternoonCushionMission members={missionData.afternoonCushion} />
+                <AfternoonCushionMission
+                  members={missionData.afternoonCushion}
+                />
               )}
 
               {missionData.eveningMeal.length > 0 && (

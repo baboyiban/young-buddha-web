@@ -56,17 +56,19 @@ export default function PaymentTable({
         <div className="p-[1rem] flex flex-col items-center">
           {/* 타입 필터 선택 UI - approval 페이지 스타일 참고 */}
           <div className="flex self-start">
-             <select
-               value={typeFilter}
-               onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
-               className="px-2 py-1 border rounded text-sm"
-             >
+            <select
+              value={typeFilter}
+              onChange={(e) =>
+                onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")
+              }
+              className="px-2 py-1 border rounded text-sm"
+            >
               <option value="전체">전체</option>
               <option value="정기">정기</option>
               <option value="비정기">비정기</option>
             </select>
           </div>
-          <div className="text-gray-50">신청 현황이 없습니다.</div>
+          <div className="text-dark-gray">신청 현황이 없습니다.</div>
         </div>
       </div>
     );
@@ -77,11 +79,13 @@ export default function PaymentTable({
       <div className="mx-[1rem] flex flex-col space-y-[0.75rem] items-center w-[60rem] max-w-full">
         {/* 타입 필터 선택 UI - admin 페이지 스타일 참고 */}
         <div className="flex gap-[0.5rem] self-start">
-           <select
-             value={typeFilter}
-             onChange={(e) => onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")}
-             className=""
-           >
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              onTypeFilterChange(e.target.value as "전체" | "정기" | "비정기")
+            }
+            className=""
+          >
             <option value="전체">전체</option>
             <option value="정기">정기</option>
             <option value="비정기">비정기</option>
@@ -90,35 +94,35 @@ export default function PaymentTable({
 
         {/* 모든 신청 현황을 하나의 테이블로 표시 (서버에서 이미 필터링됨) */}
         <div className="table-wrapper w-[60rem] max-w-full">
-           <table className="w-full text-sm border-collapse">
-             <thead>
-               <tr>
-                 <th>구분</th>
-                 <th>신청 날짜</th>
-                 <th>불참일</th>
-                 <th>불참 일정</th>
-                 <th>사유</th>
-                 <th>결재 상태</th>
-                 <th>관리</th>
-               </tr>
-             </thead>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr>
+                <th>구분</th>
+                <th>신청 날짜</th>
+                <th>불참일</th>
+                <th>불참 일정</th>
+                <th>사유</th>
+                <th>결재 상태</th>
+                <th>관리</th>
+              </tr>
+            </thead>
             <tbody>
-               {currentPageRequests.map((request) => (
-                 <PaymentTableRow
-                   key={request.id}
-                   request={request}
-                   isEditing={editingId === request.id}
-                   editForm={editForm}
-                   deletingId={deletingId}
-                   updating={updating}
-                   isEditable={isEditable}
-                   onEditChange={onEditChange}
-                   onEditStart={onEditStart}
-                   onEditCancel={onEditCancel}
-                   onUpdate={onUpdate}
-                   onDelete={onDelete}
-                 />
-               ))}
+              {currentPageRequests.map((request) => (
+                <PaymentTableRow
+                  key={request.id}
+                  request={request}
+                  isEditing={editingId === request.id}
+                  editForm={editForm}
+                  deletingId={deletingId}
+                  updating={updating}
+                  isEditable={isEditable}
+                  onEditChange={onEditChange}
+                  onEditStart={onEditStart}
+                  onEditCancel={onEditCancel}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                />
+              ))}
             </tbody>
           </table>
         </div>

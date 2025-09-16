@@ -97,7 +97,7 @@ export default function PaymentTableRow({
 
       <td className="p-2">{request.approved || "대기"}</td>
 
-       <td className="p-2 flex justify-center gap-2">
+       <td className="p-2 flex justify-center space-x-[0.25rem]">
          {isEditing ? (
            <>
               <button

@@ -39,7 +39,7 @@ export default function PageLayout({
   if (requireAuth && !isAuthenticated) {
     return (
       <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
-        <div className="text-gray-50">로그인이 필요합니다.</div>
+        <div className="text-dark-gray">로그인이 필요합니다.</div>
       </div>
     );
   }
@@ -52,7 +52,7 @@ export default function PageLayout({
     if (!hasRequiredRole) {
       return (
         <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
-          <div className="text-gray-50">접근 권한이 없습니다.</div>
+          <div className="text-dark-gray">접근 권한이 없습니다.</div>
         </div>
       );
     }
@@ -62,11 +62,11 @@ export default function PageLayout({
   if (error) {
     return (
       <div className="min-h-[calc(100svh-52px-0.5rem)] flex items-center justify-center">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="bg-white rounded-[1rem] p-6 max-w-md w-full mx-4">
           <div className="text-center">
             <div className="text-red-500 text-2xl mb-2">!</div>
             <h2 className="text-lg font-semibold mb-2">오류 발생</h2>
-            <p className="text-gray-600">{error}</p>
+            <p className="text-dark-gray">{error}</p>
           </div>
         </div>
       </div>
@@ -77,7 +77,7 @@ export default function PageLayout({
     <div className="min-h-[calc(100svh-52px-0.5rem)]">
       {title && (
         <div className="mx-[1rem] mb-[0.25rem]">
-          <p className="text-lg font-bold text-left">{title}</p>
+          <p className="text-md font-bold text-left">{title}</p>
         </div>
       )}
       {children}

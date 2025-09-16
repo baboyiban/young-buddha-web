@@ -35,7 +35,7 @@ export default function ApprovalFilters({
       <select
         value={statusFilter}
         onChange={(e) => onStatusFilterChange(e.target.value)}
-        className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
+        className="px-[0.5rem] py-[0.25rem] border rounded"
         disabled={loading}
       >
         {STATUS_OPTIONS.map(({ value, label }) => (
@@ -48,7 +48,7 @@ export default function ApprovalFilters({
       <select
         value={sortOrder}
         onChange={(e) => onSortOrderChange(e.target.value)}
-        className="px-[0.5rem] py-[0.25rem] border rounded text-sm"
+        className="px-[0.5rem] py-[0.25rem] border rounded"
         disabled={loading}
       >
         {SORT_OPTIONS.map(({ value, label }) => (
