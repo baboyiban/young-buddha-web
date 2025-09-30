@@ -20,10 +20,10 @@ export const API_ENDPOINTS = {
 // 앱 전역 시트 설정을 기반으로 실제 사용되는 시트 식별자 export
 export const PAYMENT_SHEET = {
   spreadsheetId: APP_SHEET_CONFIG.PAYMENT.spreadsheetId,
-  sheetName: APP_SHEET_CONFIG.PAYMENT.sheetName,
+  gid: APP_SHEET_CONFIG.PAYMENT.gid,
 };
 
 export const USER_SHEET = {
   spreadsheetId: APP_SHEET_CONFIG.USER.spreadsheetId,
-  sheetName: APP_SHEET_CONFIG.USER.sheetName,
+  gid: APP_SHEET_CONFIG.USER.gid,
 };

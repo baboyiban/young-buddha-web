@@ -7,6 +7,7 @@ use axum::{
 
 pub async fn csrf_protect(req: Request, next: Next) -> Response {
     let method = req.method().clone();
+    let path = req.uri().path();
 
     // 안전한 메서드는 통과
     if method == Method::GET || method == Method::HEAD || method == Method::OPTIONS {
@@ -14,7 +15,6 @@ pub async fn csrf_protect(req: Request, next: Next) -> Response {
     }
 
     // OAuth 경로 예외 처리
-    let path = req.uri().path();
     if path.starts_with("/api/auth/google") {
         return next.run(req).await;
     }
@@ -43,6 +43,8 @@ pub async fn csrf_protect(req: Request, next: Next) -> Response {
     if !header_token.is_empty() && header_token == cookie_token {
         return next.run(req).await;
     }
+
+    tracing::error!("❌ CSRF token validation failed - Header: '{}', Cookie: '{}'", header_token, cookie_token);
 
     Response::builder()
         .status(StatusCode::FORBIDDEN)

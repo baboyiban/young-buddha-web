@@ -6,18 +6,48 @@ const ITEMS_PER_PAGE = 10;
 
 export const paymentService = {
   async getAdminPayments(filters: {
-    currentPage: number;
+    page: number;
+    pageSize: number;
     statusFilter: string;
     sortOrder: string;
   }) {
-    const { currentPage, statusFilter, sortOrder } = filters;
+    const { page, pageSize, statusFilter, sortOrder } = filters;
+    // 페이지네이션 적용: 전달받은 page와 pageSize 사용
     const { data, totalCount } = await fetchFilteredPayments(
       '',
       true,
-      currentPage,
-      ITEMS_PER_PAGE,
+      page,
+      pageSize,
       statusFilter,
       undefined,
+      sortOrder
+    );
+
+    const normalized = data.map((r: PaymentRequest) => ({
+      ...r,
+      requestDate: toYMD(r.requestDate),
+      absentDate: toYMD(r.absentDate),
+    }));
+
+    return { data: normalized, totalCount };
+  },
+
+  async getUserPayments(filters: {
+    email: string;
+    page: number;
+    pageSize: number;
+    typeFilter: string;
+    sortOrder: string;
+  }) {
+    const { email, page, pageSize, typeFilter, sortOrder } = filters;
+    // 페이지네이션 적용
+    const { data, totalCount } = await fetchFilteredPayments(
+      email,
+      true,
+      page,
+      pageSize,
+      "전체",
+      typeFilter === "전체" ? undefined : typeFilter,
       sortOrder
     );
 

@@ -14,16 +14,16 @@ impl SheetsClient {
     pub async fn query_visualization_api(
         &self,
         spreadsheet_id: &str,
-        sheet_name: &str,
+        gid: &str,
         query: &str,
         access_token: &str,
     ) -> Result<String, AppError> {
         // Try with authentication first
         let url = format!(
-            "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:json&tq={}&sheet={}",
+            "https://docs.google.com/spreadsheets/d/{}/gviz/tq?gid={}&tqx=out:json&tq={}",
             spreadsheet_id,
-            urlencoding::encode(query),
-            urlencoding::encode(sheet_name)
+            gid,
+            urlencoding::encode(query)
         );
 
 
@@ -58,10 +58,12 @@ impl SheetsClient {
     pub async fn append_row(
         &self,
         spreadsheet_id: &str,
-        sheet_name: &str,
+        gid: &str,
         values: &[Value],
         access_token: &str,
     ) -> Result<(), AppError> {
+        // Get sheet name from gid for the range
+        let sheet_name = self.get_sheet_name_by_gid(spreadsheet_id, gid, access_token).await?;
         let range = format!("{}!A:Z", sheet_name);
         let string_values: Vec<String> = values.iter()
             .map(|v| self.value_to_string(v))
@@ -97,12 +99,14 @@ impl SheetsClient {
     pub async fn update_row(
         &self,
         spreadsheet_id: &str,
-        sheet_name: &str,
+        gid: &str,
         row_index: usize,
         values: &[Value],
         access_token: &str,
     ) -> Result<(), AppError> {
         let end_col = self.number_to_column_letters(values.len() as u32);
+        // Get sheet name from gid for the range
+        let sheet_name = self.get_sheet_name_by_gid(spreadsheet_id, gid, access_token).await?;
         let range = format!("{}!A{}:{}{}", sheet_name, row_index, end_col, row_index);
 
         let string_values: Vec<String> = values.iter()
@@ -139,7 +143,7 @@ impl SheetsClient {
     pub async fn delete_row(
         &self,
         spreadsheet_id: &str,
-        sheet_id: u32,
+        gid: u32,
         row_index: usize,
         access_token: &str,
     ) -> Result<(), AppError> {
@@ -152,7 +156,7 @@ impl SheetsClient {
             "requests": [{
                 "deleteDimension": {
                     "range": {
-                        "sheetId": sheet_id,
+                        "sheetId": gid,
                         "dimension": "ROWS",
                         "startIndex": row_index,
                         "endIndex": row_index + 1
@@ -177,10 +181,10 @@ impl SheetsClient {
         Ok(())
     }
 
-    pub async fn get_sheet_id_by_name(
+    pub async fn get_sheet_id_by_gid(
         &self,
         spreadsheet_id: &str,
-        sheet_name: &str,
+        gid: &str,
         access_token: &str,
     ) -> Result<u32, AppError> {
         let url = format!(
@@ -201,8 +205,43 @@ impl SheetsClient {
         }
 
         let spreadsheet_data: Value = resp.json().await?;
-        self.find_sheet_id_in_spreadsheet(&spreadsheet_data, sheet_name)
-            .ok_or_else(|| AppError::not_found(format!("시트 '{}'를 찾을 수 없습니다", sheet_name)))
+        self.find_sheet_id_in_spreadsheet(&spreadsheet_data, gid)
+            .ok_or_else(|| AppError::not_found(format!("시트 '{}'를 찾을 수 없습니다", gid)))
+    }
+
+    pub async fn get_sheet_name_by_gid(
+        &self,
+        spreadsheet_id: &str,
+        gid: &str,
+        access_token: &str,
+    ) -> Result<String, AppError> {
+        let url = format!(
+            "https://sheets.googleapis.com/v4/spreadsheets/{}",
+            urlencoding::encode(spreadsheet_id)
+        );
+
+        let resp = self.client
+            .get(&url)
+            .bearer_auth(access_token)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            tracing::error!("❌ Failed to fetch spreadsheet metadata: {} - {}", status, body);
+            return Err(AppError::external_api(format!("스프레드시트 메타데이터 조회 실패: {} - {}", status, body)));
+        }
+
+        let spreadsheet_data: Value = resp.json().await?;
+
+        match self.find_sheet_name_in_spreadsheet(&spreadsheet_data, gid) {
+            Some(sheet_name) => Ok(sheet_name),
+            None => {
+                tracing::error!("❌ Sheet not found for gid: '{}'", gid);
+                Err(AppError::not_found(format!("시트 '{}'를 찾을 수 없습니다", gid)))
+            }
+        }
     }
 
     fn value_to_string(&self, value: &Value) -> String {
@@ -228,16 +267,32 @@ impl SheetsClient {
         s
     }
 
-    fn find_sheet_id_in_spreadsheet(&self, spreadsheet_data: &Value, sheet_name: &str) -> Option<u32> {
+    fn find_sheet_id_in_spreadsheet(&self, spreadsheet_data: &Value, gid: &str) -> Option<u32> {
         let sheets = spreadsheet_data.get("sheets")?.as_array()?;
+        for sheet in sheets {
+            let properties = sheet.get("properties")?;
+            let sheet_id = properties.get("sheetId")?.as_u64()?;
+            if sheet_id.to_string() == gid {
+                return Some(sheet_id as u32);
+            }
+        }
+        None
+    }
+
+    fn find_sheet_name_in_spreadsheet(&self, spreadsheet_data: &Value, gid: &str) -> Option<String> {
+        let sheets = spreadsheet_data.get("sheets")?.as_array()?;
+
         for sheet in sheets {
             let properties = sheet.get("properties")?;
             let title = properties.get("title")?.as_str()?;
             let sheet_id = properties.get("sheetId")?.as_u64()?;
-            if title == sheet_name {
-                return Some(sheet_id as u32);
+
+            if sheet_id.to_string() == gid {
+                return Some(title.to_string());
             }
         }
+
+        tracing::warn!("⚠️ No sheet found with gid: '{}'", gid);
         None
     }
 }

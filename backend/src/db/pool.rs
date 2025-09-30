@@ -21,7 +21,6 @@ impl DatabasePool {
         let db_path = Path::new(&self.path);
 
         if let Some(parent) = db_path.parent() {
-            tracing::debug!("Ensuring parent directory exists: {:?}", parent);
             fs::create_dir_all(parent)
                 .map_err(|e| {
                     tracing::error!("Failed to create parent directory {:?}: {}", parent, e);
@@ -32,7 +31,6 @@ impl DatabasePool {
         }
 
         if !db_path.exists() {
-            tracing::debug!("DB file does not exist, creating: {:?}", db_path);
             fs::File::create(&db_path)
                 .map_err(|e| {
                     tracing::error!("Failed to create DB file {:?}: {}", db_path, e);
@@ -42,7 +40,6 @@ impl DatabasePool {
                 })?;
         }
 
-        tracing::debug!("Opening SQLite connection at: {:?}", db_path);
         Ok(Connection::open_with_flags(db_path, flags)?)
     }
 

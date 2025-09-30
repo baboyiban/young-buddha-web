@@ -46,17 +46,17 @@ impl SheetsService {
             final_query = format!("{} OFFSET {}", final_query, offset);
         }
 
-        // 캐시 확인 (간단한 키 생성)
-        let cache_key = format!("sheets:{}:{}:{}",
-            params.spreadsheet_id,
-            params.sheet_name,
-            final_query
-        );
-
+        // 캐시 확인 (해시 기반 키 생성)
         if let Some(cache) = &self.cache {
+            let cache_key = cache.build_sheets_key(
+                &params.spreadsheet_id,
+                &params.gid,
+                &final_query
+            );
+
             if let Some(cached_json) = cache.get(&cache_key).await {
                 if let Ok(cached_value) = serde_json::from_str::<Value>(&cached_json) {
-    
+
                     return Ok((StatusCode::OK, Json(cached_value)).into_response());
                 }
             }
@@ -65,7 +65,7 @@ impl SheetsService {
         // API 호출
         let response_text = self.client.query_visualization_api(
             &params.spreadsheet_id,
-            &params.sheet_name,
+            &params.gid,
             &final_query,
             access_token,
         ).await?;
@@ -74,6 +74,11 @@ impl SheetsService {
 
         // 캐시 저장
         if let Some(cache) = &self.cache {
+            let cache_key = cache.build_sheets_key(
+                &params.spreadsheet_id,
+                &params.gid,
+                &final_query
+            );
             let _ = cache.set(&cache_key, &result.to_string(), self.config.cache.sheets_cache_ttl).await;
         }
 
@@ -89,7 +94,7 @@ impl SheetsService {
 
         self.client.append_row(
             &params.spreadsheet_id,
-            &params.sheet_name,
+            &params.gid,
             &new_row_data,
             access_token,
         ).await?;
@@ -110,7 +115,7 @@ impl SheetsService {
         // 전체 시트 데이터 조회
         let rows_all = self.fetch_all_sheet_data(
             &params.spreadsheet_id,
-            &params.sheet_name,
+            &params.gid,
             access_token,
         ).await?;
 
@@ -126,7 +131,7 @@ impl SheetsService {
         // 행 업데이트
         self.client.update_row(
             &params.spreadsheet_id,
-            &params.sheet_name,
+            &params.gid,
             target_row_index,
             &update_data,
             access_token,
@@ -148,7 +153,7 @@ impl SheetsService {
         // 전체 시트 데이터 조회
         let rows_all = self.fetch_all_sheet_data(
             &params.spreadsheet_id,
-            &params.sheet_name,
+            &params.gid,
             access_token,
         ).await?;
 
@@ -160,16 +165,10 @@ impl SheetsService {
         let target_row_index = self.find_row_by_value(&rows_all, col_idx_opt, &where_value)
             .ok_or_else(|| AppError::not_found("지정된 조건에 해당하는 행을 찾을 수 없습니다"))?;
 
-        // 시트 ID 조회 및 행 삭제
-        let sheet_id = self.client.get_sheet_id_by_name(
-            &params.spreadsheet_id,
-            &params.sheet_name,
-            access_token,
-        ).await?;
-
+        // 행 삭제 (gid를 직접 사용)
         self.client.delete_row(
             &params.spreadsheet_id,
-            sheet_id,
+            params.gid.parse().unwrap_or(0),
             target_row_index - 1, // 0-based index for deletion
             access_token,
         ).await?;
@@ -186,12 +185,12 @@ impl SheetsService {
     async fn fetch_all_sheet_data(
         &self,
         spreadsheet_id: &str,
-        sheet_name: &str,
+        gid: &str,
         access_token: &str,
     ) -> Result<Vec<Value>, AppError> {
         let response_text = self.client.query_visualization_api(
             spreadsheet_id,
-            sheet_name,
+            gid,
             "SELECT *",
             access_token,
         ).await?;

@@ -6,7 +6,7 @@ import { ApiError } from "@/lib/errors";
 // 상수 정의
 const SHEET_CONFIG = {
   spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
-  sheetName: "[NEW] 생활소임_2학기",
+  gid: "257537053",
 } as const;
 
 const MISSION_INDICES = {
@@ -31,7 +31,7 @@ export async function fetchMissionData(): Promise<MissionData> {
   let query = `SELECT * WHERE A = date '${todayStr}'`;
   let data = (await sheetsRead(
     SHEET_CONFIG.spreadsheetId,
-    SHEET_CONFIG.sheetName,
+    SHEET_CONFIG.gid,
     query,
   )) as SheetsData;
   let rows: SheetsRow[] = data.table?.rows ?? [];
@@ -40,7 +40,7 @@ export async function fetchMissionData(): Promise<MissionData> {
     query = `SELECT * WHERE A = '${todayStr}'`;
     data = (await sheetsRead(
       SHEET_CONFIG.spreadsheetId,
-      SHEET_CONFIG.sheetName,
+      SHEET_CONFIG.gid,
       query,
     )) as SheetsData;
     rows = data.table?.rows ?? [];

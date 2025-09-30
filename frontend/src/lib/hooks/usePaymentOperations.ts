@@ -49,7 +49,7 @@ export function usePaymentOperations() {
 
       await sheetsCreate(
         PAYMENT_SHEET.spreadsheetId,
-        PAYMENT_SHEET.sheetName,
+        PAYMENT_SHEET.gid,
         `INSERT ${JSON.stringify(newRow)}`,
       );
 
@@ -78,7 +78,7 @@ export function usePaymentOperations() {
 
       await sheetsDelete(
         PAYMENT_SHEET.spreadsheetId,
-        PAYMENT_SHEET.sheetName,
+        PAYMENT_SHEET.gid,
         query,
       );
 
@@ -128,14 +128,14 @@ export function usePaymentOperations() {
       try {
         await sheetsUpdate(
           PAYMENT_SHEET.spreadsheetId,
-          PAYMENT_SHEET.sheetName,
+          PAYMENT_SHEET.gid,
           query,
         );
       } catch (e) {
         const query2 = `UPDATE WHERE A = "${whereId}" VALUES ${JSON.stringify(updatedRow)}`;
         await sheetsUpdate(
           PAYMENT_SHEET.spreadsheetId,
-          PAYMENT_SHEET.sheetName,
+          PAYMENT_SHEET.gid,
           query2,
         );
       }

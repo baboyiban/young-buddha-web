@@ -1,30 +1,20 @@
-import React from "react";
-import DataTable from "@/components/tables/DataTable";
-import ActionButtons from "@/components/approval/ActionButtons";
-import { formatDate, formatPaymentStatus } from "@/lib/utils/format";
-import { APP_CONFIG } from "@/lib/config/app";
+import React, { useCallback } from "react";
 import { PaymentRequest } from "@/lib/types/payment";
-
-// FIXME: Should be imported from a global types file
-interface Column<T> {
-  key: keyof T;
-  header: string;
-  render?: (value: T[keyof T], item: T) => React.ReactNode;
-}
+import ApprovalTableRow from "./ApprovalTableRow";
 
 interface PaymentTableProps {
   requests: PaymentRequest[];
   loading: boolean;
   totalItems: number;
-  currentPage: number;
+  hasMore: boolean;
   statusFilter: string;
   isAllSelected: boolean;
   selectedRequests: string[];
   updatingId: string | null;
 
-  onPageChange: (page: number) => void;
+  onLoadMore: () => void;
   onSelectAll: (requests: PaymentRequest[]) => void;
-  onSelectionChange: (items: string[]) => void; // Simplified for now
+  onSelectionChange: (items: string[]) => void;
   onApproveAction: (item: PaymentRequest, status: string) => Promise<void>;
 }
 
@@ -32,76 +22,98 @@ export default function PaymentTable({
   requests,
   loading,
   totalItems,
-  currentPage,
+  hasMore,
   statusFilter,
   isAllSelected,
   selectedRequests,
   updatingId,
-  onPageChange,
+  onLoadMore,
   onSelectAll,
   onSelectionChange,
   onApproveAction,
 }: PaymentTableProps) {
-  const columns: Column<PaymentRequest>[] = [
-    { key: "email", header: "이메일" },
-    { key: "userId", header: "아이디" },
-    { key: "name", header: "이름" },
-    { key: "type", header: "구분" },
-    {
-      key: "requestDate",
-      header: "신청 날짜",
-      render: (value) => formatDate(value as string, "short"),
-    },
-    {
-      key: "absentDate",
-      header: "불참일",
-      render: (value) => formatDate(value as string, "short"),
-    },
-    { key: "schedule", header: "불참 일정" },
-    { key: "reason", header: "사유" },
-    {
-      key: "approved",
-      header: "결재 상태",
-      render: (value) => formatPaymentStatus(value as string),
-    },
-    {
-      key: "id",
-      header: "관리",
-      render: (_, item) => (
-        <ActionButtons
-          item={item}
-          isUpdating={updatingId === item.id}
-          onApprove={(status) => onApproveAction(item, status)}
-        />
-      ),
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="text-dark-gray">로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="text-dark-gray">
+          {statusFilter === "전체"
+            ? "결재 신청이 없습니다."
+            : `'${statusFilter}' 상태의 결재 신청이 없습니다.`}
+        </div>
+      </div>
+    );
+  }
+
+  const handleToggleSelection = useCallback((id: string) => {
+    const newSelection = selectedRequests.includes(id)
+      ? selectedRequests.filter((i) => i !== id)
+      : [...selectedRequests, id];
+    onSelectionChange(newSelection);
+  }, [selectedRequests, onSelectionChange]);
 
   return (
-    <DataTable
-      data={requests as any}
-      columns={columns as any}
-      keyField="id"
-      loading={loading}
-      emptyMessage={
-        statusFilter === "전체"
-          ? "결재 신청이 없습니다."
-          : `'${statusFilter}' 상태의 결재 신청이 없습니다.`
-      }
-      selection={{
-        selectedItems: selectedRequests,
-        onSelectionChange: onSelectionChange as (items: unknown[]) => void,
-        isAllSelected,
-        onSelectAll: () => onSelectAll(requests),
-      }}
-      pagination={{
-        currentPage,
-        totalPages:
-          Math.ceil(totalItems / APP_CONFIG.PAGINATION.DEFAULT_SIZE) || 1,
-        totalItems,
-        itemsPerPage: APP_CONFIG.PAGINATION.DEFAULT_SIZE,
-        onPageChange: onPageChange,
-      }}
-    />
+    <div className="flex flex-col items-center">
+      <div className="table-wrapper w-fit max-w-full mb-[0.5rem]">
+        <table className="w-full small">
+          <thead>
+            <tr>
+              <th className="w-8">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={() => onSelectAll(requests)}
+                  className="w-[0.75rem] h-[0.75rem]"
+                />
+              </th>
+              <th>이메일</th>
+              <th>아이디</th>
+              <th>이름</th>
+              <th>구분</th>
+              <th>신청 날짜</th>
+              <th>불참일</th>
+              <th>불참 일정</th>
+              <th>사유</th>
+              <th>결재 상태</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map((item) => (
+              <ApprovalTableRow
+                key={item.id}
+                item={item}
+                isSelected={selectedRequests.includes(item.id)}
+                updatingId={updatingId}
+                onSelectionChange={handleToggleSelection}
+                onApproveAction={onApproveAction}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 더보기 버튼 */}
+      {hasMore && (
+        <div className="mt-4">
+          <button
+            onClick={onLoadMore}
+            className="button gray"
+            disabled={loading}
+          >
+            {loading ? "로딩 중..." : `더보기 (${requests.length} / ${totalItems})`}
+          </button>
+        </div>
+      )}
+
+
+    </div>
   );
 }

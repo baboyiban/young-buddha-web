@@ -18,11 +18,11 @@ impl RedisCache {
         Ok(Self { client, default_ttl })
     }
 
-    pub fn build_sheets_key(&self, spreadsheet_id: &str, sheet_name: &str, query: &str) -> String {
+    pub fn build_sheets_key(&self, spreadsheet_id: &str, gid: &str, query: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(spreadsheet_id.as_bytes());
         hasher.update(b"|");
-        hasher.update(sheet_name.as_bytes());
+        hasher.update(gid.as_bytes());
         hasher.update(b"|");
         hasher.update(query.as_bytes());
         let hash = hex::encode(hasher.finalize());
@@ -125,6 +125,17 @@ impl CacheProvider for RedisCache {
         .map_err(|e| AppError::Cache(format!("Redis error: {}", e)))?;
 
         Ok(())
+    }
+
+    fn build_sheets_key(&self, spreadsheet_id: &str, gid: &str, query: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(spreadsheet_id.as_bytes());
+        hasher.update(b"|");
+        hasher.update(gid.as_bytes());
+        hasher.update(b"|");
+        hasher.update(query.as_bytes());
+        let hash = hex::encode(hasher.finalize());
+        format!("sheets:query:{}", hash)
     }
 
     fn as_any(&self) -> &dyn Any {

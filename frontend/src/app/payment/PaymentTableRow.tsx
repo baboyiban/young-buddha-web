@@ -1,6 +1,7 @@
 import { PaymentRequest } from "@/lib/types/payment";
 import { OPTIONS } from "@/lib/config/app";
 import { toYMD } from "@/lib/utils/dateUtils";
+import React from 'react';
 
 interface PaymentTableRowProps {
   request: PaymentRequest;
@@ -18,7 +19,7 @@ interface PaymentTableRowProps {
   onDelete: (request: PaymentRequest) => void;
 }
 
-export default function PaymentTableRow({
+function PaymentTableRow({
   request,
   isEditing,
   editForm,
@@ -135,3 +136,5 @@ export default function PaymentTableRow({
     </tr>
   );
 }
+
+export default React.memo(PaymentTableRow);

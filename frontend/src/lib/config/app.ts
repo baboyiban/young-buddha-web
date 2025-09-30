@@ -38,16 +38,16 @@ export const APP_CONFIG = {
 // 시트 설정 통합
 export const SHEET_CONFIG = {
   PAYMENT: {
-    spreadsheetId: "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo",
-    sheetName: "일정불참결재시트",
+    spreadsheetId: "1wmunEJyWUFH01rPNENBt2kk9htJvyBuYigjSvcqm6nA",
+    gid: "1780492175",
   },
   USER: {
-    spreadsheetId: "1x5wH551SVWQqiOXAZD78eLscS9gcBDDKeKkREV6fiSo",
-    sheetName: "유저정보",
+    spreadsheetId: "1wmunEJyWUFH01rPNENBt2kk9htJvyBuYigjSvcqm6nA",
+    gid: "0",
   },
   MISSION: {
     spreadsheetId: "1-xSqaEHOOgIFs9yIh39wUp_oowYcXdQA0nwGZuhSJdQ",
-    sheetName: "[NEW] 생활소임_2학기",
+    gid: "257537053",
   },
 } as const;
 

@@ -44,7 +44,6 @@ impl GoogleServiceAccountAuth {
     }
 
     pub async fn get_access_token(&mut self) -> Result<String, AppError> {
-        tracing::debug!("Attempting to get service account token from path: {}", self.key_path);
         if self.key_path.is_empty() {
             tracing::error!("Service account key path not configured");
             return Err(AppError::Config("Service account key path not configured".to_string()));

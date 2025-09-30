@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct QueryParams {
     pub spreadsheet_id: String,
-    pub sheet_name: String,
+    pub gid: String,
     pub query: String,
     pub limit: Option<u32>,
     pub offset: Option<u32>,
@@ -12,6 +12,6 @@ pub struct QueryParams {
 #[derive(Debug, Deserialize)]
 pub struct CommonParams {
     pub spreadsheet_id: String,
-    pub sheet_name: String,
+    pub gid: String,
     pub query: String,
 }

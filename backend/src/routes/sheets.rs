@@ -45,10 +45,16 @@ async fn create_with_query(
         Ok(token) => {
             match services.sheets.create_with_query(params, &token).await {
                 Ok(response) => response,
-                Err(err) => err.into_response(),
+                Err(err) => {
+                    tracing::error!("❌ Create operation failed: {:?}", err);
+                    err.into_response()
+                },
             }
         }
-        Err(err) => err.into_response(),
+        Err(err) => {
+            tracing::error!("❌ Failed to get access token: {:?}", err);
+            err.into_response()
+        },
     }
 }
 

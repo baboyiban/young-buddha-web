@@ -1,3 +1,6 @@
+"use client";
+
+import React from "react";
 import { PaymentRequest } from "@/lib/types/payment";
 import PaymentTableRow from "./PaymentTableRow";
 import Pagination from "@/components/Pagination";
@@ -22,6 +25,10 @@ interface PaymentTableProps {
   onUpdate: (original: PaymentRequest) => void;
   onDelete: (request: PaymentRequest) => void;
   onTypeFilterChange: (type: "전체" | "정기" | "비정기") => void;
+  // Infinite mode (optional)
+  loadMore?: () => void;
+  canLoadMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export default function PaymentTable({
@@ -42,6 +49,9 @@ export default function PaymentTable({
   onUpdate,
   onDelete,
   onTypeFilterChange,
+  loadMore,
+  canLoadMore,
+  isLoadingMore,
 }: PaymentTableProps) {
   // 서버에서 이미 페이지네이션 및 필터링된 데이터를 받아왔으므로 추가 슬라이스 불필요
   // requests는 현재 페이지의 데이터만 포함함
@@ -127,14 +137,26 @@ export default function PaymentTable({
           </table>
         </div>
 
-        {/* 페이지네이션 컴포넌트 */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-          itemsPerPage={itemsPerPage}
-          totalItems={totalCount}
-        />
+        {typeof loadMore === "function" && canLoadMore && (
+          <div className="w-full flex justify-center mt-4">
+            <button
+              onClick={loadMore}
+              disabled={isLoadingMore}
+              className="button gray"
+            >
+              {isLoadingMore ? "불러오는 중..." : `더보기 (${requests.length} / ${totalCount})`}
+            </button>
+          </div>
+        )}
+        {typeof loadMore !== 'function' && 
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            itemsPerPage={itemsPerPage}
+            totalItems={totalCount}
+          />
+        }
       </div>
     </div>
   );

@@ -9,7 +9,6 @@ import { useApprovalBatchOperations } from "@/lib/hooks/useApprovalBatchOperatio
 import { useErrorHandler } from "@/lib/hooks/useErrorHandler";
 import { useConfirm } from "@/lib/hooks/useConfirm";
 import { MESSAGES } from "@/lib/config/app";
-import { PAYMENT_STATUS } from "@/lib/constants/payment";
 import { PaymentRequest } from "@/lib/types/payment";
 
 export default function ApprovalPage() {
@@ -19,13 +18,13 @@ export default function ApprovalPage() {
   const {
     requests,
     loading,
-    totalItems,
+    totalCount,
     error,
-    currentPage,
     statusFilter,
     sortOrder,
+    hasMore,
     loadPayments,
-    setCurrentPage,
+    loadMore,
     setStatusFilter,
     setSortOrder,
   } = useApprovalPayments();
@@ -102,23 +101,20 @@ export default function ApprovalPage() {
             onBatchAction={handleBatchAction}
           />
 
-          <PaymentTable
-            requests={requests}
-            loading={loading}
-            totalItems={totalItems}
-            currentPage={currentPage}
-            statusFilter={statusFilter}
-            isAllSelected={isAllSelected}
-            selectedRequests={selectedRequests}
-            updatingId={updatingId}
-            onPageChange={(page) => {
-              setCurrentPage(page);
-              clearSelection();
-            }}
-            onSelectAll={toggleSelectAll}
-            onSelectionChange={onSelectionChange}
-            onApproveAction={handleApproveAction}
-          />
+           <PaymentTable
+             requests={requests}
+             loading={loading}
+             totalItems={totalCount}
+             hasMore={hasMore}
+             statusFilter={statusFilter}
+             isAllSelected={isAllSelected}
+             selectedRequests={selectedRequests}
+             updatingId={updatingId}
+             onLoadMore={loadMore}
+             onSelectAll={toggleSelectAll}
+             onSelectionChange={onSelectionChange}
+             onApproveAction={handleApproveAction}
+           />
         </div>
       </PageLayout>
       <ConfirmDialog />

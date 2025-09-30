@@ -20,20 +20,14 @@ impl DatabaseService {
         match self.db_pool.run_blocking(|conn| {
             // Use query_row for statements that return rows instead of execute
             match conn.query_row("SELECT 1", [], |_row| Ok(())) {
-                Ok(_) => {
-                    tracing::debug!("DB health query succeeded");
-                    Ok(true)
-                }
+                Ok(_) => Ok(true),
                 Err(e) => {
                     tracing::error!("DB health query failed: {}", e);
                     Ok(false)
                 }
             }
         }).await {
-            Ok(result) => {
-                tracing::debug!("DB health_check result: {}", result);
-                result
-            },
+            Ok(result) => result,
             Err(e) => {
                 tracing::error!("DB health_check task failed: {:?}", e);
                 false

@@ -127,9 +127,10 @@ async function _processPaymentRows(
   rows: SheetsRow[],
   skipNameLookup: boolean,
 ): Promise<PaymentRequest[]> {
+  // 헤더 행 제외 (ID가 "고유 번호"인 행 제외)
   const validRows = rows.filter((row) => {
     const id = row.c?.[0]?.v;
-    return id && String(id).trim() !== "" && id !== "고유 번호";
+    return id && String(id).trim() !== "" && String(id).trim() !== "고유 번호";
   });
 
   if (skipNameLookup) {
@@ -175,7 +176,7 @@ async function _getUserDataByEmail(
 
   const data = (await sheetsRead(
     USER_SHEET.spreadsheetId,
-    USER_SHEET.sheetName,
+    USER_SHEET.gid,
     query,
   )) as SheetsData;
 
@@ -210,20 +211,13 @@ function buildWhereConditions(
   return conditions;
 }
 
-function buildDataQuery(
-  conditions: string[],
-  sortOrder: string,
-  limit: number,
-  offset: number,
-): string {
-  const whereClause =
-    conditions.length > 0 ? `where ${conditions.join(" and ")}` : "";
-  return `select * ${whereClause} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
-}
-
 function buildCountQuery(conditions: string[]): string {
-  const whereClause =
-    conditions.length > 0 ? `where ${conditions.join(" and ")}` : "";
+  // 헤더 행 제외 조건 추가
+  const headerExclude = `${PAYMENT_COLUMNS.ID} != '고유 번호' and ${PAYMENT_COLUMNS.ID} is not null`;
+  const allConditions = conditions.length > 0
+    ? [headerExclude, ...conditions]
+    : [headerExclude];
+  const whereClause = `where ${allConditions.join(" and ")}`;
   return `select count(${PAYMENT_COLUMNS.ID}) ${whereClause}`;
 }
 
@@ -246,6 +240,7 @@ export async function isAdmin(email: string): Promise<boolean> {
 
 /**
  * 필터 조건에 따라 결재 목록과 전체 개수를 조회합니다.
+ * 서버 측 페이지네이션을 사용하여 성능을 최적화합니다.
  */
 export async function fetchFilteredPayments(
   userEmail: string,
@@ -260,28 +255,29 @@ export async function fetchFilteredPayments(
     throw new ValidationError("유효하지 않은 사용자 이메일입니다.");
   }
 
-  const offset = (page - 1) * limit;
+  // 서버 측 필터링 조건
   const conditions = buildWhereConditions(
     userEmail || null,
     statusFilter,
     typeFilter,
   );
-  const query = buildDataQuery(conditions, sortOrder, limit, offset);
+  
+  // 서버 측 페이지네이션 적용
+  const offset = (page - 1) * limit;
+  const query = `select * ${conditions.length > 0 ? `where ${conditions.join(" and ")}` : ""} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
 
   const data = (await sheetsRead(
     PAYMENT_SHEET.spreadsheetId,
-    PAYMENT_SHEET.sheetName,
+    PAYMENT_SHEET.gid,
     query,
   )) as SheetsData;
   const rows = data.table?.rows ?? [];
 
   const paymentData = await _processPaymentRows(rows, skipNameLookup);
-  const totalCount = await getTotalPaymentCount(
-    userEmail,
-    statusFilter,
-    typeFilter,
-  );
-
+  
+  // 전체 개수 조회 (필터 조건에 맞는 총 개수)
+  const totalCount = await getTotalPaymentCount(userEmail || null, statusFilter, typeFilter);
+  
   return { data: paymentData, totalCount };
 }
 
@@ -298,7 +294,7 @@ export async function fetchPaymentsByQuery(
 
   const data = (await sheetsRead(
     PAYMENT_SHEET.spreadsheetId,
-    PAYMENT_SHEET.sheetName,
+    PAYMENT_SHEET.gid,
     query,
   )) as SheetsData;
   const rows = data.table?.rows ?? [];
@@ -307,6 +303,44 @@ export async function fetchPaymentsByQuery(
 
   // 이 경우, 전체 개수는 조회된 데이터의 개수와 동일
   return { data: paymentData, totalCount: paymentData.length };
+}
+
+/**
+ * 페이지 단위로 결재 목록만 조회합니다. (totalCount 계산 없음)
+ * 서버 측 페이지네이션을 사용하여 성능을 최적화합니다.
+ */
+export async function fetchPaymentsPage(
+  userEmail: string,
+  skipNameLookup: boolean = true,
+  page: number = 1,
+  limit: number = 10,
+  statusFilter: string = "전체",
+  typeFilter?: string,
+  sortOrder: string = "desc",
+): Promise<PaymentRequest[]> {
+  if (typeof userEmail !== "string") {
+    throw new ValidationError("유효하지 않은 사용자 이메일입니다.");
+  }
+
+  // 서버 측 필터링 조건
+  const conditions = buildWhereConditions(
+    userEmail || null,
+    statusFilter,
+    typeFilter,
+  );
+  
+  // 서버 측 페이지네이션 적용
+  const offset = (page - 1) * limit;
+  const query = `select * ${conditions.length > 0 ? `where ${conditions.join(" and ")}` : ""} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
+
+  const data = (await sheetsRead(
+    PAYMENT_SHEET.spreadsheetId,
+    PAYMENT_SHEET.gid,
+    query,
+  )) as SheetsData;
+  const rows = data.table?.rows ?? [];
+
+  return await _processPaymentRows(rows, skipNameLookup);
 }
 
 /**
@@ -327,16 +361,13 @@ export async function getTotalPaymentCount(
 
     const data = (await sheetsRead(
       PAYMENT_SHEET.spreadsheetId,
-      PAYMENT_SHEET.sheetName,
+      PAYMENT_SHEET.gid,
       countQuery,
     )) as SheetsData;
 
     const totalCount = Number(data.table?.rows?.[0]?.c?.[0]?.v) || 0;
     return Math.max(0, totalCount);
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      // Error logging removed
-    }
+  } catch {
     return 0;
   }
 }
@@ -356,7 +387,7 @@ export async function updatePaymentStatus(
   const selectQuery = `select * where ${PAYMENT_COLUMNS.ID} = '${whereId}'`;
   const data = (await sheetsRead(
     PAYMENT_SHEET.spreadsheetId,
-    PAYMENT_SHEET.sheetName,
+    PAYMENT_SHEET.gid,
     selectQuery,
   )) as SheetsData;
 
@@ -381,21 +412,21 @@ export async function updatePaymentStatus(
 
   let updateQuery = `UPDATE WHERE A = '${whereId}' VALUES ${JSON.stringify(updatedRow)}`;
 
-  try {
-    await sheetsUpdate(
-      PAYMENT_SHEET.spreadsheetId,
-      PAYMENT_SHEET.sheetName,
-      updateQuery,
-    );
-  } catch {
-    // 작은따옴표 파싱 이슈 대비 더블쿼트 fallback
-    updateQuery = `UPDATE WHERE A = "${whereId}" VALUES ${JSON.stringify(updatedRow)}`;
-    await sheetsUpdate(
-      PAYMENT_SHEET.spreadsheetId,
-      PAYMENT_SHEET.sheetName,
-      updateQuery,
-    );
-  }
+   try {
+     await sheetsUpdate(
+       PAYMENT_SHEET.spreadsheetId,
+       PAYMENT_SHEET.gid,
+       updateQuery,
+     );
+   } catch {
+     // 작은따옴표 파싱 이슈 대비 더블쿼트 fallback
+     updateQuery = `UPDATE WHERE A = "${whereId}" VALUES ${JSON.stringify(updatedRow)}`;
+     await sheetsUpdate(
+       PAYMENT_SHEET.spreadsheetId,
+       PAYMENT_SHEET.gid,
+       updateQuery,
+     );
+   }
 
   return true;
 }

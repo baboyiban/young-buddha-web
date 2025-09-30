@@ -3,12 +3,12 @@ import { SheetsResponse } from "@/lib/types/sheets";
 
 export async function sheetsRead(
   spreadsheetId: string,
-  sheetName: string,
+  gid: string,
   query: string,
 ): Promise<SheetsResponse> {
   const qs = new URLSearchParams({
     spreadsheet_id: spreadsheetId,
-    sheet_name: sheetName,
+    gid: gid,
     query: query,
   });
   return apiClient.get(`sheets/read?${qs.toString()}`).json<SheetsResponse>();
@@ -18,13 +18,13 @@ export async function sheetsRead(
 async function sheetsPost(
   endpoint: string,
   spreadsheetId: string,
-  sheetName: string,
+  gid: string,
   query: string,
 ): Promise<SheetsResponse> {
   return apiClient.post(endpoint, {
     json: {
       spreadsheet_id: spreadsheetId,
-      sheet_name: sheetName,
+      gid: gid,
       query,
     }
   }).json<SheetsResponse>();
@@ -32,21 +32,21 @@ async function sheetsPost(
 
 export const sheetsCreate = (
   spreadsheetId: string,
-  sheetName: string,
+  gid: string,
   query: string,
-) => sheetsPost("sheets/create", spreadsheetId, sheetName, query);
+) => sheetsPost("sheets/create", spreadsheetId, gid, query);
 
 export const sheetsUpdate = (
   spreadsheetId: string,
-  sheetName: string,
+  gid: string,
   query: string,
-) => sheetsPost("sheets/update", spreadsheetId, sheetName, query);
+) => sheetsPost("sheets/update", spreadsheetId, gid, query);
 
 export const sheetsDelete = (
   spreadsheetId: string,
-  sheetName: string,
+  gid: string,
   query: string,
-) => sheetsPost("sheets/delete", spreadsheetId, sheetName, query);
+) => sheetsPost("sheets/delete", spreadsheetId, gid, query);
 
 // 구글 시트 쿼리용 이스케이프
 export function escapeSheetQueryString(s: string): string {

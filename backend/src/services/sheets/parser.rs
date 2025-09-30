@@ -17,7 +17,7 @@ pub fn parse_gviz_json(text: &str) -> Result<Value, AppError> {
     let result = serde_json::from_str::<Value>(json_str)
         .map_err(|e| AppError::external_api(format!("JSON 파싱 실패: {}", e)))?;
 
-    let row_count = result.get("table")
+    let _row_count = result.get("table")
         .and_then(|t| t.get("rows"))
         .and_then(|r| r.as_array())
         .map(|rows| rows.len())
