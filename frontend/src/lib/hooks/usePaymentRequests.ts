@@ -11,7 +11,7 @@ export function usePaymentRequests(options: {
   const [sortOrder, setSortOrder] = useState("desc");
 
   const paginatedResult = usePaginatedData<PaymentRequest, { email: string; typeFilter: string; sortOrder: string; }>({ 
-    queryKey: ["paymentRequests", { email, typeFilter, sortOrder }],
+    queryKey: ["paymentRequests", { email: email || "", typeFilter, sortOrder }],
     queryFn: (params) => paymentService.getUserPayments(params),
     filters: { email: email || "", typeFilter, sortOrder },
     options: { enabled: !!email },
