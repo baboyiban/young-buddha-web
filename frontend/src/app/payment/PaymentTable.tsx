@@ -138,7 +138,7 @@ export default function PaymentTable({
         </div>
 
         {typeof loadMore === "function" && canLoadMore && (
-          <div className="w-full flex justify-center mt-4">
+          <div className="w-full flex justify-center">
             <button
               onClick={loadMore}
               disabled={isLoadingMore}

@@ -36,7 +36,7 @@ export default function Mission() {
       loading={isLoading}
       error={error ? "미션 데이터를 불러오는데 실패했습니다." : null}
     >
-      <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem-32px)] flex flex-col">
+      <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-28px-8px)] flex flex-col">
         {!missionData ? (
           <div className="text-dark-gray">미션 데이터가 없습니다.</div>
         ) : (

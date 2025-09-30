@@ -61,7 +61,7 @@ export default function PaymentTable({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="table-wrapper w-fit max-w-full mb-[0.5rem]">
+      <div className="table-wrapper w-fit max-w-full">
         <table className="w-full small">
           <thead>
             <tr>
@@ -102,10 +102,10 @@ export default function PaymentTable({
 
       {/* 더보기 버튼 */}
       {hasMore && (
-        <div className="mt-4">
+        <div className="">
           <button
             onClick={onLoadMore}
-            className="button gray"
+            className="button gray mt-[0.75rem]"
             disabled={loading}
           >
             {loading ? "로딩 중..." : `더보기 (${requests.length} / ${totalItems})`}

@@ -3,7 +3,7 @@ import PageLayout from "@/components/layouts/PageLayout";
 export default function TermsPage() {
   return (
     <PageLayout title="이용 약관" requireAuth={false}>
-      <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-0.5rem-32px)]">
+      <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-28px-8px)]">
         <div className="flex flex-col gap-[0.5rem]">
           <p>청년붓다 웹사이트는 청년붓다들을 위한 일정 관리 서비스입니다.</p>
           <p>

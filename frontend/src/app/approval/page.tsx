@@ -38,18 +38,20 @@ export default function ApprovalPage() {
     clearSelection,
     handleBatchApprove,
     handleSingleApprove,
-  } = useApprovalBatchOperations();
+  } = useApprovalBatchOperations(loadPayments);
 
   const handleApproveAction = useCallback(
     async (item: PaymentRequest, status: string) => {
       try {
         await handleSingleApprove({ request: item, status });
         handleSuccess(MESSAGES.SUCCESS.GENERIC);
+        // 개별 승인 후에도 재검증 보장 (훅에서 이미 호출하지만 안전하게 한 번 더 호출 가능)
+        await loadPayments();
       } catch (error) {
         handleError(error);
       }
     },
-    [handleSingleApprove, handleSuccess, handleError],
+    [handleSingleApprove, handleSuccess, handleError, loadPayments],
   );
 
   const handleBatchAction = useCallback(
@@ -71,12 +73,13 @@ export default function ApprovalPage() {
           handleSuccess(
             `${selectedRequests.length}개 항목이 ${status} 처리되었습니다.`,
           );
+          await loadPayments(); // 일괄 처리 후 재검증
         } catch (error) {
           handleError(error, "일괄 처리 중 오류가 발생했습니다.");
         }
       }
     },
-    [selectedRequests, confirm, handleBatchApprove, handleSuccess, handleError],
+    [selectedRequests, confirm, handleBatchApprove, handleSuccess, handleError, loadPayments],
   );
 
   return (

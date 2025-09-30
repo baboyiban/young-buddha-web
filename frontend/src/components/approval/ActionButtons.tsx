@@ -12,7 +12,7 @@ export default function ActionButtons({ item, isUpdating, onApprove }: ActionBut
     return (
       <button
         onClick={() => onApprove(PAYMENT_STATUS.PENDING)}
-        className="button text-sm gray"
+        className="button small gray"
         disabled={isUpdating}
       >
         {isUpdating ? '처리 중...' : '승인 취소'}
