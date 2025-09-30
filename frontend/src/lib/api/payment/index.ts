@@ -264,7 +264,10 @@ export async function fetchFilteredPayments(
   
   // 서버 측 페이지네이션 적용
   const offset = (page - 1) * limit;
-  const query = `select * ${conditions.length > 0 ? `where ${conditions.join(" and ")}` : ""} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
+  const headerExclude = `${PAYMENT_COLUMNS.ID} != '고유 번호' and ${PAYMENT_COLUMNS.ID} is not null`;
+  const whereConditions = conditions.length > 0 ? [headerExclude, ...conditions] : [headerExclude];
+  const whereClause = `where ${whereConditions.join(" and ")}`;
+  const query = `select * ${whereClause} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
 
   const data = (await sheetsRead(
     PAYMENT_SHEET.spreadsheetId,
@@ -331,7 +334,10 @@ export async function fetchPaymentsPage(
   
   // 서버 측 페이지네이션 적용
   const offset = (page - 1) * limit;
-  const query = `select * ${conditions.length > 0 ? `where ${conditions.join(" and ")}` : ""} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
+  const headerExclude = `${PAYMENT_COLUMNS.ID} != '고유 번호' and ${PAYMENT_COLUMNS.ID} is not null`;
+  const whereConditions = conditions.length > 0 ? [headerExclude, ...conditions] : [headerExclude];
+  const whereClause = `where ${whereConditions.join(" and ")}`;
+  const query = `select * ${whereClause} order by ${PAYMENT_COLUMNS.REQUEST_DATE} ${sortOrder} limit ${limit} offset ${offset}`;
 
   const data = (await sheetsRead(
     PAYMENT_SHEET.spreadsheetId,
