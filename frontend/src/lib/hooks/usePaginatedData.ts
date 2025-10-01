@@ -42,7 +42,8 @@ export function usePaginatedData<T extends { id: unknown }, F>({
     },
     {
       revalidateFirstPage: false,
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,
+      revalidateOnMount: true,
       parallel: true,
     }
   );

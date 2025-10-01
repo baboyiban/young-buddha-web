@@ -57,6 +57,8 @@ export default function PaymentPageExample() {
             handleSuccess(MESSAGES.SUCCESS.PAYMENT.SUBMITTED);
             resetForm();
             mutate(); // 데이터 새로고침
+            // 결재 관리 페이지에 데이터 변경 알림
+            localStorage.setItem('paymentDataUpdated', Date.now().toString());
           });
         } catch (error) {
           handleError(error, MESSAGES.ERRORS.PAYMENT.SUBMIT_FAILED);

@@ -1,5 +1,6 @@
 // hooks/usePaymentOperations.ts
 import { useState } from "react";
+import { mutate } from "swr";
 import { PaymentRequest } from "@/lib/types/payment";
 import { useAuth } from "@/lib/hooks/useAuth";
 import {
@@ -53,6 +54,26 @@ export function usePaymentOperations() {
         `INSERT ${JSON.stringify(newRow)}`,
       );
 
+      // 관련 캐시 모두 갱신 - 가장 확실한 방법
+      mutate((key: any) => {
+        // 모든 캐시 키 검사
+        if (Array.isArray(key) && key.length > 0) {
+          const firstKey = key[0];
+          // paymentRequests 또는 approvalPayments 관련 모든 캐시 갱신
+          if (typeof firstKey === 'string') {
+            return firstKey.includes("paymentRequests") || firstKey.includes("approvalPayments");
+          }
+        }
+        return false;
+      });
+      
+      // 추가적으로 명시적으로 캐시 키 갱신 시도
+      mutate("paymentRequests");
+      mutate("approvalPayments");
+      
+      // 데이터 변경 알림을 위한 localStorage 이벤트
+      localStorage.setItem('paymentDataUpdated', Date.now().toString());
+
       onSuccess();
     } catch (err) {
       setError(ERROR_MESSAGES.SUBMIT_FAILED);
@@ -81,6 +102,19 @@ export function usePaymentOperations() {
         PAYMENT_SHEET.gid,
         query,
       );
+
+      // 관련 캐시 모두 갱신 - 더 강력한 방법
+      mutate((key: any) => {
+        // 모든 캐시 키 검사
+        if (Array.isArray(key) && key.length > 0) {
+          const firstKey = key[0];
+          // paymentRequests 또는 approvalPayments 관련 모든 캐시 갱신
+          if (typeof firstKey === 'string') {
+            return firstKey.includes("paymentRequests") || firstKey.includes("approvalPayments");
+          }
+        }
+        return false;
+      });
 
       onSuccess();
     } catch (err) {
@@ -139,6 +173,19 @@ export function usePaymentOperations() {
           query2,
         );
       }
+
+      // 관련 캐시 모두 갱신 - 더 강력한 방법
+      mutate((key: any) => {
+        // 모든 캐시 키 검사
+        if (Array.isArray(key) && key.length > 0) {
+          const firstKey = key[0];
+          // paymentRequests 또는 approvalPayments 관련 모든 캐시 갱신
+          if (typeof firstKey === 'string') {
+            return firstKey.includes("paymentRequests") || firstKey.includes("approvalPayments");
+          }
+        }
+        return false;
+      });
 
       onSuccess();
     } catch (err: any) {

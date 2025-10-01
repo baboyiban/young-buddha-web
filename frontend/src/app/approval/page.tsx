@@ -29,6 +29,22 @@ export default function ApprovalPage() {
     setSortOrder,
   } = useApprovalPayments();
 
+  // 페이지 마운트 시 및 데이터 변경 감지
+  React.useEffect(() => {
+    // 페이지 진입 시 항상 데이터 새로고침
+    loadPayments();
+    
+    const handleStorageChange = () => {
+      loadPayments();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadPayments]);
+
   const {
     selectedRequests,
     isAllSelected,
