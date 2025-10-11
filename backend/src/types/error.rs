@@ -80,7 +80,41 @@ impl IntoResponse for AppError {
             AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
         };
 
-        tracing::error!("API Error: {}", self);
+        // 구조화된 에러 로깅
+        match &self {
+            AppError::Database(e) => {
+                tracing::error!(
+                    error_code = error_code,
+                    error_type = "database",
+                    error_details = ?e,
+                    "Database operation failed"
+                );
+            }
+            AppError::ExternalApi(e) => {
+                tracing::error!(
+                    error_code = error_code,
+                    error_type = "external_api",
+                    error_message = %e,
+                    "External API call failed"
+                );
+            }
+            AppError::HttpClient(e) => {
+                tracing::error!(
+                    error_code = error_code,
+                    error_type = "http_client",
+                    error_details = ?e,
+                    "HTTP client error"
+                );
+            }
+            _ => {
+                tracing::error!(
+                    error_code = error_code,
+                    error_type = "application",
+                    error_message = %self,
+                    "Application error occurred"
+                );
+            }
+        }
 
         (status, Json(json!({
             "error": true,
