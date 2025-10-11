@@ -7,6 +7,10 @@ export const getApiUrl = (path = "") => {
   // baseUrl이 "/api"인 경우와 "http://..."인 경우 모두 처리
   if (baseUrl.startsWith("/")) {
     // 상대 경로인 경우 - baseUrl을 포함해야 함
+    // 이미 /api로 시작하는 경로인 경우 baseUrl을 추가하지 않음
+    if (normalizedPath.startsWith("api/")) {
+      return `/${normalizedPath}`;
+    }
     return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
   } else {
     // 절대 URL인 경우

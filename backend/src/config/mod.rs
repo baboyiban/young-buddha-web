@@ -81,11 +81,7 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(60 * 60 * 24 * 7), // 7 days
-            cookie_domain: if server.environment == Environment::Production {
-                Some(".young-buddha.online".to_string())
-            } else {
-                None
-            },
+            cookie_domain: env::var("COOKIE_DOMAIN").ok(),
         };
 
         let cache = CacheConfig {

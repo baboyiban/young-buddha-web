@@ -19,6 +19,11 @@ const nextConfig = {
     unoptimized: process.env.NODE_ENV !== "production",
   },
 
+  // 폰트 최적화 비활성화 (node-fetch 경고 해결)
+  experimental: {
+    optimizeCss: false,
+  },
+
   // API 리라이트 설정
   async rewrites() {
     const backendOrigin = getBackendOrigin();

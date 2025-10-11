@@ -1,28 +1,26 @@
 import { useState, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { paymentService } from "@/lib/services/paymentService";
 import { usePaginatedData } from "./usePaginatedData";
 import { PaymentRequest } from "@/lib/types/payment";
 
 export function useApprovalPayments() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const urlStatus = searchParams.get('status');
-  const [statusFilter, setStatusFilter] = useState(urlStatus || "대기");
+  const [statusFilter, setStatusFilter] = useState("대기");
   const [sortOrder, setSortOrder] = useState("desc");
 
   const updateStatusFilter = useCallback((filter: string) => {
     setStatusFilter(filter);
 
-    const params = new URLSearchParams(searchParams.toString());
-    if (filter === "대기") {
-      params.delete('status');
-    } else {
+    const params = new URLSearchParams();
+    if (filter !== "대기") {
       params.set('status', filter);
     }
 
-    router.replace(`/approval?${params.toString()}`, { scroll: false });
-  }, [searchParams, router])
+    const queryString = params.toString();
+    const url = queryString ? `/approval?${queryString}` : '/approval';
+    router.replace(url, { scroll: false });
+  }, [router])
 
   const updateSortOrder = useCallback((order: string) => {
     setSortOrder(order);
