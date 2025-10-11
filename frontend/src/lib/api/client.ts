@@ -4,7 +4,7 @@ import { getCsrfTokenFromCookie } from "@/lib/csrf";
 const NON_MUTATING_METHODS = ["get", "head", "options"];
 
 export const apiClient = {
-  async request(url: string, options: RequestInit = {}) {
+  async request<T = any>(url: string, options: RequestInit = {}): Promise<T> {
     const fullUrl = getApiUrl(url);
 
     // CSRF 토큰 추가
@@ -44,30 +44,30 @@ export const apiClient = {
       throw new Error(errorMessage);
     }
 
-    return response;
+    return response.json() as Promise<T>;
   },
 
-  get(url: string, options?: RequestInit) {
-    return this.request(url, { ...options, method: "GET" });
+  async get<T = any>(url: string, options?: RequestInit): Promise<T> {
+    return this.request<T>(url, { ...options, method: "GET" });
   },
 
-  post(url: string, data?: any, options?: RequestInit) {
-    return this.request(url, {
+  async post<T = any, D = any>(url: string, data?: D, options?: RequestInit): Promise<T> {
+    return this.request<T>(url, {
       ...options,
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
     });
   },
 
-  put(url: string, data?: any, options?: RequestInit) {
-    return this.request(url, {
+  async put<T = any, D = any>(url: string, data?: D, options?: RequestInit): Promise<T> {
+    return this.request<T>(url, {
       ...options,
       method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
     });
   },
 
-  delete(url: string, options?: RequestInit) {
-    return this.request(url, { ...options, method: "DELETE" });
+  async delete<T = any>(url: string, options?: RequestInit): Promise<T> {
+    return this.request<T>(url, { ...options, method: "DELETE" });
   },
 };

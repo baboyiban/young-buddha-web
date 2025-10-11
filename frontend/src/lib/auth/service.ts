@@ -1,6 +1,6 @@
 import { User } from "@/lib/types/user";
 import { apiClient } from "@/lib/api/client";
-import { AUTH_ENDPOINTS } from "@/lib/config/api";
+import { API_ENDPOINTS, AuthMeResponse, AuthCheckResponse } from "@/lib/types/api";
 import { AuthCache } from "@/lib/auth/cache";
 import { AuthError } from "@/lib/errors";
 import type { UserRole } from "@/lib/types/user";
@@ -16,13 +16,7 @@ export class AuthService {
         }
       }
 
-      const response = await apiClient.get("auth/me");
-      const resp = await response.json() as {
-        authenticated: boolean;
-        email: string;
-        name?: string;
-        role?: string;
-      };
+      const resp = await apiClient.get<AuthMeResponse>(API_ENDPOINTS.AUTH.ME);
 
       if (!resp.authenticated) {
         throw new AuthError("User not authenticated", 401);
@@ -50,7 +44,7 @@ export class AuthService {
   }
 
   getGoogleAuthUrl(): string {
-    return AUTH_ENDPOINTS.googleLogin();
+    return API_ENDPOINTS.AUTH.GOOGLE_LOGIN;
   }
 
   // 호환성을 위한 별칭 메서드
@@ -60,7 +54,7 @@ export class AuthService {
 
   async logout(shouldRedirect = true): Promise<void> {
     try {
-      await apiClient.get("auth/logout");
+      await apiClient.get(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
       // 실패하더라도 로그아웃 처리는 계속 진행
     }
@@ -115,8 +109,7 @@ export class AuthService {
         }
       }
 
-      const response = await apiClient.get("auth/me");
-      const resp = await response.json() as { authenticated: boolean };
+      const resp = await apiClient.get<AuthCheckResponse>(API_ENDPOINTS.AUTH.ME);
 
       if (!resp.authenticated) {
         throw new AuthError("unauthenticated", 401);

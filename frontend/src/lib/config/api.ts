@@ -13,9 +13,3 @@ export const getApiUrl = (path = "") => {
     return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
   }
 };
-
-export const AUTH_ENDPOINTS = {
-  me: () => getApiUrl("auth/me"),
-  googleLogin: () => getApiUrl("auth/google/login"),
-  logout: () => getApiUrl("auth/logout"),
-};
