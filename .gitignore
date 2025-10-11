@@ -56,3 +56,6 @@ backend/keys/
 
 # OpenCode
 .opencode/
+
+# Claude Code
+.claude/

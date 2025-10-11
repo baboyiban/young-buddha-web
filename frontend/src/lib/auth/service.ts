@@ -1,6 +1,5 @@
 import { User } from "@/lib/types/user";
 import { apiClient } from "@/lib/api/client";
-import { HTTPError } from "ky";
 import { AUTH_ENDPOINTS } from "@/lib/config/api";
 import { AuthCache } from "@/lib/auth/cache";
 import { AuthError } from "@/lib/errors";
@@ -17,12 +16,13 @@ export class AuthService {
         }
       }
 
-      const resp = await apiClient.get("auth/me").json<{
+      const response = await apiClient.get("auth/me");
+      const resp = await response.json() as {
         authenticated: boolean;
         email: string;
         name?: string;
         role?: string;
-      }>();
+      };
 
       if (!resp.authenticated) {
         throw new AuthError("User not authenticated", 401);
@@ -115,9 +115,8 @@ export class AuthService {
         }
       }
 
-      const resp = await apiClient
-        .get("auth/me")
-        .json<{ authenticated: boolean }>();
+      const response = await apiClient.get("auth/me");
+      const resp = await response.json() as { authenticated: boolean };
 
       if (!resp.authenticated) {
         throw new AuthError("unauthenticated", 401);
@@ -136,10 +135,10 @@ export class AuthService {
 
   private handleAuthError(error: any): void {
     let status = 0;
-    if (error instanceof HTTPError) {
-      status = error.response.status;
-    } else if (error instanceof AuthError && error.status) {
+    if (error instanceof AuthError && error.status) {
       status = error.status;
+    } else if (error.response?.status) {
+      status = error.response.status;
     }
 
     if (status === 401 || status === 403) {

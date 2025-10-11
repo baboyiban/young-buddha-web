@@ -11,7 +11,8 @@ export async function sheetsRead(
     gid: gid,
     query: query,
   });
-  return apiClient.get(`sheets/read?${qs.toString()}`).json<SheetsResponse>();
+  const response = await apiClient.get(`sheets/read?${qs.toString()}`);
+  return response.json() as Promise<SheetsResponse>;
 }
 
 // POST 요청 공통 함수
@@ -21,13 +22,12 @@ async function sheetsPost(
   gid: string,
   query: string,
 ): Promise<SheetsResponse> {
-  return apiClient.post(endpoint, {
-    json: {
-      spreadsheet_id: spreadsheetId,
-      gid: gid,
-      query,
-    }
-  }).json<SheetsResponse>();
+  const response = await apiClient.post(endpoint, {
+    spreadsheet_id: spreadsheetId,
+    gid: gid,
+    query,
+  });
+  return response.json() as Promise<SheetsResponse>;
 }
 
 export const sheetsCreate = (

@@ -10,7 +10,7 @@ interface AuthGuardProps {
   fallback?: React.ReactNode
 }
 
-export default function AuthGuard({ children, fallback }: AuthGuardProps) {
+export default function AuthGuard({ children }: AuthGuardProps) {
   const { isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
