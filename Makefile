@@ -183,10 +183,21 @@ logs:
 	@docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f 2>/dev/null || \
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
 
-# Start only backend
+# Start only backend (development)
 backend:
 	@echo "🔧 Starting backend service..."
 	@docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build backend
+
+# Start only backend (production)
+backend-prod:
+	@echo "🔧 Starting backend service (production)..."
+	@if [ ! -f "backend/.env.prod" ]; then \
+		echo "❌ backend/.env.prod not found. Please create it from the example:"; \
+		echo "   cp backend/.env.example backend/.env.prod"; \
+		echo "   Then edit with your production values"; \
+		exit 1; \
+	fi
+	@docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build backend
 
 # Start only frontend
 frontend:

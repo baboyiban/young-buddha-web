@@ -86,11 +86,10 @@ impl DatabasePool {
     {
         let path = self.path.clone();
         tokio::task::spawn_blocking(move || {
-            let pool = DatabasePool::new(path)?;
-            let conn = pool.get_pooled_connection()?;
+            // Create a simple connection for this operation
+            let conn = Connection::open(&path)
+                .map_err(|e| AppError::Database(e))?;
             let result = f(&conn)?;
-            // Return connection to pool after use
-            pool.return_connection(conn).ok();
             Ok(result) as Result<T, AppError>
         })
         .await
