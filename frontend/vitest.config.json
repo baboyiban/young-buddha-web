@@ -1,0 +1,16 @@
+{
+  "test": {
+    "environment": "jsdom",
+    "setupFiles": ["./src/test/setup.tsx"],
+    "globals": true,
+    "css": true
+  },
+  "resolve": {
+    "alias": {
+      "@": "/Users/choidaruhan/git/young-buddha-web/frontend/src"
+    }
+  },
+  "esbuild": {
+    "jsx": "automatic"
+  }
+}

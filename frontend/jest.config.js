@@ -20,8 +20,23 @@ const customJestConfig = {
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
     '!src/test/**',
+    '!src/**/*.stories.{js,jsx,ts,tsx}',
+    '!src/pages/_app.tsx',
+    '!src/pages/_document.tsx',
   ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 60,
+      lines: 60,
+      statements: 60,
+    },
+  },
   testPathIgnorePatterns: ['<rootDir>/.next/'],
+  // 테스트 타임아웃 증가 (API 모킹 등으로 인한 지연 고려)
+  testTimeout: 10000,
 }
 
 module.exports = createJestConfig(customJestConfig)

@@ -17,19 +17,18 @@ mod tests {
     #[tokio::test]
     async fn test_database_pool_creation() {
         let db_path = setup_test_db();
-        let pool_result = DatabasePool::new(db_path.clone());
+        let pool_result = DatabasePool::new(&db_path);
 
-        assert!(pool_result.is_ok());
-        let pool = pool_result.unwrap();
-        assert_eq!(pool.path, db_path);
+        assert!(pool_result.is_ok());  // 풀 생성 성공 여부만 확인
+        // assert_eq!(pool.path, db_path);  // path 필드가 없으므로 제거
     }
 
     #[tokio::test]
     async fn test_database_connection() {
         let db_path = setup_test_db();
-        let pool = DatabasePool::new(db_path.clone()).unwrap();
+        let pool = DatabasePool::new(&db_path).unwrap();
 
-        let conn_result = pool.get_connection();
+        let conn_result = pool.get();  // get_connection() → get()으로 변경
         assert!(conn_result.is_ok());
 
         let conn = conn_result.unwrap();
@@ -43,7 +42,7 @@ mod tests {
     #[tokio::test]
     async fn test_database_operations() {
         let db_path = setup_test_db();
-        let pool = DatabasePool::new(db_path.clone()).unwrap();
+        let pool = DatabasePool::new(&db_path).unwrap();  // &str로 변경
 
         let result = pool.run_blocking(|conn| {
             conn.execute(
