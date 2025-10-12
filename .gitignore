@@ -60,3 +60,5 @@ backend/keys/
 # Claude Code
 .claude/
 
+# Crush
+.crush/
