@@ -29,50 +29,69 @@
 
 1. **환경 변수 설정**
 
-   ```bash
-   # 백엔드 개발 환경
-   cp backend/.env.dev.example backend/.env.dev
+    ```bash
+    # 백엔드 개발 환경
+    cp backend/.env.dev.example backend/.env.dev
 
-   # 프론트엔드 개발 환경
-   cp frontend/.env.dev.example frontend/.env.dev
+    # 프론트엔드 개발 환경
+    cp frontend/.env.dev.example frontend/.env.dev
 
-   # 환경 변수 파일을 편집하여 실제 값으로 업데이트
-   ```
+    # 환경 변수 파일을 편집하여 실제 값으로 업데이트
+    ```
 
 2. **Docker 개발 환경 실행**
 
-   ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-   ```
+    ```bash
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+    ```
 
 3. **개별 서비스 실행**
 
-   ```bash
-   # 백엔드만 실행
-   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up backend
+    ```bash
+    # 백엔드만 실행
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up backend
 
-   # 프론트엔드만 실행
-   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up frontend
-   ```
+    # 프론트엔드만 실행
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up frontend
+    ```
 
-### 프로덕션 환경 실행
+## 🔧 주요 기능
 
-1. **환경 변수 설정**
+### 인증 시스템
 
-   ```bash
-   # 백엔드 프로덕션 환경
-   cp backend/.env.prod.example backend/.env.prod
+- Google OAuth 2.0 연동
+- JWT 기반 세션 관리
+- **강화된 CSRF 보호** (Cookie 크레이트 기반 파싱)
+- 역할 기반 접근 제어 (관리자/일반 사용자)
 
-   # 프론트엔드 프로덕션 환경
-   cp frontend/.env.prod.example frontend/.env.prod
+### 데이터 관리
 
-   # 보안 값을 실제 프로덕션 값으로 업데이트
-   ```
+- **SQLite 데이터베이스 (커넥션 풀링 적용)**
+- 데이터베이스 요청 관리 기능
+- 사용자 토큰 저장
 
-2. **Docker 프로덕션 환경 실행**
-   ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
-   ```
+### 보안 기능
+
+- CORS 설정
+- **구조화된 JSON 에러 응답**
+- 환경 변수 기반 구성
+- 프로덕션 보안 강화
+
+## 🚀 최근 개선사항 (v0.2.0)
+
+### 보안 강화
+- **CSRF 미들웨어 개선**: Cookie 크레이트를 활용한 더 견고한 토큰 검증
+- **에러 응답 구조화**: 일관된 JSON 형식의 에러 응답
+- **의존성 보안 업데이트**: 최신 보안 패치 적용
+
+### 성능 개선
+- **데이터베이스 커넥션 풀링**: 연결 재사용으로 성능 향상
+- **메모리 사용 최적화**: 불필요한 객체 생성 감소
+
+### 개발 경험 개선
+- **테스트 커버리지 확대**: 데이터베이스 풀 및 CSRF 유틸리티 테스트 추가
+- **Vitest 설정 추가**: Next.js 프로젝트에 최적화된 테스트 환경 구성
+- **추가 개발 도구**: 더 나은 디버깅 및 테스트 환경 제공
 
 ## 📁 프로젝트 구조
 
@@ -103,28 +122,6 @@ young-buddha-web/
 ├── docker-compose.dev.yml  # 개발 오버라이드
 └── docker-compose.prod.yml # 프로덕션 오버라이드
 ```
-
-## 🔧 주요 기능
-
-### 인증 시스템
-
-- Google OAuth 2.0 연동
-- JWT 기반 세션 관리
-- CSRF 보호 구현 (Double Submit Cookie)
-- 역할 기반 접근 제어 (관리자/일반 사용자)
-
-### 데이터 관리
-
-- SQLite 데이터베이스
-- 데이터베이스 요청 관리 기능
-- 사용자 토큰 저장
-
-### 보안 기능
-
-- CORS 설정
-- CSRF 토큰 검증
-- 환경 변수 기반 구성
-- 프로덕션 보안 강화
 
 ## 🐳 Docker 환경 설명
 
@@ -200,19 +197,6 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs
 ```
 
-### 서비스 중지
-
-```bash
-# 개발 모드 중지
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml down
-
-# 프로덕션 모드 중지
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
-
-# 볼륨 포함 완전 삭제
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml down -v
-```
-
 ## 🔍 문제 해결
 
 ### 일반적인 문제
@@ -221,30 +205,9 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml down -v
 2. **환경 변수**: .env.dev 또는 .env.prod 파일이 올바르게 설정되었는지 확인
 3. **의존성**: Docker 이미지를 재빌드해야 할 수 있음 (`--build` 플래그 사용)
 
-### 개발 모드 문제
-
-```bash
-# Docker 캐시 없이 재빌드
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml build --no-cache
-
-# 특정 서비스만 재빌드
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml build backend
-```
-
-### 프로덕션 모드 문제
-
-```bash
-# 헬스체크 실패 시 재시작
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart backend
-
-# 로그 확인
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend
-```
-
 ## 📝 추가 정보
 
 - **Docker 상세 가이드**: [DOCKER-GUIDE.md](DOCKER-GUIDE.md) 파일 참조
-
 - **백엔드 API**: http://localhost:8080
 - **프론트엔드**: http://localhost:3000
 - **상태 확인**: http://localhost:8080/health

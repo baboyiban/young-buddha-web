@@ -41,7 +41,7 @@ next-env.d.ts
 **/*.log
 
 # database
-data.db
+*.db
 
 # IDE
 .idea/
