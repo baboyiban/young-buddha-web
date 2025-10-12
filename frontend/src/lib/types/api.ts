@@ -102,31 +102,31 @@ export interface DatabaseQueryParams {
 export const API_ENDPOINTS = {
   // 인증
   AUTH: {
-    ME: '/auth/me',
-    GOOGLE_LOGIN: '/auth/google/login',
-    LOGOUT: '/auth/logout',
+    ME: '/api/auth/me',
+    GOOGLE_LOGIN: '/api/auth/google/login',
+    LOGOUT: '/api/auth/logout',
   },
 
   // Google Sheets
   SHEETS: {
-    READ: '/sheets/read',
-    CREATE: '/sheets/create',
-    UPDATE: '/sheets/update',
-    DELETE: '/sheets/delete',
+    READ: '/api/sheets/read',
+    CREATE: '/api/sheets/create',
+    UPDATE: '/api/sheets/update',
+    DELETE: '/api/sheets/delete',
   },
 
   // 결제 관리
   PAYMENT: {
-    LIST: '/payment/admin',
-    UPDATE: '/payment/update',
-    BATCH_UPDATE: '/payment/batch-update',
+    LIST: '/api/payment/admin',
+    UPDATE: '/api/payment/update',
+    BATCH_UPDATE: '/api/payment/batch-update',
   },
 
   // 데이터베이스
   DATABASE: {
-    QUERY: '/database/query',
+    QUERY: '/api/database/query',
   },
 
   // 헬스체크
-  HEALTH: '/health',
+  HEALTH: '/api/health',
 } as const;
