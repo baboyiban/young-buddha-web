@@ -1,104 +1,60 @@
-use rusqlite::{Connection, OpenFlags};
+use r2d2_sqlite::SqliteConnectionManager;
 use std::path::Path;
 use std::fs;
-use std::sync::{Arc, Mutex};
 use crate::types::error::AppError;
 
+
+pub type Pool = r2d2::Pool<SqliteConnectionManager>;
+pub type Connection = r2d2::PooledConnection<SqliteConnectionManager>;
+
 pub struct DatabasePool {
-    pub path: String,
-    connection: Arc<Mutex<Option<Connection>>>,
+    pool: Pool,
 }
 
 impl DatabasePool {
-    pub fn new(path: String) -> Result<Self, AppError> {
+    pub fn new(path: &str) -> Result<Self, AppError> {
         tracing::info!("Creating DatabasePool for path: {}", path);
-        let connection = Arc::new(Mutex::new(None));
-        let db = Self { path, connection };
-
-        // Initialize with a connection
-        db.create_connection()?;
-        tracing::info!("DatabasePool initialized successfully");
-        Ok(db)
-    }
-
-    fn create_connection(&self) -> Result<(), AppError> {
-        let mut conn_guard = self.connection.lock().map_err(|e| {
-            AppError::Internal(format!("Failed to acquire connection lock: {}", e))
-        })?;
-
-        if conn_guard.is_none() {
-            let conn = self.get_connection()?;
-            *conn_guard = Some(conn);
-        }
-        Ok(())
-    }
-
-    pub fn get_connection(&self) -> Result<Connection, AppError> {
-        let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE;
-        let db_path = Path::new(&self.path);
+        let db_path = Path::new(path);
 
         if let Some(parent) = db_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| {
-                    tracing::error!("Failed to create parent directory {:?}: {}", parent, e);
-                    AppError::Database(rusqlite::Error::FromSqlConversionFailure(
-                        0, rusqlite::types::Type::Text, Box::new(e)
-                    ))
-                })?;
+            fs::create_dir_all(parent).map_err(|e| {
+                tracing::error!("Failed to create parent directory {:?}: {}", parent, e);
+                AppError::Internal(format!("Failed to create db directory: {}", e))
+            })?;
         }
 
-        if !db_path.exists() {
-            fs::File::create(&db_path)
-                .map_err(|e| {
-                    tracing::error!("Failed to create DB file {:?}: {}", db_path, e);
-                    AppError::Database(rusqlite::Error::FromSqlConversionFailure(
-                        0, rusqlite::types::Type::Text, Box::new(e)
-                    ))
-                })?;
-        }
+        let manager = SqliteConnectionManager::file(db_path);
+        let pool = r2d2::Pool::new(manager)
+            .map_err(|e| AppError::Internal(format!("Failed to create db pool: {}", e)))?;
 
-        Ok(Connection::open_with_flags(db_path, flags)?)
+        // Initialize schema
+        let conn = pool.get().map_err(|e| AppError::Internal(format!("Failed to get connection for schema init: {}", e)))?;
+        Self::initialize(&conn)?;
+
+        tracing::info!("DatabasePool initialized successfully");
+        Ok(DatabasePool { pool })
     }
 
-    pub fn get_pooled_connection(&self) -> Result<Connection, AppError> {
-        // Try to get existing connection from pool
-        if let Ok(mut conn_guard) = self.connection.lock() {
-            if let Some(conn) = conn_guard.take() {
-                return Ok(conn);
-            }
-        }
-
-        // Fallback to creating new connection
-        self.get_connection()
+    pub fn get(&self) -> Result<Connection, AppError> {
+        self.pool.get().map_err(|e| AppError::Internal(format!("Failed to get connection from pool: {}", e)))
     }
 
-    pub fn return_connection(&self, conn: Connection) -> Result<(), AppError> {
-        if let Ok(mut conn_guard) = self.connection.lock() {
-            *conn_guard = Some(conn);
-        }
-        Ok(())
-    }
-
-    pub async fn run_blocking<T, F>(&self, f: F) -> Result<T, AppError>
+    pub async fn run_blocking<F, T>(&self, f: F) -> Result<T, AppError>
     where
+        F: FnOnce(Connection) -> Result<T, AppError> + Send + 'static,
         T: Send + 'static,
-        F: FnOnce(&Connection) -> Result<T, AppError> + Send + 'static,
     {
-        let path = self.path.clone();
+        let pool = self.pool.clone();
         tokio::task::spawn_blocking(move || {
-            // Create a simple connection for this operation
-            let conn = Connection::open(&path)
-                .map_err(|e| AppError::Database(e))?;
-            let result = f(&conn)?;
-            Ok(result) as Result<T, AppError>
+            let conn = pool.get()?;
+            f(conn)
         })
         .await
-        .map_err(|e| AppError::Internal(format!("Task join error: {}", e)))?
+        .map_err(|e| AppError::Internal(format!("Database task join error: {}", e)))?
     }
 
-    fn initialize(&self) -> Result<(), AppError> {
-        tracing::info!("Initializing database schema at: {}", self.path);
-        let conn = self.get_connection()?;
+    fn initialize(conn: &Connection) -> Result<(), AppError> {
+        tracing::info!("Initializing database schema");
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS database_request (

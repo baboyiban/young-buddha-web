@@ -123,3 +123,9 @@ impl IntoResponse for AppError {
         }))).into_response()
     }
 }
+
+impl From<r2d2::Error> for AppError {
+    fn from(err: r2d2::Error) -> Self {
+        AppError::Internal(format!("r2d2 pool error: {}", err))
+    }
+}

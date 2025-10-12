@@ -24,7 +24,7 @@ impl AppServices {
 
         tracing::info!("Initializing DatabasePool at path: {}", config.database.path);
         // 데이터베이스 풀 초기화
-        let db_pool = Arc::new(DatabasePool::new(config.database.path.clone())?);
+        let db_pool = Arc::new(DatabasePool::new(&config.database.path)?);
         tracing::info!("DatabasePool initialized");
 
         // 캐시 초기화 (옵션)
