@@ -3,17 +3,14 @@ export interface MissionData {
   date: string;
   dayOfWeek: string;
 
+  // New structure based on updated spreadsheet
+  morningMeal: string[];
+  morningDishes: string[];
+  eveningMeal: string[];
+  eveningMeeting?: string;
+
   // Optional new flexible structure
   assignments?: MissionAssignment[];
-
-  // Legacy fields for backward compatibility
-  morningMeal: string[];
-  morningHelper: string[];
-  morningDishes: string[];
-  laundry: LaundryMission;
-  afternoonCushion: string[];
-  eveningMeal: string[];
-  eveningCushion?: string;
 
   metadata?: {
     lastUpdated: string;

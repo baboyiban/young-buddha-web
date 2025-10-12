@@ -10,25 +10,21 @@ const SHEET_CONFIG = {
 } as const;
 
 const MISSION_INDICES = {
-  date: 0, // A
-  dayOfWeek: 1, // B
-  morningMeal: [2, 3, 4, 5] as const, // C, D, E, F (발공 당번 4칸)
-  morningHelper: [6, 7, 8, 9] as const, // G, H, I, J (바라지 4칸)
+  date: 0, // A (날짜, 예: 10월 12일)
+  dayOfWeek: 1, // B (요일)
+  morningMeal: [2, 3] as const, // C, D (발공 당번 2칸)
   morningDishes: [10, 11, 12] as const, // K, L, M (설거지 3칸)
-  laundry: {
-    wash: 13, // N (애벌)
-    hang: 14, // O (널기)
-    fold: 15, // P (개기)
-  },
-  afternoonCushion: [16, 17] as const, // Q, R (사시예불전 방석깔기 2칸)
-  eveningMeal: [18, 19, 20] as const, // S, T, U (저녁 공당 3칸)
-  eveningCushion: 21, // V (저녁예불 방석 한줄깔기 - 이동)
+  eveningMeal: [18, 19] as const, // S, T (저녁 공당 2칸)
+  eveningMeeting: 21, // V (닫는 모임)
 } as const;
 
 export async function fetchMissionData(): Promise<MissionData> {
-  const todayStr = getLocalDateYmd(new Date());
+  const today = new Date();
+  const todayStr = getLocalDateYmd(today);
+  const koreanDateStr = getKoreanDate(today);
 
-  let query = `SELECT * WHERE A = date '${todayStr}'`;
+  // Google Sheets의 날짜 형식에 맞춰 쿼리 (10월 11일 형식)
+  let query = `SELECT * WHERE A = '${koreanDateStr}'`;
   let data = (await sheetsRead(
     SHEET_CONFIG.spreadsheetId,
     SHEET_CONFIG.gid,
@@ -36,8 +32,9 @@ export async function fetchMissionData(): Promise<MissionData> {
   )) as SheetsData;
   let rows: SheetsRow[] = data.table?.rows ?? [];
 
+  // 첫 번째 시도 실패 시 ISO 형식으로 재시도
   if (rows.length === 0) {
-    query = `SELECT * WHERE A = '${todayStr}'`;
+    query = `SELECT * WHERE A = date '${todayStr}'`;
     data = (await sheetsRead(
       SHEET_CONFIG.spreadsheetId,
       SHEET_CONFIG.gid,
@@ -47,7 +44,15 @@ export async function fetchMissionData(): Promise<MissionData> {
   }
 
   if (rows.length === 0) {
-    throw new ApiError("미션 데이터를 불러오는데 실패했습니다.");
+    // 빈 데이터인 경우 기본 구조 반환
+    return {
+      date: "",
+      dayOfWeek: "",
+      morningMeal: [],
+      morningDishes: [],
+      eveningMeal: [],
+      eveningMeeting: undefined,
+    };
   }
 
   const firstRow = rows[0];
@@ -64,18 +69,9 @@ function processMissionData(rawData: string[]): MissionData {
       rawData[MISSION_INDICES.dayOfWeek] ||
       deriveKoreanWeekday(rawData[MISSION_INDICES.date]),
     morningMeal: getMissionMembers(rawData, MISSION_INDICES.morningMeal),
-    morningHelper: getMissionMembers(rawData, MISSION_INDICES.morningHelper),
     morningDishes: getMissionMembers(rawData, MISSION_INDICES.morningDishes),
-    laundry: {
-      wash: rawData[MISSION_INDICES.laundry.wash] || undefined,
-      hang: rawData[MISSION_INDICES.laundry.hang] || undefined,
-      fold: rawData[MISSION_INDICES.laundry.fold] || undefined,
-    },
-    afternoonCushion: getMissionMembers(
-      rawData,
-      MISSION_INDICES.afternoonCushion,
-    ),
     eveningMeal: getMissionMembers(rawData, MISSION_INDICES.eveningMeal),
+    eveningMeeting: rawData[MISSION_INDICES.eveningMeeting] || undefined,
   };
 }
 
@@ -94,6 +90,12 @@ function getLocalDateYmd(d: Date = new Date()): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function getKoreanDate(d: Date = new Date()): string {
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${month}월 ${day}일`;
 }
 
 function cellToDisplayString(cell?: SheetsCell): string {

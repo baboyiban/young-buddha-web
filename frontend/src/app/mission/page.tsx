@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { MissionData } from "@/lib/types/mission";
 import { fetchMissionData } from "@/lib/api/mission";
 import PageLayout from "@/components/layouts/PageLayout";
+import { MissionItem } from "@/components/MissionItem";
 
 export default function Mission() {
   const router = useRouter();
@@ -37,8 +38,12 @@ export default function Mission() {
       error={error ? "미션 데이터를 불러오는데 실패했습니다." : null}
     >
       <div className="mx-[0.5rem] bg-white p-[1rem] rounded-[1rem] min-h-[calc(100svh-52px-28px-8px)] flex flex-col">
-        {!missionData ? (
-          <div className="text-dark-gray">미션 데이터가 없습니다.</div>
+        {!missionData || missionData.date === "" ? (
+          <div className="text-dark-gray text-center">
+            오늘의 미션 데이터가 아직 준비되지 않았습니다.
+            <br />
+            관리자에게 문의해주세요.
+          </div>
         ) : (
           <>
             {/* 미션 컨텐츠 */}
@@ -55,29 +60,10 @@ export default function Mission() {
                 />
               )}
 
-              {missionData.morningHelper.length > 0 && (
-                <MissionItem
-                  title="🤲 발우공양 바라지"
-                  members={missionData.morningHelper}
-                />
-              )}
-
               {missionData.morningDishes.length > 0 && (
                 <MissionItem
                   title="🧼 아침 설거지"
                   members={missionData.morningDishes}
-                />
-              )}
-
-              {(missionData.laundry.wash ||
-                missionData.laundry.hang ||
-                missionData.laundry.fold) && (
-                <LaundryMission laundry={missionData.laundry} />
-              )}
-
-              {missionData.afternoonCushion.length > 0 && (
-                <AfternoonCushionMission
-                  members={missionData.afternoonCushion}
                 />
               )}
 
@@ -88,10 +74,10 @@ export default function Mission() {
                 />
               )}
 
-              {missionData.eveningCushion && (
+              {missionData.eveningMeeting && (
                 <MissionItem
-                  title="🌚 저녁예불 방석 한줄깔기"
-                  members={[missionData.eveningCushion]}
+                  title="🌙 닫는 모임 진행"
+                  members={[missionData.eveningMeeting]}
                 />
               )}
             </div>
@@ -116,41 +102,5 @@ function MissionHeader({
   );
 }
 
-function MissionItem({ title, members }: { title: string; members: string[] }) {
-  return (
-    <div>
-      <div>{title}</div>
-      <div>{members.join(", ")}</div>
-    </div>
-  );
-}
+// MissionItem 컴포넌트는 이제 별도 파일로 분리됨
 
-function LaundryMission({
-  laundry,
-}: {
-  laundry: { wash?: string; hang?: string; fold?: string };
-}) {
-  const tasks = [];
-  if (laundry.wash) tasks.push(`(애벌/세탁) ${laundry.wash}`);
-  if (laundry.hang) tasks.push(`(널기) ${laundry.hang}`);
-  if (laundry.fold) tasks.push(`(걷고/개기) ${laundry.fold}`);
-
-  return (
-    <div>
-      <div>🧺 걸레빨기</div>
-      <div>{tasks.join(", ")}</div>
-    </div>
-  );
-}
-
-function AfternoonCushionMission({ members }: { members: string[] }) {
-  const displayMembers =
-    members.length > 0 && members[0] ? members : ["상근자 전원"];
-
-  return (
-    <div>
-      <div>🌞 사시예불전 방석깔기</div>
-      <div>{displayMembers.join(", ")}</div>
-    </div>
-  );
-}
