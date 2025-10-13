@@ -1,187 +1,206 @@
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest'
-import { paymentService } from '../paymentService'
-import { fetchFilteredPayments, updatePaymentStatus } from '@/lib/api/payment'
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  vi,
+  type MockedFunction,
+} from "vitest";
+import { paymentService } from "../paymentService";
+import { fetchFilteredPayments, updatePaymentStatus } from "@/lib/api/payment";
 
 // API 함수들 모킹
-vi.mock('@/lib/api/payment', () => ({
+vi.mock("@/lib/api/payment", () => ({
   fetchFilteredPayments: vi.fn(),
   updatePaymentStatus: vi.fn(),
-}))
+}));
 
-const mockFetchFilteredPayments = fetchFilteredPayments as MockedFunction<typeof fetchFilteredPayments>
-const mockUpdatePaymentStatus = updatePaymentStatus as MockedFunction<typeof updatePaymentStatus>
+const mockFetchFilteredPayments = fetchFilteredPayments as MockedFunction<
+  typeof fetchFilteredPayments
+>;
+const mockUpdatePaymentStatus = updatePaymentStatus as MockedFunction<
+  typeof updatePaymentStatus
+>;
 
-describe('paymentService', () => {
+describe("paymentService", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
-  describe('getAdminPayments', () => {
-    it('관리자 결제 목록을 올바르게 조회한다', async () => {
+  describe("getAdminPayments", () => {
+    it("관리자 결제 목록을 올바르게 조회한다", async () => {
       const mockData = [
         {
-          id: 'REQ-1',
-          email: 'user@example.com',
-          userId: 'user123',
-          name: '사용자',
-          requestDate: '2024-01-15',
-          absentDate: '2024-01-16',
-          type: '정기' as const,  // "연차" → "정기"로 변경
-          schedule: '오전',
-          reason: '개인사유',
-          approved: '승인' as const,
+          id: "REQ-1",
+          email: "user@example.com",
+          userId: "user123",
+          name: "사용자",
+          requestDate: "2024-01-15",
+          absentDate: "2024-01-16",
+          type: "정기" as const, // "연차" → "정기"로 변경
+          schedule: "오전",
+          reason: "개인사유",
+          approved: "승인" as const,
         },
-      ]
+      ];
 
       mockFetchFilteredPayments.mockResolvedValueOnce({
         data: mockData,
         totalCount: 1,
-      })
+      });
 
       const result = await paymentService.getAdminPayments({
         page: 1,
         pageSize: 10,
-        statusFilter: '전체',
-        sortOrder: 'desc',
-      })
+        statusFilter: "전체",
+        sortOrder: "desc",
+      });
 
       expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
-        '',
+        "",
         true,
         1,
         10,
-        '전체',
+        "전체",
         undefined,
-        'desc'
-      )
+        "desc",
+      );
 
-      expect(result.data).toHaveLength(1)
-      expect(result.data[0].requestDate).toBe('2024-01-15')
-      expect(result.data[0].absentDate).toBe('2024-01-16')
-      expect(result.totalCount).toBe(1)
-    })
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].requestDate).toBe("2024-01-15");
+      expect(result.data[0].absentDate).toBe("2024-01-16");
+      expect(result.totalCount).toBe(1);
+    });
 
-    it('필터가 적용된 상태로 조회한다', async () => {
+    it("필터가 적용된 상태로 조회한다", async () => {
       mockFetchFilteredPayments.mockResolvedValueOnce({
         data: [],
         totalCount: 0,
-      })
+      });
 
       await paymentService.getAdminPayments({
         page: 2,
         pageSize: 20,
-        statusFilter: '승인',
-        sortOrder: 'asc',
-      })
+        statusFilter: "승인",
+        sortOrder: "asc",
+      });
 
       expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
-        '',
+        "",
         true,
         2,
         20,
-        '승인',
+        "승인",
         undefined,
-        'asc'
-      )
-    })
-  })
+        "asc",
+      );
+    });
+  });
 
-  describe('getUserPayments', () => {
-    it('사용자 결제 목록을 올바르게 조회한다', async () => {
+  describe("getUserPayments", () => {
+    it("사용자 결제 목록을 올바르게 조회한다", async () => {
       const mockData = [
         {
-          id: 'REQ-2',
-          email: 'user@example.com',
-          userId: 'user123',      // 추가
-          name: '사용자',          // 추가
-          requestDate: '2024-01-20',  // Date → string
-          absentDate: '2024-01-21',   // Date → string
-          type: '비정기' as const,     // 유효한 PaymentType
-          schedule: '오후',
-          reason: '병원',
-          approved: '대기' as const,  // 유효한 PaymentStatus
+          id: "REQ-2",
+          email: "user@example.com",
+          userId: "user123", // 추가
+          name: "사용자", // 추가
+          requestDate: "2024-01-20", // Date → string
+          absentDate: "2024-01-21", // Date → string
+          type: "비정기" as const, // 유효한 PaymentType
+          schedule: "오후",
+          reason: "병원",
+          approved: "대기" as const, // 유효한 PaymentStatus
         },
-      ]
+      ];
 
       mockFetchFilteredPayments.mockResolvedValueOnce({
         data: mockData,
         totalCount: 1,
-      })
+      });
 
       const result = await paymentService.getUserPayments({
-        email: 'user@example.com',
+        email: "user@example.com",
         page: 1,
         pageSize: 10,
-        typeFilter: '전체',
-        sortOrder: 'desc',
-      })
+        typeFilter: "전체",
+        sortOrder: "desc",
+      });
 
       expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
-        'user@example.com',
+        "user@example.com",
         true,
         1,
         10,
-        '전체',
+        "전체",
         undefined,
-        'desc'
-      )
+        "desc",
+      );
 
-      expect(result.data[0].type).toBe('반차')
-    })
+      expect(result.data[0].type).toBe("비정기");
+    });
 
-    it('타입 필터가 적용된다', async () => {
+    it("타입 필터가 적용된다", async () => {
       mockFetchFilteredPayments.mockResolvedValueOnce({
         data: [],
         totalCount: 0,
-      })
+      });
 
       await paymentService.getUserPayments({
-        email: 'user@example.com',
+        email: "user@example.com",
         page: 1,
         pageSize: 10,
-        typeFilter: '연차',
-        sortOrder: 'desc',
-      })
+        typeFilter: "연차",
+        sortOrder: "desc",
+      });
 
       expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
-        'user@example.com',
+        "user@example.com",
         true,
         1,
         10,
-        '전체',
-        '연차',
-        'desc'
-      )
-    })
-  })
+        "전체",
+        "연차",
+        "desc",
+      );
+    });
+  });
 
-  describe('updateStatus', () => {
-    it('결제 상태를 업데이트한다', async () => {
-      mockUpdatePaymentStatus.mockResolvedValueOnce(true)
+  describe("updateStatus", () => {
+    it("결제 상태를 업데이트한다", async () => {
+      mockUpdatePaymentStatus.mockResolvedValueOnce(true);
 
-      const result = await paymentService.updateStatus('REQ-123', '승인')
+      const result = await paymentService.updateStatus("REQ-123", "승인");
 
-      expect(mockUpdatePaymentStatus).toHaveBeenCalledWith('REQ-123', '승인')
-      expect(result).toBeUndefined() // 함수가 void를 반환하므로
-    })
-  })
+      expect(mockUpdatePaymentStatus).toHaveBeenCalledWith("REQ-123", "승인");
+      expect(result).toBe(true); // updatePaymentStatus returns boolean (mocked as true)
+    });
+  });
 
-  describe('batchUpdateStatus', () => {
-    it('여러 결제 상태를 일괄 업데이트한다', async () => {
-      mockUpdatePaymentStatus.mockResolvedValue(true)
+  describe("batchUpdateStatus", () => {
+    it("여러 결제 상태를 일괄 업데이트한다", async () => {
+      mockUpdatePaymentStatus.mockResolvedValue(true);
 
       const updates = [
-        { id: 'REQ-1', status: '승인' },
-        { id: 'REQ-2', status: '거부' },
-      ]
+        { id: "REQ-1", status: "승인" },
+        { id: "REQ-2", status: "거부" },
+      ];
 
-      const results = await paymentService.batchUpdateStatus(updates)
+      const results = await paymentService.batchUpdateStatus(updates);
 
-      expect(mockUpdatePaymentStatus).toHaveBeenCalledTimes(2)
-      expect(mockUpdatePaymentStatus).toHaveBeenNthCalledWith(1, 'REQ-1', '승인')
-      expect(mockUpdatePaymentStatus).toHaveBeenNthCalledWith(2, 'REQ-2', '거부')
-      expect(results).toHaveLength(2)
-      expect(results).toEqual([true, true])
-    })
-  })
-})
+      expect(mockUpdatePaymentStatus).toHaveBeenCalledTimes(2);
+      expect(mockUpdatePaymentStatus).toHaveBeenNthCalledWith(
+        1,
+        "REQ-1",
+        "승인",
+      );
+      expect(mockUpdatePaymentStatus).toHaveBeenNthCalledWith(
+        2,
+        "REQ-2",
+        "거부",
+      );
+      expect(results).toHaveLength(2);
+      expect(results).toEqual([true, true]);
+    });
+  });
+});
