@@ -5,6 +5,7 @@ pub mod db;
 pub mod middleware;
 pub mod routes;
 pub mod services;
+pub mod utils;
 pub mod types;
 
 pub use config::Config;

@@ -5,6 +5,7 @@ use rusqlite::OptionalExtension;
 
 use crate::db::DatabasePool;
 use crate::types::{AppError, CreateRequest, DatabaseRow};
+use crate::utils::logging::{PerformanceMonitor, log_health_check, log_db_operation};
 
 pub struct DatabaseService {
     pub db_pool: Arc<DatabasePool>,  // public으로 변경
@@ -15,30 +16,41 @@ impl DatabaseService {
         Self { db_pool }
     }
 
-    // 헬스체크용 메소드 추가
+    // 헬스체크용 메소드 추가 (구조화된 로깅 & 성능 모니터링)
     pub async fn health_check(&self) -> bool {
-        match self.db_pool.run_blocking(|conn| {
+        let monitor = PerformanceMonitor::new("db_health_check");
+
+        let result = match self.db_pool.run_blocking(|conn| {
             // Use query_row for statements that return rows instead of execute
             match conn.query_row("SELECT 1", [], |_row| Ok(())) {
                 Ok(_) => Ok(true),
                 Err(e) => {
-                    tracing::error!("DB health query failed: {}", e);
+                    tracing::error!(component = "database", error = %e, "DB health query failed");
                     Ok(false)
                 }
             }
         }).await {
-            Ok(result) => result,
+            Ok(res) => res,
             Err(e) => {
-                tracing::error!("DB health_check task failed: {:?}", e);
+                tracing::error!(component = "database", error = ?e, "DB health_check task failed");
                 false
             },
-        }
+        };
+
+        // 성능 및 헬스 로그 기록
+        monitor.complete(result);
+        log_health_check("database", result, None);
+
+        result
     }
 
     pub async fn create_request(&self, request: CreateRequest) -> Result<axum::response::Response, AppError> {
-        self.db_pool.run_blocking({
-            move |conn| -> Result<(), AppError> {
-                conn.execute(
+        // DB 삽입 성능 모니터링
+        let monitor = PerformanceMonitor::new("db_insert_request");
+
+        let rows_affected = self.db_pool.run_blocking({
+            move |conn| -> Result<usize, AppError> {
+                let affected = conn.execute(
                     "INSERT INTO database_request (name, type, request_date, absent_date, partial_schedule, reason)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                     (
@@ -50,9 +62,14 @@ impl DatabaseService {
                         &request.reason,
                     ),
                 )?;
-                Ok(())
+                Ok(affected)
             }
         }).await?;
+
+        // 모니터 종료 및 DB 연산 로그
+        let success = rows_affected > 0;
+        monitor.complete(success);
+        log_db_operation("insert", "database_request", success, 0, Some(rows_affected));
 
         let response = json!({
             "success": true,
@@ -125,6 +142,8 @@ impl DatabaseService {
     }
 
     pub async fn update_request(&self, id: i64, request: CreateRequest) -> Result<axum::response::Response, AppError> {
+        let monitor = PerformanceMonitor::new("db_update_request");
+
         let rows_affected = self.db_pool.run_blocking({
             move |conn| -> Result<usize, AppError> {
                 let affected = conn.execute(
@@ -145,6 +164,10 @@ impl DatabaseService {
             }
         }).await?;
 
+        let success = rows_affected > 0;
+        monitor.complete(success);
+        log_db_operation("update", "database_request", success, 0, Some(rows_affected));
+
         if rows_affected == 0 {
             return Err(AppError::not_found("업데이트할 요청을 찾을 수 없습니다"));
         }
@@ -158,12 +181,18 @@ impl DatabaseService {
     }
 
     pub async fn delete_request(&self, id: i64) -> Result<axum::response::Response, AppError> {
+        let monitor = PerformanceMonitor::new("db_delete_request");
+
         let rows_affected = self.db_pool.run_blocking({
             move |conn| -> Result<usize, AppError> {
                 let affected = conn.execute("DELETE FROM database_request WHERE id = ?1", [id])?;
                 Ok(affected)
             }
         }).await?;
+
+        let success = rows_affected > 0;
+        monitor.complete(success);
+        log_db_operation("delete", "database_request", success, 0, Some(rows_affected));
 
         if rows_affected == 0 {
             return Err(AppError::not_found("삭제할 요청을 찾을 수 없습니다"));
