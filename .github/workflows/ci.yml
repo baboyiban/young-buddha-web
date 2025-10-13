@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend:
+    name: Backend (Rust) tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          cargo test --workspace --all-features --locked
+
+  frontend:
+    name: Frontend (Bun + Next) tests & lint
+    runs-on: ubuntu-latest
+    needs: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "BUN_INSTALL=$HOME/.bun" >> $GITHUB_ENV
+          echo "PATH=$HOME/.bun/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Wait for bun on PATH
+        run: |
+          # ensure environment is reloaded for subsequent steps
+          echo "Bun version:"
+          source $GITHUB_ENV || true
+          $HOME/.bun/bin/bun --version
+
+      - name: Cache frontend dependencies (bun)
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/.bun
+            ~/.bun
+            frontend/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/package.json') }}
+
+      - name: Install frontend deps
+        working-directory: frontend
+        env:
+          PATH: ${{ env.PATH }}:$HOME/.bun/bin
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun install
+
+      - name: Type check (tsc)
+        working-directory: frontend
+        env:
+          PATH: ${{ env.PATH }}:$HOME/.bun/bin
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bunx tsc --noEmit
+
+      - name: Run frontend tests
+        working-directory: frontend
+        env:
+          PATH: ${{ env.PATH }}:$HOME/.bun/bin
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun test
+
+      - name: Run ESLint
+        working-directory: frontend
+        env:
+          PATH: ${{ env.PATH }}:$HOME/.bun/bin
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bunx eslint .

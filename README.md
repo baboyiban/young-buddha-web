@@ -1,5 +1,7 @@
 # Young Buddha Web
 
+[![CI](https://github.com/baboyiban/young-buddha-web/actions/workflows/ci.yml/badge.svg)](https://github.com/baboyiban/young-buddha-web/actions)
+
 📖 **자세한 Docker 사용 가이드는 [DOCKER-GUIDE.md](DOCKER-GUIDE.md)를 참조하세요**
 
 현대적인 Rust 백엔드와 Next.js 프론트엔드로 구성된 풀스택 웹 애플리케이션입니다.
@@ -29,31 +31,31 @@
 
 1. **환경 변수 설정**
 
-    ```bash
-    # 백엔드 개발 환경
-    cp backend/.env.dev.example backend/.env.dev
+   ```bash
+   # 백엔드 개발 환경
+   cp backend/.env.dev.example backend/.env.dev
 
-    # 프론트엔드 개발 환경
-    cp frontend/.env.dev.example frontend/.env.dev
+   # 프론트엔드 개발 환경
+   cp frontend/.env.dev.example frontend/.env.dev
 
-    # 환경 변수 파일을 편집하여 실제 값으로 업데이트
-    ```
+   # 환경 변수 파일을 편집하여 실제 값으로 업데이트
+   ```
 
 2. **Docker 개발 환경 실행**
 
-    ```bash
-    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-    ```
+   ```bash
+   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+   ```
 
 3. **개별 서비스 실행**
 
-    ```bash
-    # 백엔드만 실행
-    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up backend
+   ```bash
+   # 백엔드만 실행
+   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up backend
 
-    # 프론트엔드만 실행
-    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up frontend
-    ```
+   # 프론트엔드만 실행
+   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up frontend
+   ```
 
 ## 🔧 주요 기능
 
@@ -80,15 +82,18 @@
 ## 🚀 최근 개선사항 (v0.2.0)
 
 ### 보안 강화
+
 - **CSRF 미들웨어 개선**: Cookie 크레이트를 활용한 더 견고한 토큰 검증
 - **에러 응답 구조화**: 일관된 JSON 형식의 에러 응답
 - **의존성 보안 업데이트**: 최신 보안 패치 적용
 
 ### 성능 개선
+
 - **데이터베이스 커넥션 풀링**: 연결 재사용으로 성능 향상
 - **메모리 사용 최적화**: 불필요한 객체 생성 감소
 
 ### 개발 경험 개선
+
 - **테스트 커버리지 확대**: 데이터베이스 풀 및 CSRF 유틸리티 테스트 추가
 - **Vitest 설정 추가**: Next.js 프로젝트에 최적화된 테스트 환경 구성
 - **추가 개발 도구**: 더 나은 디버깅 및 테스트 환경 제공
