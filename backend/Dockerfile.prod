@@ -11,6 +11,9 @@ RUN apk add --no-cache \
     pkgconfig \
     ca-certificates
 
+# Add clippy component for linting
+RUN rustup component add clippy
+
 # 작업 디렉터리 설정
 WORKDIR /app
 

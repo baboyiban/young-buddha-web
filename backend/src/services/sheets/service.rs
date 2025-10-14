@@ -347,10 +347,7 @@ impl SheetsService {
 
     fn normalize_str(&self, s: &str) -> String {
         s.trim()
-            .replace('\u{200B}', "") // Zero Width Space
-            .replace('\u{200C}', "") // Zero Width Non-Joiner
-            .replace('\u{200D}', "") // Zero Width Joiner
-            .replace('\u{FEFF}', "") // Byte Order Mark
+            .replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
             .to_string()
     }
 

@@ -32,7 +32,7 @@ impl AppServices {
             }
             Err(e) => {
                 db_init.failed(&e.to_string());
-                return Err(e.into());
+                return Err(e);
             }
         };
 

@@ -35,7 +35,7 @@ function LoginContent() {
       setLoading(true);
       const authUrl = await authService.getGoogleAuthUrl();
       window.location.href = authUrl; // 항상 리다이렉트
-    } catch (error) {
+    } catch (_error) {
       alert("로그인을 시작할 수 없습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
@@ -44,7 +44,11 @@ function LoginContent() {
 
   return (
     <div className="min-h-[calc(100svh-36px)] flex items-center justify-center p-[0.5rem]">
-      <button onClick={handleGoogleLogin} disabled={loading} className="button purple">
+      <button
+        onClick={handleGoogleLogin}
+        disabled={loading}
+        className="button purple"
+      >
         {loading ? (
           <LoadingSpinner color="white" showMessage={false} />
         ) : (

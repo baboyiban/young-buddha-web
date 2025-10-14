@@ -4,7 +4,12 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { authService } from "@/lib/auth/service";
 import { User } from "@/lib/types/user";
-import { isPublicPath, hasAccess, ROLE_USER, ROLE_ADMIN } from "@/lib/utils/pathAccess";
+import {
+  isPublicPath,
+  hasAccess,
+  ROLE_USER,
+  ROLE_ADMIN,
+} from "@/lib/utils/pathAccess";
 
 type AuthState = {
   user: User | null;
@@ -43,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const checkAuth = async () => {
     setLoading(true);

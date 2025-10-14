@@ -115,9 +115,9 @@ pub fn log_db_operation(operation: &str, table: &str, success: bool, duration_ms
 
 // 외부 API 호출 로깅 구조화
 pub fn log_external_api_call(endpoint: &str, method: &str, status_code: u16, duration_ms: u64) {
-    let level = if status_code >= 200 && status_code < 400 {
+    let level = if (200..400).contains(&status_code) {
         "info"
-    } else if status_code >= 400 && status_code < 500 {
+    } else if (400..500).contains(&status_code) {
         "warn"
     } else {
         "error"

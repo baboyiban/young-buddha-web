@@ -31,7 +31,7 @@ impl JwtService {
         };
 
         encode(&Header::default(), &claims, &self.encoding_key)
-            .map_err(|e| AppError::Jwt(e))
+            .map_err(AppError::Jwt)
     }
 
     pub fn decode(&self, token: &str) -> Result<JwtClaims, AppError> {

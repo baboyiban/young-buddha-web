@@ -3,7 +3,8 @@
 
 .PHONY: help dev prod stop clean logs backend frontend build \
 	prod-build prod-push prod-pull prod-up prod-down prod-build-push prod-pull-up \
-	init-dev init-prod setup-dev setup-prod clean-frontend clean-backend clean-docker clean-all
+	init-dev init-prod setup-dev setup-prod clean-frontend clean-backend clean-docker clean-all \
+	test test-backend test-frontend lint lint-backend lint-frontend
 
 # Default target
 help:
@@ -22,8 +23,12 @@ help:
 	@echo "  make setup-prod   Setup production environment files"
 	@echo "  make init-dev     Alias of setup-dev"
 	@echo "  make init-prod    Alias of setup-prod"
+	@echo "  make test         Run backend and frontend tests with linting"
 	@echo "  make test-backend Run backend tests"
 	@echo "  make test-frontend Run frontend tests"
+	@echo "  make lint         Run backend and frontend linting"
+	@echo "  make lint-backend Run backend linting (clippy)"
+	@echo "  make lint-frontend Run frontend linting (eslint)"
 	@echo "  make help         Show this help message"
 	@echo ""
 	@echo "Environment setup:"
@@ -37,11 +42,12 @@ help:
 	@echo "  make clean-all       - Clean everything (frontend + backend + docker)"
 	@echo ""
 	@echo "Docker build/push/pull:"
-	@echo "  make prod-build   Build images with docker-compose.prod.yml"
-	@echo "  make prod-push    Push built images to registry"
-	@echo "  make prod-pull    Pull images from registry"
-	@echo "  make prod-up      Run production stack (detached)"
-	@echo "  make prod-down    Stop production stack"
+	@echo "  make prod           - Start production environment"
+	@echo "  make prod-build     - Build images with docker-compose.prod.yml"
+	@echo "  make prod-push      - Push built images to registry"
+	@echo "  make prod-pull      - Pull images from registry"
+	@echo "  make prod-up        - Run production stack (detached)"
+	@echo "  make prod-down      - Stop production stack"
 	@echo "  make prod-build-push Build and push production images"
 	@echo "  make prod-pull-up   Pull images and start production stack"
 
@@ -313,10 +319,56 @@ prod-pull-up: prod-pull prod-up
 	@echo "✅ Production images pulled and stack started successfully"
 
 # Quick test commands
+test:
+	@echo "🧪 Testing and linting all (backend + frontend)..."
+	@$(MAKE) lint
+	@$(MAKE) test-backend
+	@$(MAKE) test-frontend
+
 test-backend:
 	@echo "🧪 Testing backend..."
 	@docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm backend cargo test
 
 test-frontend:
-	@echo "🧪 Testing frontend..."
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm frontend bun run test
+	@echo "🧪 Testing frontend (local)..."
+	@cd frontend && sh -lc "if command -v npx >/dev/null 2>&1; then \
+		echo '➡ Using npx to run vitest with explicit config'; \
+		npx vitest --run --config ./vitest.config.ts || exit $$?; \
+	elif command -v bun >/dev/null 2>&1 && command -v bunx >/dev/null 2>&1; then \
+		echo '➡ Using bunx to run vitest with explicit config'; \
+		bun install || echo '⚠️ bun install failed or unavailable, continuing'; \
+		bunx vitest --run --config ./vitest.config.ts || exit $$?; \
+	elif command -v npm >/dev/null 2>&1; then \
+		echo '➡ Using npm to run tests (fallback to package.json)'; \
+		npm test --silent || exit $$?; \
+	else \
+		echo '❌ No suitable test runner found (npx, bun, or npm).'; \
+		exit 127; \
+	fi"
+
+# Lint commands
+lint:
+	@echo "🔍 Linting all (backend + frontend)..."
+	@$(MAKE) lint-backend
+	@$(MAKE) lint-frontend
+
+lint-backend:
+	@echo "🔍 Linting backend (clippy)..."
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm backend cargo clippy -- -D warnings
+
+lint-frontend:
+	@echo "🔍 Linting frontend (eslint)..."
+	@cd frontend && \
+	if command -v npm >/dev/null 2>&1; then \
+		echo '➡ Using npm to run linting'; \
+		npm run lint || exit $$?; \
+	elif command -v bun >/dev/null 2>&1; then \
+		echo '➡ Using bun to run linting'; \
+		bun run lint || exit $$?; \
+	elif command -v npx >/dev/null 2>&1; then \
+		echo '➡ Using npx to run eslint'; \
+		npx eslint . || exit $$?; \
+	else \
+		echo '❌ No suitable linter found (npm, bun, or npx).'; \
+		exit 127; \
+	fi

@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from "react";
-import useSWRInfinite from 'swr/infinite';
+import useSWRInfinite from "swr/infinite";
 
 interface PaginatedDataParams<T, F> {
   queryKey: (string | F)[];
@@ -19,17 +19,18 @@ export function usePaginatedData<T extends { id: unknown }, F>({
   options = {},
 }: PaginatedDataParams<T, F>) {
   const pageSize = 10;
-  const stableFilters = useMemo(() => filters, [JSON.stringify(filters)]);
+  const filtersJson = JSON.stringify(filters);
+  const stableFilters = useMemo(() => filters, [filtersJson]);
 
   const getKey = (pageIndex: number, previousPageData: any) => {
     // 마지막 페이지에 도달했으면 중지
     if (previousPageData && !previousPageData.data.length) return null;
-    
+
     // 필터가 변경되면 첫 페이지부터 다시 시작
     if (pageIndex === 0) {
       return [...queryKey, { ...stableFilters, page: 1 }];
     }
-    
+
     return [...queryKey, { ...stableFilters, page: pageIndex + 1 }];
   };
 
@@ -45,12 +46,13 @@ export function usePaginatedData<T extends { id: unknown }, F>({
       revalidateOnFocus: true,
       revalidateOnMount: true,
       parallel: true,
-    }
+    },
   );
 
-  const allData = useMemo(() => 
-    data ? data.flatMap(page => page.data) : []
-  , [data]);
+  const allData = useMemo(
+    () => (data ? data.flatMap((page) => page.data) : []),
+    [data],
+  );
 
   const totalCount = data?.[0]?.totalCount ?? 0;
   const hasMore = allData.length < totalCount;

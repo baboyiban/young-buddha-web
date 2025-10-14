@@ -1,21 +1,27 @@
 import "@testing-library/jest-dom";
 import React from "react";
 import { vi } from "vitest";
-import { JSDOM } from "jsdom";
 
-// Ensure a DOM environment when running under Node (fallback if the test runner
-// doesn't already provide jsdom). This makes tests that use @testing-library/react
-// work even if the environment isn't configured as jsdom.
-if (typeof globalThis.document === "undefined") {
-  const dom = new JSDOM("<!doctype html><html><body></body></html>");
-  (globalThis as any).window = dom.window;
-  (globalThis as any).document = dom.window.document;
-  (globalThis as any).navigator = dom.window.navigator;
-  (globalThis as any).HTMLElement = dom.window.HTMLElement;
-  (globalThis as any).Node = dom.window.Node;
-}
+// Ensure proper DOM environment setup
+import { beforeAll, afterEach } from "vitest";
+import { cleanup } from "@testing-library/react";
 
-// 테스트 환경에서 필요한 전역 설정
+// Clean up after each test
+afterEach(() => {
+  cleanup();
+});
+
+// Ensure DOM globals are available
+beforeAll(() => {
+  // Make sure we have proper DOM environment
+  if (typeof globalThis.document === "undefined") {
+    throw new Error(
+      "DOM environment is not set up properly. Make sure vitest.config.ts has environment: 'jsdom'",
+    );
+  }
+});
+
+// Mock matchMedia for tests that might use it
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
@@ -30,6 +36,20 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
+// Mock ResizeObserver
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// Mock IntersectionObserver
+global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
 // Next.js 라우터 모킹
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -42,6 +62,13 @@ vi.mock("next/navigation", () => ({
   }),
   useSearchParams: () => ({
     get: vi.fn(),
+    has: vi.fn(),
+    getAll: vi.fn(),
+    keys: vi.fn(),
+    values: vi.fn(),
+    entries: vi.fn(),
+    forEach: vi.fn(),
+    toString: vi.fn(),
   }),
   usePathname: () => "/",
 }));
@@ -53,17 +80,33 @@ vi.mock("@/lib/api/mission", () => ({
 
 // PageLayout 모킹
 vi.mock("@/components/layouts/PageLayout", () => {
-  return function MockPageLayout({
-    children,
-    loading,
-    error,
-  }: {
-    children: React.ReactNode;
-    loading?: boolean;
-    error?: string | null;
-  }) {
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div>Error: {error}</div>;
-    return <div>{children}</div>;
+  return {
+    default: function MockPageLayout({
+      children,
+      loading,
+      error,
+    }: {
+      children: React.ReactNode;
+      loading?: boolean;
+      error?: string | null;
+    }) {
+      if (loading) return <div>Loading...</div>;
+      if (error) return <div>Error: {error}</div>;
+      return <div data-testid="page-layout">{children}</div>;
+    },
+  };
+});
+
+// Mock console methods to reduce noise in tests
+const originalError = console.error;
+beforeAll(() => {
+  console.error = (...args: any[]) => {
+    if (
+      typeof args[0] === "string" &&
+      args[0].includes("Warning: ReactDOM.render is deprecated")
+    ) {
+      return;
+    }
+    originalError.call(console, ...args);
   };
 });

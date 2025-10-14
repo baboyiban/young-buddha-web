@@ -80,7 +80,7 @@ function getMissionMembers(
   indices: readonly number[],
 ): string[] {
   return indices
-    .flatMap((index) => items[index]?.split(/[,\/]/) ?? [])
+    .flatMap((index) => items[index]?.split(/[,/]/) ?? [])
     .map((name) => name.trim())
     .filter(Boolean);
 }

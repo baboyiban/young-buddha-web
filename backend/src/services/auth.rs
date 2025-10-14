@@ -329,10 +329,10 @@ impl AuthService {
         let _rows_count = rows.as_ref().map(|r| r.len()).unwrap_or(0);
 
         if let Some(rows) = rows {
-            if let Some(row0) = rows.get(0) {
+            if let Some(row0) = rows.first() {
                 let cells = row0.get("c").and_then(|c| c.as_array());
                 if let Some(cells) = cells {
-                    let name = cells.get(0)
+                    let name = cells.first()
                         .and_then(|c| c.get("v"))
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());

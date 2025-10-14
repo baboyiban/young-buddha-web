@@ -9,8 +9,12 @@ export function useAuth() {
 
   // 기존 logout 동작에 라우팅이 포함되어 있었으므로, wrapper로 동일 동작 유지
   const logout = async () => {
-    await ctx.logout();
-    router.push("/login");
+    try {
+      await ctx.logout();
+    } finally {
+      // logout 성공/실패 관계없이 항상 로그인 페이지로 이동
+      router.push("/login");
+    }
   };
 
   return {

@@ -3,7 +3,11 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { PATH_ACCESS_RULES, ROLE_USER, ROLE_ADMIN } from "@/lib/utils/pathAccess";
+import {
+  PATH_ACCESS_RULES,
+  ROLE_USER,
+  ROLE_ADMIN,
+} from "@/lib/utils/pathAccess";
 
 // 네비게이션 항목 타입 정의
 interface NavItem {
@@ -24,9 +28,9 @@ export default function Navbar() {
     { path: "/", label: "홈" },
     { path: "/mission", label: "생활소임" },
     { path: "/payment", label: "결재신청" },
-     { path: "/approval", label: "결재관리" },
+    { path: "/approval", label: "결재관리" },
     { path: "/privacy", label: "개인정보" },
-    { path: "/terms", label: "이용약관" }
+    { path: "/terms", label: "이용약관" },
   ];
 
   // 네비게이션 항목 생성 및 필터링
@@ -35,15 +39,15 @@ export default function Navbar() {
       href: path,
       label,
       path,
-      requiredRoles: PATH_ACCESS_RULES[path]
+      requiredRoles: PATH_ACCESS_RULES[path],
     }))
-    .filter(item => {
+    .filter((item) => {
       // requiredRoles가 없거나 빈 배열이면 모든 사용자에게 표시
       if (!item.requiredRoles || item.requiredRoles.length === 0) {
         return true;
       }
       // 사용자 역할 중 하나라도 requiredRoles에 포함되면 표시
-      return item.requiredRoles.some(role => userRoles.includes(role));
+      return item.requiredRoles.some((role) => userRoles.includes(role));
     });
 
   return (

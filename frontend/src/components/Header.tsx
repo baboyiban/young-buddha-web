@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { usePathname } from "next/navigation";
 import Image from "next/image";
 
 export default function Header() {
@@ -11,7 +10,9 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       await logout();
-    } catch (error) {}
+    } catch (_error) {
+      // Handle logout error silently
+    }
   };
 
   return (

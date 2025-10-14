@@ -32,6 +32,17 @@ export default function PaymentTable({
   onSelectionChange,
   onApproveAction,
 }: PaymentTableProps) {
+  // Move useCallback to top to avoid conditional hook calls
+  const handleToggleSelection = useCallback(
+    (id: string) => {
+      const newSelection = selectedRequests.includes(id)
+        ? selectedRequests.filter((i) => i !== id)
+        : [...selectedRequests, id];
+      onSelectionChange(newSelection);
+    },
+    [selectedRequests, onSelectionChange],
+  );
+
   if (loading) {
     return (
       <div className="flex justify-center p-8">
@@ -51,13 +62,6 @@ export default function PaymentTable({
       </div>
     );
   }
-
-  const handleToggleSelection = useCallback((id: string) => {
-    const newSelection = selectedRequests.includes(id)
-      ? selectedRequests.filter((i) => i !== id)
-      : [...selectedRequests, id];
-    onSelectionChange(newSelection);
-  }, [selectedRequests, onSelectionChange]);
 
   return (
     <div className="flex flex-col items-center">
@@ -86,11 +90,11 @@ export default function PaymentTable({
             </tr>
           </thead>
           <tbody>
-            {requests.map((item) => (
+            {requests.map((request) => (
               <ApprovalTableRow
-                key={item.id}
-                item={item}
-                isSelected={selectedRequests.includes(item.id)}
+                key={request.id}
+                item={request}
+                isSelected={selectedRequests.includes(request.id)}
                 updatingId={updatingId}
                 onSelectionChange={handleToggleSelection}
                 onApproveAction={onApproveAction}
@@ -108,12 +112,12 @@ export default function PaymentTable({
             className="button gray mt-[0.75rem]"
             disabled={loading}
           >
-            {loading ? "로딩 중..." : `더보기 (${requests.length} / ${totalItems})`}
+            {loading
+              ? "로딩 중..."
+              : `더보기 (${requests.length} / ${totalItems})`}
           </button>
         </div>
       )}
-
-
     </div>
   );
 }
