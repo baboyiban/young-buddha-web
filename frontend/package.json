@@ -10,10 +10,12 @@
     "start": "next start",
     "lint": "bunx eslint .",
     "type-check": "tsc --noEmit",
-    "test": "vitest --config vitest.config.ts",
-    "test:watch": "vitest --watch --config vitest.config.ts",
-    "test:run": "vitest --run --config vitest.config.ts",
-    "test:coverage": "vitest --run --coverage --config vitest.config.ts"
+    "test": "bunx vitest --config vitest.config.ts",
+    "test:ci": "bunx vitest run --config vitest.config.ts --reporter=verbose",
+    "test:bun": "bun run test",
+    "test:watch": "bunx vitest --watch --config vitest.config.ts",
+    "test:run": "bunx vitest --run --config vitest.config.ts",
+    "test:coverage": "bunx vitest --run --coverage --config vitest.config.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.12",

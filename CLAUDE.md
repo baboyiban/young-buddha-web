@@ -68,6 +68,19 @@ bun lint                   # Run ESLint
 bun type-check             # Run TypeScript type checking
 ```
 
+### Frontend Testing
+
+⚠️ **Important**: When using Bun, always use `bun run test` instead of `bun test` to ensure Vitest is used correctly.
+
+```bash
+cd frontend
+bun run test               # Run tests with Vitest
+bun run test:watch         # Run tests in watch mode
+bun run test:run           # Run tests once (CI mode)
+bun run test:coverage      # Run tests with coverage
+bun run test:ci            # CI-specific test command
+```
+
 ### Backend Development
 
 ```bash
@@ -124,6 +137,7 @@ young-buddha-web/
 ### Environment Setup
 
 1. **Development Environment**:
+
    ```bash
    make setup-dev
    # Edit backend/.env.dev and frontend/.env.development with actual values
@@ -180,8 +194,12 @@ cargo test -- --nocapture # Run with output
 
 ```bash
 cd frontend
-bun test                  # Run frontend tests
+bun run test              # Run frontend tests with Vitest
+bun run test:watch        # Run tests in watch mode
+bun run test:coverage     # Run tests with coverage
 ```
+
+**Important**: Use `bun run test` instead of `bun test` to ensure proper Vitest execution.
 
 ## Docker Development
 

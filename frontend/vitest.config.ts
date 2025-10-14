@@ -26,9 +26,24 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx,js,jsx}"],
     // Keep output deterministic in CI
     isolate: true,
+    // Ensure proper pool and environment handling for CI
+    pool: "forks",
+    // Increase timeout for CI environments
+    testTimeout: 10000,
+    // Force environment setup
+    environmentOptions: {
+      jsdom: {
+        resources: "usable",
+        url: "http://localhost:3000",
+      },
+    },
   },
   // Ensure JSX handling matches Next/React setup
   esbuild: {
     jsx: "automatic",
+  },
+  // Define explicit config for different environments
+  define: {
+    "import.meta.vitest": "undefined",
   },
 });

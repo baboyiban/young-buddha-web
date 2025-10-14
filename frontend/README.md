@@ -5,11 +5,13 @@
 미들웨어(Edge)에서 Next rewrites가 보장되지 않으므로, 백엔드 검증 호출은 절대 URL을 사용합니다. 프로젝트는 다음 우선순위로 백엔드 Origin을 결정합니다.
 
 우선순위
-1) `BACKEND_INTERNAL_URL` (컨테이너-간 통신용)
-2) `NEXT_PUBLIC_BACKEND_URL` (로컬 개발/공개 API Origin)
-3) Fallback: hostname이 `localhost`면 `http://localhost:8080`, 그 외엔 `http://backend:8080`
+
+1. `BACKEND_INTERNAL_URL` (컨테이너-간 통신용)
+2. `NEXT_PUBLIC_BACKEND_URL` (로컬 개발/공개 API Origin)
+3. Fallback: hostname이 `localhost`면 `http://localhost:8080`, 그 외엔 `http://backend:8080`
 
 환경별 예시
+
 - Docker 개발: `BACKEND_INTERNAL_URL=http://backend:8080` (docker-compose.dev.yml에 설정됨)
 - 로컬 개발(도커 미사용): `NEXT_PUBLIC_BACKEND_URL=http://localhost:8080`
 - 프로덕션: `NEXT_PUBLIC_BACKEND_URL=https://api.your-domain` 또는 내부 네트워크면 `BACKEND_INTERNAL_URL=http://backend:8080`
@@ -19,18 +21,67 @@
 ## 환경변수 요약
 
 필수
+
 - NEXT_PUBLIC_API_URL=/api (권장: rewrites 사용)
 
 선택 (둘 중 하나)
+
 - NEXT_PUBLIC_BACKEND_URL=https://api.your-domain (브라우저가 호출할 퍼블릭 백엔드)
 - BACKEND_INTERNAL_URL=http://backend:8080 (컨테이너 내부 접근; 미들웨어/SSR 우선)
 
 기타
+
 - NEXT_PUBLIC_GOOGLE_CLIENT_ID=… (필요 시 버튼 노출 제어 등에 사용)
 - NODE_ENV=development|production
 - PORT=3000, HOSTNAME=0.0.0.0
 
 샘플 파일
+
 - 개발 템플릿: `frontend/.env.example`
 - 프로덕션 템플릿: `frontend/.env.prod.example`
 
+## Testing
+
+이 프로젝트는 Vitest를 사용하여 테스트를 실행합니다. Bun 환경에서는 반드시 npm 스크립트를 사용해야 합니다.
+
+### 테스트 명령어
+
+```bash
+# 올바른 방법 - npm 스크립트 사용 (권장)
+bun run test              # 일반 테스트 실행
+bun run test:watch        # 감시 모드로 테스트 실행
+bun run test:run          # CI 모드로 테스트 실행
+bun run test:coverage     # 커버리지와 함께 테스트 실행
+bun run test:ci           # CI 환경용 (verbose 리포터)
+
+# 또는 Makefile 사용
+make test-frontend        # 프로젝트 루트에서 실행
+```
+
+### ⚠️ 중요: Bun 테스트 실행 주의사항
+
+```bash
+# 잘못된 방법 - 사용하지 마세요
+bun test                  # Bun의 내장 테스트 러너를 사용하게 됨
+
+# 올바른 방법
+bun run test             # package.json의 스크립트를 사용하여 Vitest 실행
+```
+
+### 테스트 구조
+
+- **테스트 파일 위치**: `src/**/*.{test,spec}.{ts,tsx}`
+- **설정 파일**: `vitest.config.ts`
+- **테스트 설정**: `src/test/setup.tsx`
+- **환경**: jsdom (React 컴포넌트 테스트용)
+
+### 현재 테스트 커버리지
+
+- ✅ 33개 테스트 통과
+- 테스트 파일: 6개
+- 커버되는 영역:
+  - 유틸리티 함수 (dateUtils, validation)
+  - React 컴포넌트 (MissionItem)
+  - 커스텀 훅 (useAuth)
+  - 서비스 레이어 (paymentService)
+  - 페이지 컴포넌트 (Mission page)
