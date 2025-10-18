@@ -44,13 +44,15 @@ frontend: setup-dev ## 🎨 Start only the frontend service in development mode.
 # PRODUCTION
 # ====================================================================================
 
-prod: prod-up ## 🚀 Start the production environment (alias for prod-up).
+prod: prod-up ## 🚀 Start the production environment with existing images (alias for prod-up).
 
-prod-up: setup-prod ## 🚀 Build and start the production environment in detached mode.
+prod-up: setup-prod ## 🚀 Start the production environment in detached mode with existing images.
 	@echo "🚀 Starting production environment..."
-	@$(DC_PROD) up -d --build --remove-orphans
+	@$(DC_PROD) up -d --remove-orphans
 	@echo "✅ Production environment started!"
 	@echo "📋 Use 'make logs' or 'make status' to check the status."
+
+prod-build-up: prod-build prod-up ## 🔨 Build images and then start the production environment.
 
 prod-down: ## 🔴 Stop the production environment.
 	@echo "🔴 Stopping production stack..."
