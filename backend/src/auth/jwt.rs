@@ -1,6 +1,7 @@
 use axum::http::HeaderMap;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use time::OffsetDateTime;
+use crate::utils::cookie::CookieUtils;
 use crate::types::{AppError, JwtClaims};
 
 pub struct JwtService {
@@ -45,23 +46,7 @@ impl JwtService {
     }
 
     pub fn extract_from_cookie(&self, headers: &HeaderMap) -> Option<String> {
-        let cookie_header = headers.get("cookie")?;
-        let cookie_str = cookie_header.to_str().ok()?;
-
-        cookie_str
-            .split(';')
-            .find_map(|part| {
-                let trimmed = part.trim();
-                if let Some((key, value)) = trimmed.split_once('=') {
-                    if key == "jwt" {
-                        Some(value.to_string())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
+        CookieUtils::extract_token_from_cookie(headers, "jwt")
     }
 
     pub fn extract_email_from_headers(&self, headers: &HeaderMap) -> Option<String> {

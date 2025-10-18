@@ -5,7 +5,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use axum_extra::extract::cookie::{Cookie, CookieJar};
+use axum_extra::extract::cookie::CookieJar;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -36,29 +36,7 @@ async fn google_callback(
     Query(query): Query<CallbackQuery>,
     jar: CookieJar,
 ) -> (CookieJar, Redirect) {
-    let state_from_cookie = jar.get("oauth_state").map(|c| c.value().to_string());
-    let jar = jar.remove(Cookie::build("oauth_state").path("/"));
-
-    match services.auth.handle_callback(query, state_from_cookie).await {
-        Ok((auth_cookies, _user_data)) => {
-            let mut new_jar = jar;
-            for cookie_header in auth_cookies {
-                if let Ok(cookie_str) = cookie_header.to_str() {
-                    if let Ok(cookie) = Cookie::parse_encoded(cookie_str) {
-                        new_jar = new_jar.add(cookie.into_owned());
-                    }
-                }
-            }
-            (new_jar, Redirect::to(&services.auth.config.server.frontend_url))
-        }
-        Err(e) => {
-            tracing::error!("Login failed: {:?}", e);
-            let error_string = e.to_string();
-            let error_message = urlencoding::encode(&error_string);
-            let redirect_url = format!("{}?login=error&message={}", &services.auth.config.server.frontend_url, error_message);
-            (jar, Redirect::to(&redirect_url))
-        }
-    }
+    services.auth.process_google_callback(query, jar).await
 }
 
 async fn logout(State(services): State<Arc<AppServices>>) -> impl IntoResponse {

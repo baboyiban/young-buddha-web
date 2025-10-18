@@ -1,10 +1,11 @@
 use axum::{
     extract::Request,
-    http::{Method, StatusCode},
+    http::Method,
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
-use cookie::Cookie;
+use crate::utils::cookie::CookieUtils;
+use crate::utils::error::ErrorResponse;
 
 pub async fn csrf_protect(req: Request, next: Next) -> Response {
     let method = req.method().clone();
@@ -26,18 +27,7 @@ pub async fn csrf_protect(req: Request, next: Next) -> Response {
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    let cookie_token = headers
-        .get("cookie")
-        .and_then(|v| v.to_str().ok())
-        .map(|cookie_str| {
-            // Parse cookies using the cookie crate for better security
-            cookie_str
-                .split(';')
-                .filter_map(|part| Cookie::parse(part.trim().to_string()).ok())
-                .find(|cookie| cookie.name() == "csrf_token")
-                .map(|cookie| cookie.value().to_string())
-                .unwrap_or_default()
-        })
+    let cookie_token = CookieUtils::extract_token_from_cookie(headers, "csrf_token")
         .unwrap_or_default();
 
     if !header_token.is_empty() && header_token == cookie_token {
@@ -46,11 +36,5 @@ pub async fn csrf_protect(req: Request, next: Next) -> Response {
 
     tracing::error!("❌ CSRF token validation failed - Header: '{}', Cookie: '{}'", header_token, cookie_token);
 
-    let error_response = serde_json::json!({
-        "error": true,
-        "code": "CSRF_TOKEN_INVALID",
-        "message": "CSRF token is invalid or missing"
-    });
-
-    (StatusCode::FORBIDDEN, axum::Json(error_response)).into_response()
+    ErrorResponse::csrf_error("CSRF token is invalid or missing")
 }

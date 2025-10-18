@@ -4,16 +4,20 @@ export const getApiUrl = (path = "") => {
   const baseUrl = API_URL.replace(/\/$/, "");
   const normalizedPath = path.replace(/^\//, "");
 
-  // baseUrl이 "/api"인 경우와 "http://..."인 경우 모두 처리
-  if (baseUrl.startsWith("/")) {
-    // 상대 경로인 경우 - baseUrl을 포함해야 함
-    // 이미 /api로 시작하는 경로인 경우 baseUrl을 추가하지 않음
-    if (normalizedPath.startsWith("api/")) {
-      return `/${normalizedPath}`;
-    }
-    return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
-  } else {
-    // 절대 URL인 경우
-    return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
+  if (!normalizedPath) {
+    return baseUrl;
   }
+
+  // 이미 /api/ 로 시작하는 경로는 그대로 사용
+  if (normalizedPath.startsWith("api/")) {
+    return `/${normalizedPath}`;
+  }
+
+  // 상대 경로인 경우
+  if (baseUrl.startsWith("/")) {
+    return `${baseUrl}/${normalizedPath}`;
+  }
+
+  // 절대 URL인 경우
+  return `${baseUrl}/${normalizedPath}`;
 };

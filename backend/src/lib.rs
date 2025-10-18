@@ -1,11 +1,11 @@
 pub mod auth;
 pub mod cache;
-pub mod config;  // config.rs 삭제 후 config/mod.rs만 유지
+pub mod config;
 pub mod db;
+pub mod utils;
 pub mod middleware;
 pub mod routes;
 pub mod services;
-pub mod utils;
 pub mod types;
 
 pub use config::Config;
