@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { authService } from "@/lib/auth/service";
+import { Button } from "@/components/ui/button";
 
 // 동적 렌더링 강제 (useSearchParams 사용으로 인해)
 export const dynamic = "force-dynamic";
@@ -44,10 +45,10 @@ function LoginContent() {
 
   return (
     <div className="min-h-[calc(100svh-36px)] flex items-center justify-center p-[0.5rem]">
-      <button
+      <Button
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="button purple"
+        className=""
       >
         {loading ? (
           <LoadingSpinner color="white" showMessage={false} />
@@ -56,7 +57,7 @@ function LoginContent() {
             <span>Google로 로그인</span>
           </>
         )}
-      </button>
+      </Button>
     </div>
   );
 }
