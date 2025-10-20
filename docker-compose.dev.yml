@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: young-buddha-frontend-dev
     env_file:
-      - frontend/.env.development
+      - frontend/.env.dev
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8080
     volumes:

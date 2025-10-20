@@ -3,10 +3,10 @@ use axum_extra::extract::cookie::{Cookie, SameSite};
 use rand::{distributions::Alphanumeric, Rng};
 use reqwest::Client;
 
-use std::sync::Arc;
-use time::Duration;
 use crate::config::{Config, Environment};
 use crate::types::{AppError, CallbackQuery, GoogleUserInfo, TokenResponse};
+use std::sync::Arc;
+use time::Duration;
 
 pub struct OAuthService {
     config: Arc<Config>,
@@ -15,7 +15,10 @@ pub struct OAuthService {
 
 impl OAuthService {
     pub fn new(config: Arc<Config>, http_client: Client) -> Self {
-        Self { config, http_client }
+        Self {
+            config,
+            http_client,
+        }
     }
 
     pub fn generate_state(&self) -> String {
@@ -32,7 +35,11 @@ impl OAuthService {
         Cookie::build(("oauth_state", state.to_string()))
             .path("/")
             .http_only(true)
-            .same_site(if is_prod { SameSite::None } else { SameSite::Lax })
+            .same_site(if is_prod {
+                SameSite::None
+            } else {
+                SameSite::Lax
+            })
             .secure(is_prod)
             .max_age(Duration::minutes(10))
             .build()
@@ -42,37 +49,50 @@ impl OAuthService {
         let mut cookies = Vec::new();
         let is_prod = self.config.server.environment == Environment::Production;
         let domain_opt = &self.config.auth.cookie_domain;
-        let same_site = if is_prod { "None" } else { "Lax" };
-        let secure = if is_prod { "; Secure" } else { "" };
         let max_age = self.config.auth.jwt_expiry_seconds;
 
         // JWT 토큰 쿠키
-        let jwt_cookie = if let Some(domain) = domain_opt {
-            format!(
-                "jwt={}; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age={}",
-                jwt_token, secure, same_site, domain, max_age
-            )
-        } else {
-            format!(
-                "jwt={}; HttpOnly{}; SameSite={}; Path=/; Max-Age={}",
-                jwt_token, secure, same_site, max_age
-            )
-        };
-        cookies.push(HeaderValue::from_str(&jwt_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
+        // Build JWT cookie using Cookie builder to ensure correct formatting
+        let mut jwt_builder = Cookie::build(("jwt", jwt_token.to_string()))
+            .path("/")
+            .http_only(true)
+            .same_site(if is_prod {
+                SameSite::None
+            } else {
+                SameSite::Lax
+            })
+            .secure(is_prod)
+            .max_age(Duration::seconds(max_age));
+
+        if let Some(domain) = domain_opt {
+            jwt_builder = jwt_builder.domain(domain.as_str());
+        }
+
+        let jwt_cookie = jwt_builder.build().to_string();
+        cookies.push(
+            HeaderValue::from_str(&jwt_cookie).unwrap_or_else(|_| HeaderValue::from_static("")),
+        );
 
         // 인증 상태 쿠키
-        let auth_cookie = if let Some(domain) = domain_opt {
-            format!(
-                "is_authenticated=true; SameSite={}; Path=/; Domain={}; Max-Age={}{}",
-                same_site, domain, max_age, secure
-            )
-        } else {
-            format!(
-                "is_authenticated=true; SameSite={}; Path=/; Max-Age={}{}",
-                same_site, max_age, secure
-            )
-        };
-        cookies.push(HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
+        // is_authenticated cookie
+        let mut auth_builder = Cookie::build(("is_authenticated", "true".to_string()))
+            .path("/")
+            .same_site(if is_prod {
+                SameSite::None
+            } else {
+                SameSite::Lax
+            })
+            .secure(is_prod)
+            .max_age(Duration::seconds(max_age));
+
+        if let Some(domain) = domain_opt {
+            auth_builder = auth_builder.domain(domain.as_str());
+        }
+
+        let auth_cookie = auth_builder.build().to_string();
+        cookies.push(
+            HeaderValue::from_str(&auth_cookie).unwrap_or_else(|_| HeaderValue::from_static("")),
+        );
 
         // CSRF 토큰 쿠키
         let csrf_token: String = rand::thread_rng()
@@ -81,18 +101,25 @@ impl OAuthService {
             .map(char::from)
             .collect();
 
-        let csrf_cookie = if let Some(domain) = domain_opt {
-            format!(
-                "csrf_token={}; SameSite={}; Path=/; Domain={}; Max-Age={}{}",
-                csrf_token, same_site, domain, max_age, secure
-            )
-        } else {
-            format!(
-                "csrf_token={}; SameSite={}; Path=/; Max-Age={}{}",
-                csrf_token, same_site, max_age, secure
-            )
-        };
-        cookies.push(HeaderValue::from_str(&csrf_cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
+        // csrf token cookie
+        let mut csrf_builder = Cookie::build(("csrf_token", csrf_token))
+            .path("/")
+            .same_site(if is_prod {
+                SameSite::None
+            } else {
+                SameSite::Lax
+            })
+            .secure(is_prod)
+            .max_age(Duration::seconds(max_age));
+
+        if let Some(domain) = domain_opt {
+            csrf_builder = csrf_builder.domain(domain.as_str());
+        }
+
+        let csrf_cookie = csrf_builder.build().to_string();
+        cookies.push(
+            HeaderValue::from_str(&csrf_cookie).unwrap_or_else(|_| HeaderValue::from_static("")),
+        );
 
         cookies
     }
@@ -101,24 +128,29 @@ impl OAuthService {
         let mut cookies = Vec::new();
         let is_prod = self.config.server.environment == Environment::Production;
         let domain_opt = &self.config.auth.cookie_domain;
-        let same_site = if is_prod { "None" } else { "Lax" };
-        let secure = if is_prod { "; Secure" } else { "" };
 
         let cookie_names = ["jwt", "is_authenticated", "csrf_token"];
 
         for name in &cookie_names {
-            let cookie = if let Some(domain) = domain_opt {
-                format!(
-                    "{}=; HttpOnly{}; SameSite={}; Path=/; Domain={}; Max-Age=0",
-                    name, secure, same_site, domain
-                )
-            } else {
-                format!(
-                    "{}=; HttpOnly{}; SameSite={}; Path=/; Max-Age=0",
-                    name, secure, same_site
-                )
-            };
-            cookies.push(HeaderValue::from_str(&cookie).unwrap_or_else(|_| HeaderValue::from_static("")));
+            let mut builder = Cookie::build((name.to_string(), "".to_string()))
+                .path("/")
+                .http_only(true)
+                .same_site(if is_prod {
+                    SameSite::None
+                } else {
+                    SameSite::Lax
+                })
+                .secure(is_prod)
+                .max_age(Duration::seconds(0));
+
+            if let Some(domain) = domain_opt {
+                builder = builder.domain(domain.as_str());
+            }
+
+            let cookie = builder.build().to_string();
+            cookies.push(
+                HeaderValue::from_str(&cookie).unwrap_or_else(|_| HeaderValue::from_static("")),
+            );
         }
 
         cookies
@@ -141,8 +173,13 @@ impl OAuthService {
         )
     }
 
-    pub async fn exchange_code(&self, query: CallbackQuery) -> Result<(TokenResponse, GoogleUserInfo), AppError> {
-        let code = query.code.ok_or_else(|| AppError::validation("Missing authorization code"))?;
+    pub async fn exchange_code(
+        &self,
+        query: CallbackQuery,
+    ) -> Result<(TokenResponse, GoogleUserInfo), AppError> {
+        let code = query
+            .code
+            .ok_or_else(|| AppError::validation("Missing authorization code"))?;
 
         let form = [
             ("code", code.as_str()),
@@ -152,7 +189,8 @@ impl OAuthService {
             ("grant_type", "authorization_code"),
         ];
 
-        let token_resp = self.http_client
+        let token_resp = self
+            .http_client
             .post("https://oauth2.googleapis.com/token")
             .form(&form)
             .send()
@@ -166,7 +204,8 @@ impl OAuthService {
 
         let token_data: TokenResponse = token_resp.json().await?;
 
-        let user_resp = self.http_client
+        let user_resp = self
+            .http_client
             .get("https://www.googleapis.com/oauth2/v2/userinfo")
             .bearer_auth(&token_data.access_token)
             .send()
@@ -183,12 +222,22 @@ impl OAuthService {
         Ok((token_data, user_info))
     }
 
-    pub fn validate_state(&self, query_state: Option<String>, cookie_state: Option<String>) -> Result<(), AppError> {
-        let query_state = query_state.ok_or_else(|| AppError::validation("Missing state parameter"))?;
-        let cookie_state = cookie_state.ok_or_else(|| AppError::validation("Missing state cookie"))?;
+    pub fn validate_state(
+        &self,
+        query_state: Option<String>,
+        cookie_state: Option<String>,
+    ) -> Result<(), AppError> {
+        let query_state =
+            query_state.ok_or_else(|| AppError::validation("Missing state parameter"))?;
+        let cookie_state =
+            cookie_state.ok_or_else(|| AppError::validation("Missing state cookie"))?;
 
         if query_state != cookie_state {
-            tracing::error!("OAuth state mismatch: query={}, cookie={}", query_state, cookie_state);
+            tracing::error!(
+                "OAuth state mismatch: query={}, cookie={}",
+                query_state,
+                cookie_state
+            );
             return Err(AppError::validation("OAuth state mismatch"));
         }
 

@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: young-buddha-frontend-prod
     env_file:
-      - frontend/.env.production
+      - frontend/.env.prod
     depends_on:
       backend:
         condition: service_healthy

@@ -1,13 +1,18 @@
+use rusqlite::config;
 use std::net::SocketAddr;
 use std::process;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use young_buddha_backend::{config::Config, services::AppServices, routes::build_router};
+use young_buddha_backend::{
+    config::load_env_file, config::Config, routes::build_router, services::AppServices,
+};
 
 #[tokio::main]
 async fn main() {
     // Initialize logging
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
@@ -16,8 +21,8 @@ async fn main() {
         tracing::error!("Unhandled panic: {:?}", panic_info);
     }));
 
-    // Load .env if present
-    let _ = dotenvy::dotenv();
+    // 환경 파일 로드 (config 모듈에서)
+    load_env_file();
 
     // Load configuration
     let config = match Config::from_env() {
@@ -27,7 +32,10 @@ async fn main() {
             process::exit(1);
         }
     };
-    tracing::info!("Loaded configuration for environment: {:?}", config.server.environment);
+    tracing::info!(
+        "Loaded configuration for environment: {:?}",
+        config.server.environment
+    );
 
     // Initialize services
     let services = match AppServices::new(config.clone()).await {

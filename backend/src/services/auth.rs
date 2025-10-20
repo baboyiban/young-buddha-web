@@ -1,15 +1,16 @@
-use std::sync::Arc;
 use reqwest::Client;
 use rusqlite::OptionalExtension;
 use serde_json::json;
-use time::OffsetDateTime;
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use time::OffsetDateTime;
 
+use crate::auth::{JwtService, OAuthService};
+use crate::cache::CacheProvider;
 use crate::config::Config;
 use crate::db::DatabasePool;
-use crate::cache::CacheProvider;
-use crate::auth::{JwtService, OAuthService};
-use crate::types::{AppError, CallbackQuery, GoogleRefreshResponse, UserProfile, TokenResponse};
+use crate::types::{AppError, CallbackQuery, GoogleRefreshResponse, TokenResponse, UserProfile};
 use axum::response::Redirect;
 use axum_extra::extract::cookie::{Cookie, CookieJar};
 
@@ -52,12 +53,15 @@ impl AuthService {
         state_from_cookie: Option<String>,
     ) -> Result<(Vec<axum::http::HeaderValue>, serde_json::Value), AppError> {
         // State 검증
-        self.oauth_service.validate_state(query.state.clone(), state_from_cookie)?;
+        self.oauth_service
+            .validate_state(query.state.clone(), state_from_cookie)?;
 
         // 토큰 교환 및 사용자 정보 가져오기
         let (token_data, user_info) = self.oauth_service.exchange_code(query).await?;
 
-        let email = user_info.email.unwrap_or_else(|| "unknown@example.com".to_string());
+        let email = user_info
+            .email
+            .unwrap_or_else(|| "unknown@example.com".to_string());
         let mut name = user_info.name.unwrap_or_else(|| "Unknown User".to_string());
 
         // Google 토큰 저장
@@ -69,7 +73,9 @@ impl AuthService {
         // 스프레드시트에 등록되지 않은 사용자 거부
         if resolved_name.is_none() && resolved_role.is_none() {
             tracing::error!("User not found in spreadsheet: {}", email);
-            return Err(AppError::unauthorized("스프레드시트에 등록되지 않은 사용자입니다"));
+            return Err(AppError::unauthorized(
+                "스프레드시트에 등록되지 않은 사용자입니다",
+            ));
         }
 
         if let Some(n) = resolved_name {
@@ -120,7 +126,8 @@ impl AuthService {
                 let error_string = e.to_string();
                 let error_message = urlencoding::encode(&error_string);
                 let redirect_url = format!(
-                    "{}?login=error&message={}", &self.config.server.frontend_url, error_message
+                    "{}?login=error&message={}",
+                    &self.config.server.frontend_url, error_message
                 );
                 (jar, Redirect::to(&redirect_url))
             }
@@ -130,8 +137,14 @@ impl AuthService {
     pub async fn get_user_profile(&self, email: &str) -> Option<UserProfile> {
         // 캐시에서 먼저 확인
         if let Some(cache) = &self.cache {
-            if let Some(cached_name) = cache.get_hash(&format!("auth:user:{}", email), "name").await {
-                if let Some(cached_role) = cache.get_hash(&format!("auth:user:{}", email), "role").await {
+            if let Some(cached_name) = cache
+                .get_hash(&format!("auth:user:{}", email), "name")
+                .await
+            {
+                if let Some(cached_role) = cache
+                    .get_hash(&format!("auth:user:{}", email), "role")
+                    .await
+                {
                     return Some(UserProfile {
                         email: email.to_string(),
                         name: cached_name,
@@ -154,8 +167,12 @@ impl AuthService {
             // 캐시에 저장
             if let Some(cache) = &self.cache {
                 let key = format!("auth:user:{}", email);
-                let _ = cache.set_hash(&key, "name", &name, self.config.cache.user_profile_ttl).await;
-                let _ = cache.set_hash(&key, "role", &role, self.config.cache.user_profile_ttl).await;
+                let _ = cache
+                    .set_hash(&key, "name", &name, self.config.cache.user_profile_ttl)
+                    .await;
+                let _ = cache
+                    .set_hash(&key, "role", &role, self.config.cache.user_profile_ttl)
+                    .await;
             }
 
             return Some(profile);
@@ -166,22 +183,28 @@ impl AuthService {
 
     pub async fn get_valid_user_token(&self, email: &str) -> Option<String> {
         // DB에서 토큰 조회
-        let row: Option<(String, i64)> = self.db_pool.run_blocking({
-            let email = email.to_string();
-            move |conn| -> Result<Option<(String, i64)>, AppError> {
-                let mut stmt = conn.prepare("SELECT access_token, expires_at FROM user_tokens WHERE email = ?1")?;
-                let result = stmt.query_row(rusqlite::params![email], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-                }).optional()?;
-                Ok(result)
-            }
-        }).await.ok().flatten();
+        let row: Option<(String, i64)> = self
+            .db_pool
+            .run_blocking({
+                let email = email.to_string();
+                move |conn| -> Result<Option<(String, i64)>, AppError> {
+                    let mut stmt = conn.prepare(
+                        "SELECT access_token, expires_at FROM user_tokens WHERE email = ?1",
+                    )?;
+                    let result = stmt
+                        .query_row(rusqlite::params![email], |row| {
+                            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+                        })
+                        .optional()?;
+                    Ok(result)
+                }
+            })
+            .await
+            .ok()
+            .flatten();
 
         if let Some((access_token, expires_at)) = row {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .ok()?
-                .as_secs() as i64;
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs() as i64;
 
             if expires_at > now + 30 {
                 return Some(access_token);
@@ -194,16 +217,24 @@ impl AuthService {
 
     async fn refresh_user_token(&self, email: &str) -> Option<String> {
         // Refresh 토큰 조회
-        let refresh_token: Option<String> = self.db_pool.run_blocking({
-            let email = email.to_string();
-            move |conn| -> Result<Option<String>, AppError> {
-                let mut stmt = conn.prepare("SELECT refresh_token FROM user_tokens WHERE email = ?1")?;
-                let result = stmt.query_row(rusqlite::params![email], |row| {
-                    row.get::<_, Option<String>>(0)
-                }).optional()?;
-                Ok(result.flatten())
-            }
-        }).await.ok().flatten();
+        let refresh_token: Option<String> = self
+            .db_pool
+            .run_blocking({
+                let email = email.to_string();
+                move |conn| -> Result<Option<String>, AppError> {
+                    let mut stmt =
+                        conn.prepare("SELECT refresh_token FROM user_tokens WHERE email = ?1")?;
+                    let result = stmt
+                        .query_row(rusqlite::params![email], |row| {
+                            row.get::<_, Option<String>>(0)
+                        })
+                        .optional()?;
+                    Ok(result.flatten())
+                }
+            })
+            .await
+            .ok()
+            .flatten();
 
         let refresh_token = refresh_token?;
 
@@ -215,7 +246,8 @@ impl AuthService {
             ("refresh_token", refresh_token.as_str()),
         ];
 
-        let resp = self.http_client
+        let resp = self
+            .http_client
             .post("https://oauth2.googleapis.com/token")
             .form(&form)
             .send()
@@ -233,47 +265,56 @@ impl AuthService {
         let new_expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
 
         // DB 업데이트
-        let _ = self.db_pool.run_blocking({
-            let email = email.to_string();
-            let new_access = new_access.clone();
-            let new_rt = gr.refresh_token.clone();
-            move |conn| -> Result<(), AppError> {
-                conn.execute(
-                    "UPDATE user_tokens
+        let _ = self
+            .db_pool
+            .run_blocking({
+                let email = email.to_string();
+                let new_access = new_access.clone();
+                let new_rt = gr.refresh_token.clone();
+                move |conn| -> Result<(), AppError> {
+                    conn.execute(
+                        "UPDATE user_tokens
                      SET access_token = ?1,
                          expires_at = ?2,
                          refresh_token = COALESCE(?3, refresh_token)
                      WHERE email = ?4",
-                    rusqlite::params![new_access, new_expires_at, new_rt, email],
-                )?;
-                Ok(())
-            }
-        }).await;
+                        rusqlite::params![new_access, new_expires_at, new_rt, email],
+                    )?;
+                    Ok(())
+                }
+            })
+            .await;
 
         Some(new_access)
     }
 
-    async fn store_user_tokens(&self, email: &str, token_data: &TokenResponse) -> Result<(), AppError> {
+    async fn store_user_tokens(
+        &self,
+        email: &str,
+        token_data: &TokenResponse,
+    ) -> Result<(), AppError> {
         let expires_in = token_data.expires_in.unwrap_or(3600);
         let expires_at = OffsetDateTime::now_utc().unix_timestamp() + expires_in;
 
-        self.db_pool.run_blocking({
-            let email = email.to_string();
-            let access_token = token_data.access_token.clone();
-            let refresh_token = token_data.refresh_token.clone();
-            move |conn| -> Result<(), AppError> {
-                conn.execute(
-                    "INSERT INTO user_tokens (email, access_token, refresh_token, expires_at)
+        self.db_pool
+            .run_blocking({
+                let email = email.to_string();
+                let access_token = token_data.access_token.clone();
+                let refresh_token = token_data.refresh_token.clone();
+                move |conn| -> Result<(), AppError> {
+                    conn.execute(
+                        "INSERT INTO user_tokens (email, access_token, refresh_token, expires_at)
                      VALUES (?1, ?2, ?3, ?4)
                      ON CONFLICT(email) DO UPDATE SET
                         access_token = excluded.access_token,
                         refresh_token = COALESCE(excluded.refresh_token, user_tokens.refresh_token),
                         expires_at = excluded.expires_at",
-                    rusqlite::params![email, access_token, refresh_token, expires_at],
-                )?;
-                Ok(())
-            }
-        }).await?;
+                        rusqlite::params![email, access_token, refresh_token, expires_at],
+                    )?;
+                    Ok(())
+                }
+            })
+            .await?;
 
         Ok(())
     }
@@ -297,22 +338,51 @@ impl AuthService {
             urlencoding::encode(sheet_name)
         );
 
-
+        tracing::debug!("GViz request URL: {}", url);
 
         // Use service account token for server-side sheet access
         let key_path = match &self.config.google.service_account_key_path {
-            Some(p) if !p.is_empty() => p.clone(),
+            Some(p) if !p.is_empty() => {
+                use std::path::Path;
+
+                tracing::debug!("Original key path from config: {}", p);
+
+                // 절대경로인 경우 그대로 사용
+                if Path::new(p).is_absolute() {
+                    tracing::debug!("Using absolute path: {}", p);
+                    p.clone()
+                } else {
+                    // 상대경로인 경우 현재 작업 디렉토리에서 절대경로로 변환
+                    let current_dir =
+                        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                    let resolved_path = current_dir.join(p).to_string_lossy().to_string();
+                    tracing::debug!(
+                        "Resolved relative path '{}' to absolute path: {}",
+                        p,
+                        resolved_path
+                    );
+                    resolved_path
+                }
+            }
             _ => {
-                tracing::error!("Service account key path not configured; cannot query spreadsheet");
+                tracing::error!(
+                    "Service account key path not configured; cannot query spreadsheet"
+                );
                 return (None, None);
             }
         };
 
+        let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(
+            key_path.clone(),
+        );
+        tracing::debug!("Attempting to load service account key from: {}", key_path);
+        tracing::debug!("Current working directory: {:?}", std::env::current_dir());
 
-
-        let mut sa_auth = crate::services::google_service_account::GoogleServiceAccountAuth::new(key_path);
         let token = match sa_auth.get_access_token().await {
-            Ok(t) => t,
+            Ok(t) => {
+                tracing::debug!("Successfully obtained service account token");
+                t
+            }
             Err(e) => {
                 tracing::error!("Failed to obtain service account token: {:?}", e);
                 return (None, None);
@@ -324,39 +394,47 @@ impl AuthService {
             Err(e) => {
                 tracing::error!("HTTP request to GViz endpoint failed: {:?}", e);
                 return (None, None);
-            },
+            }
         };
 
         let status = resp.status();
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
-            tracing::error!("GViz returned non-success status: {} body: {}", status, body);
+            tracing::error!(
+                "GViz returned non-success status: {} body: {}",
+                status,
+                body
+            );
             return (None, None);
         }
 
         let text = match resp.text().await {
             Ok(t) => {
                 tracing::debug!("GViz response text length: {}", t.len());
+                let snippet = if t.len() > 1000 { &t[..1000] } else { &t[..] };
+                tracing::debug!("GViz response snippet: {}", snippet);
 
                 t
-            },
+            }
             Err(e) => {
                 tracing::error!("Failed to read GViz response body: {:?}", e);
                 return (None, None);
             }
         };
 
-        let parsed: serde_json::Value = match crate::services::sheets::parser::parse_gviz_json(&text) {
-            Ok(v) => v,
-            Err(e) => {
-                tracing::error!("Failed to parse GViz JSON: {:?}", e);
-                return (None, None);
-            }
-        };
+        let parsed: serde_json::Value =
+            match crate::services::sheets::parser::parse_gviz_json(&text) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::error!("Failed to parse GViz JSON: {:?}", e);
+                    return (None, None);
+                }
+            };
 
         tracing::debug!("Parsed GViz JSON: {:?}", parsed);
 
-        let rows = parsed.get("table")
+        let rows = parsed
+            .get("table")
             .and_then(|t| t.get("rows"))
             .and_then(|r| r.as_array());
 
@@ -366,16 +444,16 @@ impl AuthService {
             if let Some(row0) = rows.first() {
                 let cells = row0.get("c").and_then(|c| c.as_array());
                 if let Some(cells) = cells {
-                    let name = cells.first()
+                    let name = cells
+                        .first()
                         .and_then(|c| c.get("v"))
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
-                    let role = cells.get(1)
+                    let role = cells
+                        .get(1)
                         .and_then(|c| c.get("v"))
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
-
-
 
                     return (name, role);
                 }

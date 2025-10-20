@@ -128,7 +128,7 @@ young-buddha-web/
 
 ### Frontend Configuration
 
-- `frontend/.env.development` / `frontend/.env.production` - Environment variables
+- `frontend/.env.dev` / `frontend/.env.prod` - Environment variables
 - `frontend/next.config.js` - Next.js configuration with API rewrites
 - `frontend/tsconfig.json` - TypeScript configuration with path aliases
 
@@ -140,14 +140,14 @@ young-buddha-web/
 
    ```bash
    make setup-dev
-   # Edit backend/.env.dev and frontend/.env.development with actual values
+   # Edit backend/.env.dev and frontend/.env.dev with actual values
    make dev
    ```
 
 2. **Production Environment**:
    ```bash
    make setup-prod
-   # Edit backend/.env.prod and frontend/.env.production with secure values
+   # Edit backend/.env.prod and frontend/.env.prod with secure values
    make prod
    ```
 

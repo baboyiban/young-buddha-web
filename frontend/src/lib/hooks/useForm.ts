@@ -1,5 +1,6 @@
-// lib/hooks/useForm.ts
-import { useState, useCallback } from "react";
+"use client";
+
+import React, { useState, useCallback, useEffect } from "react";
 import { ValidationError } from "@/lib/types/api";
 
 interface UseFormOptions<T> {
@@ -84,4 +85,66 @@ export function useForm<T extends Record<string, any>>({
     reset,
     isValid: Object.keys(errors).length === 0,
   };
+}
+
+// Context 추가
+// Use `any` here to avoid TypeScript incompatibilities with generic keyof T across different consumers.
+const FormContext = React.createContext<any>(null);
+
+// debug-friendly version of useFormContext
+export const useFormContext = () => {
+  const context = React.useContext(FormContext);
+  // Debug: always log the context so we can tell whether a provider exists at runtime
+  try {
+    // Keep logs minimal but informative
+    console.debug(
+      "[useForm] useFormContext called. context present:",
+      !!context,
+    );
+  } catch {
+    // ignore logging failures in restricted environments
+  }
+
+  if (!context) {
+    // Extra debug hint to aid tracing missing provider issues in browser console
+    console.error(
+      "[useForm] Missing FormProvider: useFormContext must be used within a FormProvider. " +
+        "Ensure the component tree includes <FormProvider initialValues=... onSubmit=...> above form components.",
+    );
+    throw new Error("useFormContext must be used within a FormProvider");
+  }
+  return context;
+};
+
+// Generic function component for provider
+export function FormProvider<T extends Record<string, any>>(
+  props: { children: React.ReactNode } & UseFormOptions<T>,
+) {
+  const { children, initialValues, validate, onSubmit } = props;
+
+  // Initialize the form using the hook and provided props
+  const form = useForm<T>({
+    initialValues,
+    validate,
+    onSubmit,
+  } as UseFormOptions<T>);
+
+  // Debug: log mount and initial values on client to ensure provider is instantiated
+  useEffect(() => {
+    try {
+      console.debug("[useForm] FormProvider mounted on client", {
+        hasForm: !!form,
+        initialValuesSnapshot: initialValues,
+      });
+    } catch {
+      // ignore logging failures
+    }
+  }, [form, initialValues]);
+
+  // Provide the initialized form object to consumers
+  return React.createElement(
+    FormContext.Provider as any,
+    { value: form as any },
+    children,
+  );
 }

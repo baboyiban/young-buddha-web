@@ -1,3 +1,6 @@
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+
 interface LoadingSpinnerProps {
   message?: string;
   size?: "xs" | "sm" | "md" | "lg";
@@ -14,26 +17,24 @@ export default function LoadingSpinner({
   className = "",
 }: LoadingSpinnerProps) {
   const sizeClasses = {
-    xs: "size-[0.75rem] border-[0.125rem]",
-    sm: "size-[1rem] border-[0.125rem]",
-    md: "size-[2rem] border-[0.25rem]",
-    lg: "size-[3rem] border-[0.375rem]",
+    xs: "size-3",
+    sm: "size-4",
+    md: "size-6",
+    lg: "size-8",
   };
 
   const colorClasses = {
-    purple: "border-deep-purple border-t-transparent",
-    white: "border-white border-t-transparent",
-    current: "border-current border-t-transparent",
+    purple: "text-purple-600",
+    white: "text-white",
+    current: "text-current",
   };
 
   return (
     <div
-      className={`flex items-center justify-center gap-[0.5rem] ${className}`}
+      className={cn("flex items-center justify-center gap-2", className)}
     >
-      <div
-        className={`${sizeClasses[size]} ${colorClasses[color]} animate-spin rounded-full`}
-      ></div>
-      {showMessage && <span>{message}</span>}
+      <Spinner className={cn(sizeClasses[size], colorClasses[color])} />
+      {showMessage && message && <span>{message}</span>}
     </div>
   );
 }

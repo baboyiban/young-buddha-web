@@ -1,3 +1,7 @@
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+
 interface ErrorMessageProps {
   message: string;
   onDismiss: () => void;
@@ -8,17 +12,19 @@ export default function ErrorMessage({
   onDismiss,
 }: ErrorMessageProps) {
   return (
-    <div className="mx-[0.5rem] p-[1rem] bg-red-50 border border-red-200 rounded-[1rem]">
-      <div className="flex justify-between items-center">
-        <span className="text-red-700">{message}</span>
-        <button
+    <Alert variant="destructive" className="mx-2">
+      <AlertDescription className="flex justify-between items-center">
+        <span>{message}</span>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onDismiss}
-          className="text-red-500 hover:text-red-700"
+          className="h-auto p-1 text-destructive hover:text-destructive"
           aria-label="Close error message"
         >
-          ✕
-        </button>
-      </div>
-    </div>
+          <X className="h-4 w-4" />
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }

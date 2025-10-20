@@ -11,7 +11,8 @@ DC_PROD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
 # Phony targets are not files. This prevents `make` from getting confused if a file with the same name exists.
 .PHONY: help dev prod stop logs build test lint clean
 .PHONY: backend frontend
-.PHONY: setup-dev setup-prod
+.PHONY: backend-docker frontend-docker dev-docker
+.PHONY: setup-dev setup-prod apply-dev-env
 .PHONY: test-backend test-frontend
 .PHONY: lint-backend lint-frontend
 .PHONY: clean-backend clean-frontend clean-docker
@@ -25,19 +26,37 @@ help: ## ✨ Show this help message.
 	@awk 'BEGIN {FS = ":.*?## "; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_\-]+:.*?##/ { printf "  \033[36m%%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 # ====================================================================================
-# DEVELOPMENT
+# DEVELOPMENT - LOCAL FIRST (Faster for development)
 # ====================================================================================
 
-dev: setup-dev ## 🚀 Start the development environment (backend + frontend).
-	@echo "🚀 Starting development environment..."
+dev: ## 🚀 Start local development (frontend + backend concurrently).
+	@echo "🚀 Starting local development..."
+	@echo "📝 Frontend: http://localhost:3000"
+	@echo "🔧 Backend: http://localhost:8080"
+	@cd frontend && NODE_ENV=development npx concurrently \
+		"cd ../backend && NODE_ENV=development RUST_LOG=info cargo run" \
+		"bun run dev"
+
+dev-docker: setup-dev ## 🚀 Start Docker development environment (backend + frontend).
+	@echo "🚀 Starting Docker development environment..."
 	@$(DC_DEV) up --build
 
-backend: setup-dev ## 🔧 Start only the backend service in development mode.
-	@echo "🔧 Starting backend service..."
+backend: ## 🔧 Start backend locally with cargo watch (auto-rebuild on changes).
+	@echo "🔧 Starting backend locally with auto-rebuild..."
+	@echo "🔧 Backend: http://localhost:8080"
+	@cd backend && NODE_ENV=development RUST_LOG=debug cargo watch -x run --quiet
+
+backend-docker: setup-dev ## 🔧 Start backend in Docker.
+	@echo "🔧 Starting backend in Docker..."
 	@$(DC_DEV) up --build backend
 
-frontend: setup-dev ## 🎨 Start only the frontend service in development mode.
-	@echo "🎨 Starting frontend service..."
+frontend: ## 🎨 Start frontend locally with bun dev.
+	@echo "🎨 Starting frontend locally..."
+	@echo "🎨 Frontend: http://localhost:3000"
+	@cd frontend && bun run dev
+
+frontend-docker: setup-dev ## 🎨 Start frontend in Docker.
+	@echo "🎨 Starting frontend in Docker..."
 	@$(DC_DEV) up --build frontend
 
 # ====================================================================================
@@ -122,12 +141,35 @@ lint-frontend: ## 🔍 Lint frontend code with ESLint.
 setup-dev: ## ⚙️ Create .env files for development if they don't exist.
 	@echo "⚙️ Setting up development environment files..."
 	@test -f backend/.env.dev || cp backend/.env.example backend/.env.dev
-	@test -f frontend/.env.example || cp frontend/.env.example frontend/.env.development
+	@test -f frontend/.env.example || cp frontend/.env.example frontend/.env.dev
+	@echo "⚠️ .env.dev prepared. To apply to backend/.env manually, run 'make apply-dev-env' if you want to copy it."
+
+.PHONY: apply-dev-env
+apply-dev-env: ## 🔁 Apply .env.dev to active .env for backend/frontend (backups original .env)
+	@echo "🔁 Applying .env.dev to .env for backend (development)"
+	@mkdir -p backend
+	@if [ -f backend/.env ]; then \
+		cp backend/.env backend/.env.bak_`date +%Y%m%d%H%M%S`; \
+		echo "🔁 Existing backend/.env backed up"; \
+	fi
+	@cp -f backend/.env.dev backend/.env
+	@echo "🔁 Backend .env updated from .env.dev"
+
+.PHONY: backend-run env-check backend-logs
+backend-run: ## ▶️ Run backend directly (no watch) for debugging
+	@cd backend && NODE_ENV=development RUST_LOG=debug cargo run
+
+backend-logs: ## 📄 Tail docker backend logs (if using docker)
+	@$(DC_DEV) logs -f backend
+
+env-check: ## 🔎 Show backend .env contents (non-sensitive preview)
+	@echo "--- backend/.env (first 200 lines) ---"
+	@sed -n '1,200p' backend/.env || true
 
 setup-prod: ## ⚙️ Create .env files for production if they don't exist.
 	@echo "⚙️ Setting up production environment files..."
 	@test -f backend/.env.prod || cp backend/.env.example backend/.env.prod
-	@test -f frontend/.env.production || cp frontend/.env.example frontend/.env.production
+	@test -f frontend/.env.prod || cp frontend/.env.example frontend/.env.prod
 
 clean: clean-docker clean-backend clean-frontend ## 🧹 Clean everything (Docker, build caches, etc.).
 	@echo "🎉 Everything is clean!"

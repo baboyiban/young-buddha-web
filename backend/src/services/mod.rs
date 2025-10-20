@@ -3,19 +3,19 @@ pub mod database;
 pub mod google_service_account;
 pub mod sheets;
 
-use std::sync::Arc;
-use reqwest::Client;
+use crate::cache::{CacheProvider, RedisCache};
 use crate::config::Config;
 use crate::db::DatabasePool;
-use crate::cache::{CacheProvider, RedisCache};
 use crate::types::error::AppError;
 use crate::utils::logging::ServiceInitializer;
+use reqwest::Client;
+use std::sync::Arc;
 
 pub struct AppServices {
-  pub auth: auth::AuthService,
-  pub database: database::DatabaseService,
-  pub sheets: sheets::SheetsService,
-  pub google_service_account: google_service_account::GoogleServiceAccountAuth,
+    pub auth: auth::AuthService,
+    pub database: database::DatabaseService,
+    pub sheets: sheets::SheetsService,
+    pub google_service_account: google_service_account::GoogleServiceAccountAuth,
 }
 
 impl AppServices {
@@ -37,13 +37,14 @@ impl AppServices {
         };
 
         // 캐시 초기화 (옵션) - 구조화된 로깅 사용
-        let cache: Option<Arc<dyn CacheProvider>> = if let Some(redis_url) = &config.cache.redis_url {
+        let cache: Option<Arc<dyn CacheProvider>> = if let Some(redis_url) = &config.cache.redis_url
+        {
             let cache_init = ServiceInitializer::new("RedisCache");
             match RedisCache::new(redis_url.clone(), config.cache.default_ttl) {
                 Ok(redis_cache) => {
                     cache_init.success(Some(format!("url={}", redis_url)));
                     Some(Arc::new(redis_cache))
-                },
+                }
                 Err(e) => {
                     cache_init.failed(&e.to_string());
                     None
@@ -73,20 +74,34 @@ impl AppServices {
 
         // SheetsService 초기화 - 구조화된 로깅 사용
         let sheets_init = ServiceInitializer::new("SheetsService");
-        let sheets = sheets::SheetsService::new(
-            config.clone(),
-            http_client.clone(),
-            cache.clone(),
-        );
+        let sheets = sheets::SheetsService::new(config.clone(), http_client.clone(), cache.clone());
         sheets_init.success(None);
 
-        let sa_path = config.google.service_account_key_path.clone().unwrap_or_default();
+        let sa_path = config
+            .google
+            .service_account_key_path
+            .clone()
+            .unwrap_or_default();
         let sa_configured = !sa_path.is_empty();
+        let sheet_id = config
+            .google
+            .user_sheet_spreadsheet_id
+            .clone()
+            .unwrap_or_default();
+        let sheet_name = config.google.user_sheet_name.clone().unwrap_or_default();
+        let key_exists = if sa_path.is_empty() {
+            false
+        } else {
+            std::path::Path::new(&sa_path).exists()
+        };
         tracing::info!(
             service = "GoogleServiceAccount",
             configured = %sa_configured,
-            key_path = %(!sa_path.is_empty()),
-            "Google service account key configuration"
+            key_path = %sa_path,
+            key_exists = %key_exists,
+            user_sheet_id = %sheet_id,
+            user_sheet_name = %sheet_name,
+            "Google service account and sheet configuration"
         );
         // 서비스 계정은 Clone 제거하고 단순 초기화
         let google_service_account = google_service_account::GoogleServiceAccountAuth::new(sa_path);

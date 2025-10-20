@@ -25,7 +25,10 @@ export function usePaymentOperations() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const submitPayment = async (form: PaymentRequest, onSuccess: () => void) => {
+  const submitPayment = async (
+    form: PaymentRequest,
+    onSuccess?: () => void,
+  ) => {
     if (!user?.email) return;
 
     try {
@@ -60,21 +63,26 @@ export function usePaymentOperations() {
         if (Array.isArray(key) && key.length > 0) {
           const firstKey = key[0];
           // paymentRequests 또는 approvalPayments 관련 모든 캐시 갱신
-          if (typeof firstKey === 'string') {
-            return firstKey.includes("paymentRequests") || firstKey.includes("approvalPayments");
+          if (typeof firstKey === "string") {
+            return (
+              firstKey.includes("paymentRequests") ||
+              firstKey.includes("approvalPayments")
+            );
           }
         }
         return false;
       });
-      
+
       // 추가적으로 명시적으로 캐시 키 갱신 시도
       mutate("paymentRequests");
       mutate("approvalPayments");
-      
-      // 데이터 변경 알림을 위한 localStorage 이벤트
-      localStorage.setItem('paymentDataUpdated', Date.now().toString());
 
-      onSuccess();
+      // 데이터 변경 알림을 위한 localStorage 이벤트
+      localStorage.setItem("paymentDataUpdated", Date.now().toString());
+
+      if (typeof onSuccess === "function") {
+        onSuccess();
+      }
     } catch (err) {
       setError(ERROR_MESSAGES.SUBMIT_FAILED);
     } finally {
@@ -84,7 +92,7 @@ export function usePaymentOperations() {
 
   const deletePayment = async (
     request: PaymentRequest,
-    onSuccess: () => void,
+    onSuccess?: () => void,
   ) => {
     if (!window.confirm(ERROR_MESSAGES.DELETE_CONFIRM)) return;
     if (deletingId) return;
@@ -97,11 +105,7 @@ export function usePaymentOperations() {
       const whereId = escapeSheetQueryString(normalizedId);
       const query = `SELECT * WHERE A = '${whereId}'`;
 
-      await sheetsDelete(
-        PAYMENT_SHEET.spreadsheetId,
-        PAYMENT_SHEET.gid,
-        query,
-      );
+      await sheetsDelete(PAYMENT_SHEET.spreadsheetId, PAYMENT_SHEET.gid, query);
 
       // 관련 캐시 모두 갱신 - 더 강력한 방법
       mutate((key: any) => {
@@ -109,14 +113,19 @@ export function usePaymentOperations() {
         if (Array.isArray(key) && key.length > 0) {
           const firstKey = key[0];
           // paymentRequests 또는 approvalPayments 관련 모든 캐시 갱신
-          if (typeof firstKey === 'string') {
-            return firstKey.includes("paymentRequests") || firstKey.includes("approvalPayments");
+          if (typeof firstKey === "string") {
+            return (
+              firstKey.includes("paymentRequests") ||
+              firstKey.includes("approvalPayments")
+            );
           }
         }
         return false;
       });
 
-      onSuccess();
+      if (typeof onSuccess === "function") {
+        onSuccess();
+      }
     } catch (err) {
       setError(ERROR_MESSAGES.DELETE_FAILED);
     } finally {
@@ -128,7 +137,7 @@ export function usePaymentOperations() {
     original: PaymentRequest,
     editForm: Partial<PaymentRequest>,
     requests: PaymentRequest[],
-    onSuccess: () => void,
+    onSuccess?: () => void,
   ) => {
     const existsLocally = requests.some((r) => r.id === original.id);
     if (!existsLocally) {
@@ -180,14 +189,19 @@ export function usePaymentOperations() {
         if (Array.isArray(key) && key.length > 0) {
           const firstKey = key[0];
           // paymentRequests 또는 approvalPayments 관련 모든 캐시 갱신
-          if (typeof firstKey === 'string') {
-            return firstKey.includes("paymentRequests") || firstKey.includes("approvalPayments");
+          if (typeof firstKey === "string") {
+            return (
+              firstKey.includes("paymentRequests") ||
+              firstKey.includes("approvalPayments")
+            );
           }
         }
         return false;
       });
 
-      onSuccess();
+      if (typeof onSuccess === "function") {
+        onSuccess();
+      }
     } catch (err: any) {
       setError(`${ERROR_MESSAGES.UPDATE_FAILED}\n${err?.message || ""}`);
     } finally {

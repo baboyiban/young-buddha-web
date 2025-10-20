@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
 use crate::types::AppError;
+use tokio::sync::RwLock;
+use std::sync::Arc;
+use openssl::rsa::Rsa;
+use openssl::pkey::PKey;
+use openssl::sign::Signer;
+use openssl::hash::MessageDigest;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ServiceAccountKey {
@@ -29,95 +35,68 @@ struct TokenResponse {
 }
 
 #[derive(Clone)]
+struct SaAuthState {
+    cached_token: Option<String>,
+    expires_at: i64,
+}
+
+#[derive(Clone)]
 pub struct GoogleServiceAccountAuth {
     key_path: String,
-    cached_token: Option<String>,
-    token_expires_at: Option<i64>,
+    state: Arc<RwLock<SaAuthState>>,
 }
 
 impl GoogleServiceAccountAuth {
     pub fn new(key_path: String) -> Self {
         Self {
             key_path,
-            cached_token: None,
-            token_expires_at: None,
+            state: Arc::new(RwLock::new(SaAuthState { cached_token: None, expires_at: 0 })),
         }
     }
 
-    pub async fn get_access_token(&mut self) -> Result<String, AppError> {
+    /// 안전한 동시성 캐시 접근: fast-read (read lock) -> double-checked write lock
+    pub async fn get_access_token(&self) -> Result<String, AppError> {
         if self.key_path.is_empty() {
             tracing::error!("Service account key path not configured");
             return Err(AppError::Config("Service account key path not configured".to_string()));
         }
 
-        // Check if token is still valid (with 1 minute buffer)
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)
             .map_err(|e| AppError::internal(format!("Failed to get current time: {}", e)))?
             .as_secs() as i64;
 
-        if let (Some(token), Some(expires_at)) = (&self.cached_token, self.token_expires_at) {
-            if expires_at > now + 60 {
+        // Fast path: read lock
+        {
+            let read = self.state.read().await;
+            if let Some(token) = &read.cached_token {
+                if read.expires_at > now + 60 {
+                    return Ok(token.clone());
+                }
+            }
+        }
+
+        // Acquire write lock and double-check to avoid stampede
+        let mut write = self.state.write().await;
+        if let Some(token) = &write.cached_token {
+            if write.expires_at > now + 60 {
                 return Ok(token.clone());
             }
         }
 
-        // Read service account key file
-        let key_content = tokio::fs::read_to_string(&self.key_path)
-            .await
+        // Read and parse key file (do NOT log key contents)
+        let key_content = tokio::fs::read_to_string(&self.key_path).await
             .map_err(|e| {
                 tracing::error!("Failed to read service account key file '{}': {}", self.key_path, e);
-                AppError::internal(format!("Failed to read service account key file: {}", e))
+                AppError::internal(format!("Failed to read service account key file"))
             })?;
 
-        // Parse service account key
         let sa_key: ServiceAccountKey = serde_json::from_str(&key_content)
-            .map_err(|e| AppError::internal(format!("Failed to parse service account key: {}", e)))?;
+            .map_err(|e| {
+                tracing::error!("Failed to parse service account key file: {}", e);
+                AppError::internal("Failed to parse service account key".to_string())
+            })?;
 
-        // Create JWT claim
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let expiry = now + 3600; // 1 hour
-
-        let claim = serde_json::json!({
-            "iss": sa_key.client_email,
-            "scope": "https://www.googleapis.com/auth/spreadsheets",
-            "aud": sa_key.token_uri,
-            "exp": expiry,
-            "iat": now
-        });
-
-        // Create JWT header
-        let header = serde_json::json!({
-            "alg": "RS256",
-            "typ": "JWT",
-            "kid": sa_key.private_key_id
-        });
-
-        // Encode JWT
-        let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&header).unwrap());
-        let claim_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&claim).unwrap());
-        let signing_input = format!("{}.{}", header_b64, claim_b64);
-
-        // Sign JWT with RSA private key
-        let private_key = openssl::rsa::Rsa::private_key_from_pem(sa_key.private_key.as_bytes())
-            .map_err(|e| AppError::internal(format!("Failed to parse private key: {}", e)))?;
-
-        let pkey = openssl::pkey::PKey::from_rsa(private_key)
-            .map_err(|e| AppError::internal(format!("Failed to create PKey: {}", e)))?;
-
-        let mut signer = openssl::sign::Signer::new(
-            openssl::hash::MessageDigest::sha256(),
-            &pkey,
-        ).map_err(|e| AppError::internal(format!("Failed to create signer: {}", e)))?;
-
-        signer.update(signing_input.as_bytes())
-            .map_err(|e| AppError::internal(format!("Failed to update signer: {}", e)))?;
-
-        let signature = signer.sign_to_vec()
-            .map_err(|e| AppError::internal(format!("Failed to sign JWT: {}", e)))?;
-
-        let signature_b64 = URL_SAFE_NO_PAD.encode(signature);
-        let jwt = format!("{}.{}", signing_input, signature_b64);
+        let jwt = build_and_sign_jwt(&sa_key, "https://www.googleapis.com/auth/spreadsheets")?;
 
         // Exchange JWT for access token
         let client = reqwest::Client::new();
@@ -126,28 +105,55 @@ impl GoogleServiceAccountAuth {
             ("assertion", &jwt),
         ];
 
-        let resp = client
-            .post(&sa_key.token_uri)
-            .form(&form)
-            .send()
-            .await?;
+        let resp = client.post(&sa_key.token_uri).form(&form).send().await?;
 
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             tracing::error!("Service account token request failed: status={}, body={}", status, body);
-            return Err(AppError::external_api(format!(
-                "Failed to get service account access token: status={}, body={}",
-                status, body
-            )));
+            return Err(AppError::external_api(format!("Failed to get service account access token: status={}", status)));
         }
 
         let token_response: TokenResponse = resp.json().await?;
 
-        // Cache the token
-        self.cached_token = Some(token_response.access_token.clone());
-        self.token_expires_at = Some(now + token_response.expires_in);
+        // Cache the token safely
+        write.cached_token = Some(token_response.access_token.clone());
+        write.expires_at = now + token_response.expires_in;
 
         Ok(token_response.access_token)
     }
+}
+
+/// JWT 생성·서명 유틸 (모듈화)
+fn build_and_sign_jwt(sa_key: &ServiceAccountKey, scope: &str) -> Result<String, AppError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let expiry = now + 3600;
+
+    let claim = serde_json::json!({
+        "iss": sa_key.client_email,
+        "scope": scope,
+        "aud": sa_key.token_uri,
+        "exp": expiry,
+        "iat": now
+    });
+
+    let header = serde_json::json!({
+        "alg": "RS256",
+        "typ": "JWT",
+        "kid": sa_key.private_key_id
+    });
+
+    let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&header).map_err(|e| AppError::internal(format!("Failed to serialize JWT header: {}", e)))?);
+    let claim_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_string(&claim).map_err(|e| AppError::internal(format!("Failed to serialize JWT claim: {}", e)))?);
+    let signing_input = format!("{}.{}", header_b64, claim_b64);
+
+    // Sign with openssl (errors mapped to generic internal errors to avoid leaking secrets)
+    let private_key = Rsa::private_key_from_pem(sa_key.private_key.as_bytes())
+        .map_err(|_e| AppError::internal("Failed to parse private key".to_string()))?;
+    let pkey = PKey::from_rsa(private_key).map_err(|_e| AppError::internal("Failed to create PKey".to_string()))?;
+    let mut signer = Signer::new(MessageDigest::sha256(), &pkey).map_err(|_e| AppError::internal("Failed to create signer".to_string()))?;
+    signer.update(signing_input.as_bytes()).map_err(|_e| AppError::internal("Failed to update signer".to_string()))?;
+    let signature = signer.sign_to_vec().map_err(|_e| AppError::internal("Failed to sign JWT".to_string()))?;
+    let signature_b64 = URL_SAFE_NO_PAD.encode(signature);
+    Ok(format!("{}.{}", signing_input, signature_b64))
 }

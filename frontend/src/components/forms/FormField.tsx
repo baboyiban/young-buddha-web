@@ -1,5 +1,11 @@
-// components/forms/FormField.tsx
 import React from "react";
+import {
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+  FormField as UIFormField,
+} from "@/components/ui/form";
 
 interface FormFieldProps {
   label: string;
@@ -19,13 +25,15 @@ export function FormField({
   className = "",
 }: FormFieldProps) {
   return (
-    <div className={`flex flex-col gap-[0.25rem] ${className}`}>
-      <label className="text-sm font-medium text-dark-gray" htmlFor={htmlFor}>
-        {label}
-        {required && <span className="text-dark-red ml-1">*</span>}
-      </label>
-      {children}
-      {error && <span className="text-sm text-dark-red">{error}</span>}
-    </div>
+    <FormItem className={className}>
+      <UIFormField name={htmlFor}>
+        <FormLabel htmlFor={htmlFor}>
+          {label}
+          {required && <span className="text-destructive ml-1">*</span>}
+        </FormLabel>
+        <FormControl>{children}</FormControl>
+        {error && <FormMessage>{error}</FormMessage>}
+      </UIFormField>
+    </FormItem>
   );
 }
