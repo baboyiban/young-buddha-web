@@ -1,8 +1,8 @@
+use crate::types::{AppError, JwtClaims};
+use crate::utils::cookie::CookieUtils;
 use axum::http::HeaderMap;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use time::OffsetDateTime;
-use crate::utils::cookie::CookieUtils;
-use crate::types::{AppError, JwtClaims};
 
 pub struct JwtService {
     encoding_key: EncodingKey,
@@ -31,16 +31,13 @@ impl JwtService {
             exp,
         };
 
-        encode(&Header::default(), &claims, &self.encoding_key)
-            .map_err(AppError::Jwt)
+        encode(&Header::default(), &claims, &self.encoding_key).map_err(AppError::Jwt)
     }
 
     pub fn decode(&self, token: &str) -> Result<JwtClaims, AppError> {
-        let token_data = decode::<JwtClaims>(
-            token,
-            &self.decoding_key,
-            &Validation::default(),
-        )?;
+        let token_data =
+            jsonwebtoken::decode::<JwtClaims>(token, &self.decoding_key, &Validation::default())
+                .map_err(AppError::Jwt)?;
 
         Ok(token_data.claims)
     }

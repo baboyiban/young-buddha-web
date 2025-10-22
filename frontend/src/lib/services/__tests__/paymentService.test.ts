@@ -1,30 +1,28 @@
+await import("../../../test/setup");
 import {
   describe,
   it,
   expect,
   beforeEach,
-  vi,
-  type MockedFunction,
-} from "vitest";
-import { paymentService } from "../paymentService";
-import { fetchFilteredPayments, updatePaymentStatus } from "@/lib/api/payment";
+  mock,
+} from "bun:test";
 
-// API 함수들 모킹
-vi.mock("@/lib/api/payment", () => ({
-  fetchFilteredPayments: vi.fn(),
-  updatePaymentStatus: vi.fn(),
+// API 함수들 모킹 (must happen before importing paymentService)
+mock.module("@/lib/api/payment", () => ({
+  fetchFilteredPayments: (globalThis as any).jest.fn(),
+  updatePaymentStatus: (globalThis as any).jest.fn(),
 }));
 
-const mockFetchFilteredPayments = fetchFilteredPayments as MockedFunction<
-  typeof fetchFilteredPayments
->;
-const mockUpdatePaymentStatus = updatePaymentStatus as MockedFunction<
-  typeof updatePaymentStatus
->;
+const { fetchFilteredPayments, updatePaymentStatus } = await import("@/lib/api/payment");
+const { paymentService } = await import("../paymentService");
+
+const mockFetchFilteredPayments = fetchFilteredPayments as unknown as any;
+const mockUpdatePaymentStatus = updatePaymentStatus as unknown as any;
 
 describe("paymentService", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockFetchFilteredPayments.mockClear();
+    mockUpdatePaymentStatus.mockClear();
   });
 
   describe("getAdminPayments", () => {
@@ -56,7 +54,7 @@ describe("paymentService", () => {
         sortOrder: "desc",
       });
 
-      expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
+      expect((mockFetchFilteredPayments as any).mock.calls[0]).toEqual([
         "",
         true,
         1,
@@ -64,7 +62,7 @@ describe("paymentService", () => {
         "전체",
         undefined,
         "desc",
-      );
+      ]);
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].requestDate).toBe("2024-01-15");
@@ -85,7 +83,7 @@ describe("paymentService", () => {
         sortOrder: "asc",
       });
 
-      expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
+      expect((mockFetchFilteredPayments as any).mock.calls[0]).toEqual([
         "",
         true,
         2,
@@ -93,7 +91,7 @@ describe("paymentService", () => {
         "승인",
         undefined,
         "asc",
-      );
+      ]);
     });
   });
 
@@ -127,7 +125,7 @@ describe("paymentService", () => {
         sortOrder: "desc",
       });
 
-      expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
+      expect((mockFetchFilteredPayments as any).mock.calls[0]).toEqual([
         "user@example.com",
         true,
         1,
@@ -135,7 +133,7 @@ describe("paymentService", () => {
         "전체",
         undefined,
         "desc",
-      );
+      ]);
 
       expect(result.data[0].type).toBe("비정기");
     });
@@ -154,7 +152,7 @@ describe("paymentService", () => {
         sortOrder: "desc",
       });
 
-      expect(mockFetchFilteredPayments).toHaveBeenCalledWith(
+      expect((mockFetchFilteredPayments as any).mock.calls[0]).toEqual([
         "user@example.com",
         true,
         1,
@@ -162,7 +160,7 @@ describe("paymentService", () => {
         "전체",
         "연차",
         "desc",
-      );
+      ]);
     });
   });
 
@@ -172,7 +170,7 @@ describe("paymentService", () => {
 
       const result = await paymentService.updateStatus("REQ-123", "승인");
 
-      expect(mockUpdatePaymentStatus).toHaveBeenCalledWith("REQ-123", "승인");
+      expect((mockUpdatePaymentStatus as any).mock.calls[0]).toEqual(["REQ-123", "승인"]);
       expect(result).toBe(true); // updatePaymentStatus returns boolean (mocked as true)
     });
   });
@@ -188,17 +186,9 @@ describe("paymentService", () => {
 
       const results = await paymentService.batchUpdateStatus(updates);
 
-      expect(mockUpdatePaymentStatus).toHaveBeenCalledTimes(2);
-      expect(mockUpdatePaymentStatus).toHaveBeenNthCalledWith(
-        1,
-        "REQ-1",
-        "승인",
-      );
-      expect(mockUpdatePaymentStatus).toHaveBeenNthCalledWith(
-        2,
-        "REQ-2",
-        "거부",
-      );
+      expect((mockUpdatePaymentStatus as any).mock.calls.length).toBe(2);
+      expect((mockUpdatePaymentStatus as any).mock.calls[0]).toEqual(["REQ-1","승인"]);
+      expect((mockUpdatePaymentStatus as any).mock.calls[1]).toEqual(["REQ-2","거부"]);
       expect(results).toHaveLength(2);
       expect(results).toEqual([true, true]);
     });

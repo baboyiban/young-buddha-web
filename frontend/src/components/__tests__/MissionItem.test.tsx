@@ -1,28 +1,29 @@
-import { render, screen } from "@testing-library/react";
-import { MissionItem } from "../MissionItem";
+await import("../../test/setup");
+const { render } = await import("@testing-library/react");
+const { MissionItem } = await import("../MissionItem");
 
 describe("MissionItem", () => {
   it("제목과 멤버를 올바르게 렌더링한다", () => {
-    render(
+    const { getByText } = render(
       <MissionItem title="🍚 발우공양 당번" members={["김철수", "이영희"]} />,
     );
 
-    expect(screen.getByText("🍚 발우공양 당번")).toBeInTheDocument();
-    expect(screen.getByText("김철수, 이영희")).toBeInTheDocument();
+    expect(getByText("🍚 발우공양 당번")).toBeInTheDocument();
+    expect(getByText("김철수, 이영희")).toBeInTheDocument();
   });
 
   it("멤버가 한 명일 때 올바르게 렌더링한다", () => {
-    render(<MissionItem title="🧼 아침 설거지" members={["박민수"]} />);
+    const { getByText } = render(<MissionItem title="🧼 아침 설거지" members={["박민수"]} />);
 
-    expect(screen.getByText("🧼 아침 설거지")).toBeInTheDocument();
-    expect(screen.getByText("박민수")).toBeInTheDocument();
+    expect(getByText("🧼 아침 설거지")).toBeInTheDocument();
+    expect(getByText("박민수")).toBeInTheDocument();
   });
 
   it("멤버가 없을 때 빈 상태를 처리한다", () => {
-    render(<MissionItem title="🌙 닫는 모임 진행" members={[]} />);
+    const { getByText, getAllByText } = render(<MissionItem title="🌙 닫는 모임 진행" members={[]} />);
 
-    expect(screen.getByText("🌙 닫는 모임 진행")).toBeInTheDocument();
+    expect(getByText("🌙 닫는 모임 진행")).toBeInTheDocument();
     // 빈 멤버 배열의 경우 members.join(', ')이 빈 문자열이 됨
-    expect(screen.getAllByText("🌙 닫는 모임 진행")).toHaveLength(1);
+    expect(getAllByText("🌙 닫는 모임 진행")).toHaveLength(1);
   });
 });

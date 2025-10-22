@@ -46,12 +46,14 @@ impl SheetsService {
             final_query = format!("{} OFFSET {}", final_query, offset);
         }
 
-        // 캐시 확인 (해시 기반 키 생성)
+        // 캐시 확인 (해시 기반 키 + 버전)
         if let Some(cache) = &self.cache {
+            let meta_key = format!("sheets:meta:{}:{}", params.spreadsheet_id, params.gid);
+            let version = cache.get_hash(&meta_key, "version").await.unwrap_or_else(|| "0".to_string());
             let cache_key = cache.build_sheets_key(
                 &params.spreadsheet_id,
                 &params.gid,
-                &final_query
+                &format!("{}|v={}", final_query, version)
             );
 
             if let Some(cached_json) = cache.get(&cache_key).await {
@@ -72,12 +74,14 @@ impl SheetsService {
 
         let result = parser::parse_gviz_json(&response_text)?;
 
-        // 캐시 저장
+        // 캐시 저장 (버전 포함)
         if let Some(cache) = &self.cache {
+            let meta_key = format!("sheets:meta:{}:{}", params.spreadsheet_id, params.gid);
+            let version = cache.get_hash(&meta_key, "version").await.unwrap_or_else(|| "0".to_string());
             let cache_key = cache.build_sheets_key(
                 &params.spreadsheet_id,
                 &params.gid,
-                &final_query
+                &format!("{}|v={}", final_query, version)
             );
             let _ = cache.set(&cache_key, &result.to_string(), self.config.cache.sheets_cache_ttl).await;
         }
@@ -98,6 +102,14 @@ impl SheetsService {
             &new_row_data,
             access_token,
         ).await?;
+
+        // 캐시 버전 증가 (append 이후)
+        if let Some(cache) = &self.cache {
+            let meta_key = format!("sheets:meta:{}:{}", params.spreadsheet_id, params.gid);
+            let cur = cache.get_hash(&meta_key, "version").await;
+            let new_version = cur.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0) + 1;
+            let _ = cache.set_hash(&meta_key, "version", &new_version.to_string(), self.config.cache.sheets_cache_ttl).await;
+        }
 
         let response = json!({
             "success": true,
@@ -137,6 +149,14 @@ impl SheetsService {
             access_token,
         ).await?;
 
+        // 캐시 버전 증가 (update 이후)
+        if let Some(cache) = &self.cache {
+            let meta_key = format!("sheets:meta:{}:{}", params.spreadsheet_id, params.gid);
+            let cur = cache.get_hash(&meta_key, "version").await;
+            let new_version = cur.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0) + 1;
+            let _ = cache.set_hash(&meta_key, "version", &new_version.to_string(), self.config.cache.sheets_cache_ttl).await;
+        }
+
         let response = json!({
             "success": true,
             "message": "행이 성공적으로 업데이트되었습니다"
@@ -172,6 +192,14 @@ impl SheetsService {
             target_row_index - 1, // 0-based index for deletion
             access_token,
         ).await?;
+
+        // 캐시 버전 증가 (delete 이후)
+        if let Some(cache) = &self.cache {
+            let meta_key = format!("sheets:meta:{}:{}", params.spreadsheet_id, params.gid);
+            let cur = cache.get_hash(&meta_key, "version").await;
+            let new_version = cur.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0) + 1;
+            let _ = cache.set_hash(&meta_key, "version", &new_version.to_string(), self.config.cache.sheets_cache_ttl).await;
+        }
 
         let response = json!({
             "success": true,

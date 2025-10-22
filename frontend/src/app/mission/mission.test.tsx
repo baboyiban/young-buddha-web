@@ -1,19 +1,52 @@
-import { render, screen } from "@testing-library/react";
-import Mission from "./page";
-import useSWR from "swr";
-import { vi } from "vitest";
+await import("../../test/setup");
+
+const { mock, describe, it, expect, beforeEach } = await import("bun:test");
 import { MissionData } from "@/lib/types/mission";
 
-// Mock SWR module
-vi.mock("swr", () => ({
-  default: vi.fn(),
+// Import testing helpers after setup to ensure global document exists
+const { render, screen } = await import("@testing-library/react");
+
+// Ensure next/router is mocked for this test (reinforce setup)
+mock.module("next/navigation", () => ({
+  useRouter: () => ({
+    push: (globalThis as any).fn(),
+    replace: (globalThis as any).fn(),
+    prefetch: (globalThis as any).fn(),
+    back: (globalThis as any).fn(),
+    forward: (globalThis as any).fn(),
+    refresh: (globalThis as any).fn(),
+  }),
+  useSearchParams: () => ({
+    get: (globalThis as any).fn(),
+    has: (globalThis as any).fn(),
+    getAll: (globalThis as any).fn(),
+    keys: (globalThis as any).fn(),
+    values: (globalThis as any).fn(),
+    entries: (globalThis as any).fn(),
+    forEach: (globalThis as any).fn(),
+    toString: (globalThis as any).fn(),
+  }),
+  usePathname: () => "/",
 }));
 
-const mockedUseSWR = useSWR as ReturnType<typeof vi.fn>;
+// Ensure PageLayout is mocked for this test and respect loading/error props
+mock.module("@/components/layouts/PageLayout", () => ({
+  default: function MockPageLayout({ children, loading, error }: any) {
+    if (loading) return <div>Loading...</div>;
+    if (error) return <div>Error: {error}</div>;
+    return <div data-testid="page-layout">{children}</div>;
+  },
+}));
+
+// SWR 모듈을 bun 방식으로 mock (must happen before importing the page)
+const mockedUseSWR = (globalThis as any).jest.fn();
+mock.module("swr", () => ({ default: mockedUseSWR }));
+
+const { default: Mission } = await import("./page");
 
 describe("Mission Page", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mockedUseSWR.mockClear();
   });
 
   it("로딩 상태를 올바르게 표시한다", () => {
@@ -21,12 +54,12 @@ describe("Mission Page", () => {
       data: undefined,
       error: null,
       isLoading: true,
-      mutate: vi.fn(),
+      mutate: (globalThis as any).fn(),
       isValidating: false,
     });
 
-    render(<Mission />);
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    const { getByText } = render(<Mission />);
+    expect(getByText("Loading...")).toBeInTheDocument();
   });
 
   it("에러 상태를 올바르게 표시한다", () => {
@@ -34,13 +67,13 @@ describe("Mission Page", () => {
       data: undefined,
       error: new Error("API Error"),
       isLoading: false,
-      mutate: vi.fn(),
+      mutate: (globalThis as any).fn(),
       isValidating: false,
     });
 
-    render(<Mission />);
+    const { getByText } = render(<Mission />);
     expect(
-      screen.getByText("Error: 미션 데이터를 불러오는데 실패했습니다."),
+      getByText("Error: 미션 데이터를 불러오는데 실패했습니다."),
     ).toBeInTheDocument();
   });
 
@@ -49,13 +82,13 @@ describe("Mission Page", () => {
       data: { date: "" } as MissionData,
       error: null,
       isLoading: false,
-      mutate: vi.fn(),
+      mutate: (globalThis as any).fn(),
       isValidating: false,
     });
 
-    render(<Mission />);
+    const { getByText } = render(<Mission />);
     expect(
-      screen.getByText(/오늘의 미션 데이터가 아직 준비되지 않았습니다/),
+      getByText(/오늘의 미션 데이터가 아직 준비되지 않았습니다/),
     ).toBeInTheDocument();
   });
 });

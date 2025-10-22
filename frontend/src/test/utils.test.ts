@@ -1,3 +1,5 @@
+import { describe, it, expect } from 'bun:test';
+
 // 유틸리티 함수 테스트 예시
 describe('Utility Functions', () => {
   describe('formatDate', () => {

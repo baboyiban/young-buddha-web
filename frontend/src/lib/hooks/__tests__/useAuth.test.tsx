@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { useAuth } from "../useAuth";
+await import("../../../test/setup");
+const { describe, it, expect, beforeEach, mock } = await import("bun:test");
+const { renderHook, act } = await import("@testing-library/react");
 import { User, UserRole } from "@/lib/types/user";
+
+const { useAuth } = await import("../useAuth");
+
+// Convert jest.fn() usages to the provided global mock functions set up in setup.tsx
+function asMock(fn: any) {
+  return fn as any;
+}
+
 
 // AuthContext 모킹
 const mockAuthContext = {
@@ -13,26 +21,29 @@ const mockAuthContext = {
   } as User,
   loading: false,
   isAuthenticated: true,
-  login: vi.fn(),
-  logout: vi.fn(),
-  checkAuth: vi.fn(),
+  login: (globalThis as any).jest.fn(),
+  logout: (globalThis as any).jest.fn(),
+  checkAuth: (globalThis as any).jest.fn(),
 };
 
 const mockRouter = {
-  push: vi.fn(),
+  push: (globalThis as any).jest.fn(),
 };
 
-vi.mock("@/lib/context/AuthContext", () => ({
+mock.module("@/lib/context/AuthContext", () => ({
   useAuthContext: () => mockAuthContext,
 }));
 
-vi.mock("next/navigation", () => ({
+mock.module("next/navigation", () => ({
   useRouter: () => mockRouter,
 }));
 
 describe("useAuth", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    asMock(mockAuthContext.login).mockClear();
+    asMock(mockAuthContext.logout).mockClear();
+    asMock(mockAuthContext.checkAuth).mockClear();
+    asMock(mockRouter.push).mockClear();
   });
 
   it("AuthContext의 값을 올바르게 반환한다", () => {
@@ -48,7 +59,7 @@ describe("useAuth", () => {
   });
 
   it("logout 시 AuthContext의 logout을 호출하고 라우팅한다", async () => {
-    mockAuthContext.logout.mockResolvedValueOnce(undefined);
+    asMock(mockAuthContext.logout).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() => useAuth());
 
@@ -56,12 +67,12 @@ describe("useAuth", () => {
       await result.current.logout();
     });
 
-    expect(mockAuthContext.logout).toHaveBeenCalledTimes(1);
-    expect(mockRouter.push).toHaveBeenCalledWith("/login");
+    expect((mockAuthContext.logout as any).mock.calls.length).toBe(1);
+    expect((mockRouter.push as any).mock.calls[0]).toEqual(["/login"]);
   });
 
   it("logout이 실패해도 라우팅은 실행된다", async () => {
-    mockAuthContext.logout.mockRejectedValueOnce(new Error("Logout failed"));
+    asMock(mockAuthContext.logout).mockRejectedValueOnce(new Error("Logout failed"));
 
     const { result } = renderHook(() => useAuth());
 
@@ -74,7 +85,7 @@ describe("useAuth", () => {
       }
     });
 
-    expect(mockAuthContext.logout).toHaveBeenCalledTimes(1);
-    expect(mockRouter.push).toHaveBeenCalledWith("/login");
+    expect((mockAuthContext.logout as any).mock.calls.length).toBe(1);
+    expect((mockRouter.push as any).mock.calls[0]).toEqual(["/login"]);
   });
 });

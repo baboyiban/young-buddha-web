@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'bun:test'
 import { toYMD, shortDate, normalizeId, generateUniqueId } from '../dateUtils'
 
 describe('dateUtils', () => {

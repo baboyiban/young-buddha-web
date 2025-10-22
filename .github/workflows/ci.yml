@@ -95,3 +95,35 @@ jobs:
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
           bunx eslint .
+
+  docker-build:
+    name: Docker Build & Tag Test
+    runs-on: ubuntu-latest
+    needs: [frontend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build backend dev image
+        run: |
+          docker build -f backend/Dockerfile.dev -t backend-dev:ci ./backend
+      - name: Build frontend dev image
+        run: |
+          docker build -f frontend/Dockerfile.dev -t frontend-dev:ci ./frontend
+
+  compose-up-healthcheck:
+    name: Docker Compose Up & Healthcheck
+    runs-on: ubuntu-latest
+    needs: docker-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build & Up (detached)
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+      - name: Wait for backend health
+        run: |
+          sleep 10
+          curl -fs http://localhost:8080/health
+      - name: Down all services
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml down
